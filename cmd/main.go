@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"net/http"
 
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -49,6 +50,19 @@ type JWK struct {
 	Kty string `json:"kty"`
 	N   string `json:"n"`
 	E   string `json:"e"`
+}
+
+func SendMessageInTelegramGroup(message string) {
+	bot, err := tgbotapi.NewBotAPI("8440241939:AAEvMsPT9FeOFWlvexZfvmxg9GcOxXoR7yE")
+
+	chatID := int64(-1003380906513)
+	msg := tgbotapi.NewMessage(chatID, message)
+
+	_, err = bot.Send(msg)
+	if err != nil {
+		log.Panic(err)
+	}
+	log.Println("Сообщение отправлено")
 }
 
 // Преобразуем JWK в *rsa.PublicKey
@@ -130,6 +144,18 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Printf("Получен платеж: %+v\n", payment)
+
+	message := fmt.Sprintf("%s, %s, %s, %s, %s, %s",
+		payment.SideRecipient.BankName,
+		payment.SidePayer.Name,
+		payment.SideRecipient.Name, // кому пришел платеж
+		payment.Purpose,            // назначение/комментарий
+		payment.SidePayer.Amount,   // сумма
+		payment.Date,               // дата
+	)
+
+	SendMessageInTelegramGroup(message)
+
 	w.WriteHeader(http.StatusOK)
 }
 
