@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -17,15 +16,15 @@ type IncomingPayments struct {
 }
 
 func webhookHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-	}
+	//if r.Method != http.MethodPost {
+	//	http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	//}
 
 	var payment IncomingPayments
 
-	if err := json.NewDecoder(r.Body).Decode(&payment); err != nil {
-		http.Error(w, "Bad request", http.StatusBadRequest)
-	}
+	//if err := json.NewDecoder(r.Body).Decode(&payment); err != nil {
+	//	http.Error(w, "Bad request", http.StatusBadRequest)
+	//}
 
 	fmt.Printf("Получен платеж %+v\n", payment)
 
