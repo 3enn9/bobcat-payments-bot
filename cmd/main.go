@@ -145,7 +145,7 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Printf("Получен платеж: %+v\n", payment)
 
-	message := fmt.Sprintf("%s, %s, %s, %s, %s, %s",
+	message := fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n%s",
 		payment.SideRecipient.BankName,
 		payment.SidePayer.Name,
 		payment.SideRecipient.Name, // кому пришел платеж
