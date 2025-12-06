@@ -2,12 +2,17 @@ package main
 
 import (
 	"crypto/rsa"
+	"crypto/sha1"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"log"
 	"math/big"
 	"net/http"
+	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/golang-jwt/jwt/v5"
@@ -43,6 +48,30 @@ type IncomingPayment struct {
 	Date           string `json:"date"`
 	WebhookType    string `json:"webhookType"`
 	CustomerCode   string `json:"customerCode"`
+}
+
+type ModulbankWebhook struct {
+	CompanyInn string    `json:"companyInn"`
+	CompanyKpp string    `json:"companyKpp"`
+	Operation  Operation `json:"operation"`
+	SHA1Hash   string    `json:"SHA1Hash"`
+}
+
+type Operation struct {
+	ID             string  `json:"id"`
+	Status         string  `json:"status"`
+	Category       string  `json:"category"`
+	Amount         float64 `json:"amount"`
+	Currency       string  `json:"currency"`
+	Executed       string  `json:"executed"`
+	Created        string  `json:"created"`
+	DocNumber      string  `json:"docNumber"`
+	PaymentPurpose string  `json:"paymentPurpose"`
+
+	ContragentName     string `json:"contragentName"`
+	ContragentInn      string `json:"contragentInn"`
+	ContragentBankName string `json:"contragentBankName"`
+	ContragentBankBic  string `json:"contragentBankBic"`
 }
 
 // Структура JWK (публичный ключ Точки)
@@ -159,8 +188,83 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+func checkSHA1(body []byte, secret string) (bool, error) {
+	var payload struct {
+		SHA1Hash string `json:"SHA1Hash"`
+	}
+
+	// Достаём SHA1Hash
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return false, err
+	}
+
+	if payload.SHA1Hash == "" {
+		return false, errors.New("SHA1Hash not found")
+	}
+
+	// Удаляем поле "SHA1Hash" из JSON строкой
+	raw := string(body)
+
+	raw = strings.ReplaceAll(
+		raw,
+		`,"SHA1Hash":"`+payload.SHA1Hash+`"`,
+		"",
+	)
+
+	raw = strings.ReplaceAll(
+		raw,
+		`"SHA1Hash":"`+payload.SHA1Hash+`",`,
+		"",
+	)
+
+	// Считаем SHA1
+	h := sha1.New()
+	h.Write([]byte(raw + secret))
+	localHash := hex.EncodeToString(h.Sum(nil))
+
+	return localHash == payload.SHA1Hash, nil
+}
+
+func moduleBankHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "read error", http.StatusBadRequest)
+		return
+	}
+
+	secret := "MGM5OTBjNmEtOTRiNy00YzdhLWEwMmItYmNmMDAwYTBiNWU5MDE3MWU1NmMtN2Y3Ni00OTllLThkM2UtOTgyNzhhMTg3ZDRl"
+
+	ok, err := checkSHA1(bodyBytes, secret)
+	if err != nil || !ok {
+		http.Error(w, "invalid signature", http.StatusForbidden)
+		return
+	}
+
+	var payload ModulbankWebhook
+	err = json.Unmarshal(bodyBytes, &payload)
+	if err != nil {
+		http.Error(w, "error marshaling", http.StatusBadRequest)
+		return
+	}
+
+	op := payload.Operation
+
+	fmt.Println("ID:", op.ID)
+	fmt.Println("Сумма:", op.Amount)
+	fmt.Println("Назначение:", op.PaymentPurpose)
+	fmt.Println("Контрагент:", op.ContragentName)
+
+	w.WriteHeader(http.StatusOK)
+}
+
 func main() {
 	http.HandleFunc("/webhook", webhookHandler)
+	http.HandleFunc("/modulbank", moduleBankHandler)
 	fmt.Println("Server started at :8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
