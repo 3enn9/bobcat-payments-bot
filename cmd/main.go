@@ -18,7 +18,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// Структура платежа (incomingPayment)
+// IncomingPayment Структура платежа (incomingPayment)
 type IncomingPayment struct {
 	SidePayer struct {
 		BankCode                 string `json:"bankCode"`
@@ -74,7 +74,7 @@ type Operation struct {
 	ContragentBankBic  string `json:"contragentBankBic"`
 }
 
-// Структура JWK (публичный ключ Точки)
+// JWK Структура JWK (публичный ключ Точки)
 type JWK struct {
 	Kty string `json:"kty"`
 	N   string `json:"n"`
@@ -83,6 +83,10 @@ type JWK struct {
 
 func SendMessageInTelegramGroup(message string) {
 	bot, err := tgbotapi.NewBotAPI("8440241939:AAEvMsPT9FeOFWlvexZfvmxg9GcOxXoR7yE")
+
+	if err != nil {
+		log.Panic(err)
+	}
 
 	chatID := int64(-1003380906513)
 	msg := tgbotapi.NewMessage(chatID, message)
@@ -236,6 +240,9 @@ func moduleBankHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "read error", http.StatusBadRequest)
 		return
 	}
+
+	log.Println("Получен пост запрос")
+	log.Printf("%v", bodyBytes)
 
 	secret := "MGM5OTBjNmEtOTRiNy00YzdhLWEwMmItYmNmMDAwYTBiNWU5MDE3MWU1NmMtN2Y3Ni00OTllLThkM2UtOTgyNzhhMTg3ZDRl"
 
