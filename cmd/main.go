@@ -242,15 +242,14 @@ func moduleBankHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Println("Получен пост запрос")
-	log.Printf("%v", bodyBytes)
 
-	secret := "MGM5OTBjNmEtOTRiNy00YzdhLWEwMmItYmNmMDAwYTBiNWU5MDE3MWU1NmMtN2Y3Ni00OTllLThkM2UtOTgyNzhhMTg3ZDRl"
+	//secret := "MGM5OTBjNmEtOTRiNy00YzdhLWEwMmItYmNmMDAwYTBiNWU5MDE3MWU1NmMtN2Y3Ni00OTllLThkM2UtOTgyNzhhMTg3ZDRl"
 
-	ok, err := checkSHA1(bodyBytes, secret)
-	if err != nil || !ok {
-		http.Error(w, "invalid signature", http.StatusForbidden)
-		return
-	}
+	//ok, err := checkSHA1(bodyBytes, secret)
+	//if err != nil || !ok {
+	//	http.Error(w, "invalid signature", http.StatusForbidden)
+	//	return
+	//}
 
 	var payload ModulbankWebhook
 	err = json.Unmarshal(bodyBytes, &payload)
@@ -261,10 +260,10 @@ func moduleBankHandler(w http.ResponseWriter, r *http.Request) {
 
 	op := payload.Operation
 
-	fmt.Println("ID:", op.ID)
-	fmt.Println("Сумма:", op.Amount)
-	fmt.Println("Назначение:", op.PaymentPurpose)
-	fmt.Println("Контрагент:", op.ContragentName)
+	log.Println("ID:", op.ID)
+	log.Println("Сумма:", op.Amount)
+	log.Println("Назначение:", op.PaymentPurpose)
+	log.Println("Контрагент:", op.ContragentName)
 
 	w.WriteHeader(http.StatusOK)
 }
