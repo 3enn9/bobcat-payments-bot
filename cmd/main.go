@@ -241,15 +241,14 @@ func moduleBankHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Println("Получен пост запрос")
+	secret := "MGM5OTBjNmEtOTRiNy00YzdhLWEwMmItYmNmMDAwYTBiNWU5MDE3MWU1NmMtN2Y3Ni00OTllLThkM2UtOTgyNzhhMTg3ZDRl"
 
-	//secret := "MGM5OTBjNmEtOTRiNy00YzdhLWEwMmItYmNmMDAwYTBiNWU5MDE3MWU1NmMtN2Y3Ni00OTllLThkM2UtOTgyNzhhMTg3ZDRl"
-
-	//ok, err := checkSHA1(bodyBytes, secret)
-	//if err != nil || !ok {
-	//	http.Error(w, "invalid signature", http.StatusForbidden)
-	//	return
-	//}
+	ok, err := checkSHA1(bodyBytes, secret)
+	if err != nil || !ok {
+		http.Error(w, "invalid signature", http.StatusForbidden)
+		log.Println("Не прошел проверку SHA1")
+		return
+	}
 
 	var payload ModulbankWebhook
 	err = json.Unmarshal(bodyBytes, &payload)
