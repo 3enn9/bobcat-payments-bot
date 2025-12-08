@@ -13,7 +13,6 @@ import (
 	"math/big"
 	"net/http"
 	"strings"
-	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/golang-jwt/jwt/v5"
@@ -71,14 +70,13 @@ type Operation struct {
 	ContragentBankName          string `json:"contragentBankName"`
 	ContragentBankBic           string `json:"contragentBankBic"`
 
-	Currency string  `json:"currency"`
-	Amount   float64 `json:"amount"`
+	Currency          string  `json:"currency"`
+	Amount            float64 `json:"amount"`
+	BankAccountNumber string  `json:"bankAccountNumber"`
+	PaymentPurpose    string  `json:"paymentPurpose"`
 
-	BankAccountNumber string `json:"bankAccountNumber"`
-	PaymentPurpose    string `json:"paymentPurpose"`
-
-	Executed time.Time `json:"executed"`
-	Created  time.Time `json:"created"`
+	Executed string `json:"executed"`
+	Created  string `json:"created"`
 
 	DocNumber    string `json:"docNumber"`
 	Kbk          string `json:"kbk"`
