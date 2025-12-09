@@ -26,8 +26,8 @@ type IncomingPayment struct {
 		BankCorrespondentAccount string  `json:"bankCorrespondentAccount"`
 		Account                  string  `json:"account"`
 		Name                     string  `json:"name"`
-		Amount                   string  `json:"amount"`
-		Currency                 float64 `json:"currency"`
+		Amount                   float64 `json:"amount"`
+		Currency                 string  `json:"currency"`
 		Inn                      string  `json:"inn"`
 		Kpp                      string  `json:"kpp"`
 	} `json:"SidePayer"`
@@ -209,8 +209,8 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 		payment.SidePayer.Name,
 		payment.SideRecipient.Name,
 		payment.Purpose,
-		payment.SidePayer.Currency,
 		payment.SidePayer.Amount,
+		payment.SidePayer.Currency,
 		payment.Date,
 	)
 
