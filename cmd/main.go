@@ -284,6 +284,12 @@ func moduleBankHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if payload.Operation.Category != "Debet" {
+		w.WriteHeader(http.StatusOK)
+		log.Println("Не входящий платеж")
+		return
+	}
+
 	recipientName := "Неизвестный получатель"
 
 	switch payload.Operation.BankAccountNumber {
