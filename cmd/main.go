@@ -21,15 +21,15 @@ import (
 // IncomingPayment Структура платежа (incomingPayment)
 type IncomingPayment struct {
 	SidePayer struct {
-		BankCode                 string `json:"bankCode"`
-		BankName                 string `json:"bankName"`
-		BankCorrespondentAccount string `json:"bankCorrespondentAccount"`
-		Account                  string `json:"account"`
-		Name                     string `json:"name"`
-		Amount                   string `json:"amount"`
-		Currency                 string `json:"currency"`
-		Inn                      string `json:"inn"`
-		Kpp                      string `json:"kpp"`
+		BankCode                 string  `json:"bankCode"`
+		BankName                 string  `json:"bankName"`
+		BankCorrespondentAccount string  `json:"bankCorrespondentAccount"`
+		Account                  string  `json:"account"`
+		Name                     string  `json:"name"`
+		Amount                   string  `json:"amount"`
+		Currency                 float64 `json:"currency"`
+		Inn                      string  `json:"inn"`
+		Kpp                      string  `json:"kpp"`
 	} `json:"SidePayer"`
 	SideRecipient struct {
 		BankCode                 string `json:"bankCode"`
@@ -198,13 +198,20 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Printf("Получен платеж: %+v\n", payment)
 
-	message := fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n%s",
+	message := fmt.Sprintf(
+		"🏦 %s\n\n"+
+			"👤 Плательщик: %s\n"+
+			"🏢 Получатель: %s\n\n"+
+			"🧾 Назначение:\n%s\n\n"+
+			"💰 Сумма: %.0f %s\n"+
+			"📅 Дата: %s",
 		payment.SideRecipient.BankName,
 		payment.SidePayer.Name,
-		payment.SideRecipient.Name, // кому пришел платеж
-		payment.Purpose,            // назначение/комментарий
-		payment.SidePayer.Amount,   // сумма
-		payment.Date,               // дата
+		payment.SideRecipient.Name,
+		payment.Purpose,
+		payment.SidePayer.Currency,
+		payment.SidePayer.Amount,
+		payment.Date,
 	)
 
 	SendMessageInTelegramGroup(message)
@@ -277,9 +284,37 @@ func moduleBankHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	op := payload.Operation
+	recipientName := "Неизвестный получатель"
 
-	log.Printf("%+v\n", op)
+	switch payload.Operation.BankAccountNumber {
+	case "40702810670010185610":
+		recipientName = `ООО "СарСтройТех"`
+	case "40802810870010171379":
+		recipientName = `ИП Архипов Николай Николаевич`
+	case "40802810670010198701":
+		recipientName = `ИП Архипов Николай Владимирович`
+
+	}
+
+	message := fmt.Sprintf(
+		"🏦 %s\n\n"+
+			"👤 Плательщик: %s\n"+
+			"🏢 Получатель: %s\n\n"+
+			"🧾 Назначение:\n%s\n\n"+
+			"💰 Сумма: %.0f %s\n"+
+			"📅 Дата: %s",
+		`АО "Модульбанк"`,
+		payload.Operation.ContragentName,
+		recipientName,
+		payload.Operation.PaymentPurpose,
+		payload.Operation.Amount,
+		payload.Operation.Currency,
+		payload.Operation.Executed,
+	)
+
+	SendMessageInTelegramGroup(message)
+
+	log.Printf("%+v\n", payload)
 
 	w.WriteHeader(http.StatusOK)
 }
