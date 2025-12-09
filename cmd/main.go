@@ -293,6 +293,10 @@ func moduleBankHandler(w http.ResponseWriter, r *http.Request) {
 		recipientName = `ИП Архипов Николай Николаевич`
 	case "40802810670010198701":
 		recipientName = `ИП Архипов Николай Владимирович`
+	default:
+		w.WriteHeader(http.StatusOK)
+		log.Println("Операция не на расчетном счете")
+		return
 
 	}
 
