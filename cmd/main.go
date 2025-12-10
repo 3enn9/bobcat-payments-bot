@@ -151,7 +151,7 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 	body := make([]byte, r.ContentLength)
 	_, err := r.Body.Read(body)
 	if err != nil {
-		log.Println("Ошибка чтения body")
+		log.Println(err)
 	}
 
 	// Публичный ключ Точки
@@ -159,12 +159,14 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 	var jwk JWK
 	if err := json.Unmarshal([]byte(keyJSON), &jwk); err != nil {
 		http.Error(w, "invalid JWK", http.StatusInternalServerError)
+		log.Println(err)
 		return
 	}
 
 	pubKey, err := jwkToPublicKey(jwk)
 	if err != nil {
 		http.Error(w, "cannot parse public key", http.StatusInternalServerError)
+		log.Println(err)
 		return
 	}
 
@@ -177,6 +179,7 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil || !token.Valid {
 		http.Error(w, "invalid signature", http.StatusUnauthorized)
+		log.Println(err)
 		return
 	}
 
@@ -184,18 +187,21 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
 		http.Error(w, "invalid claims", http.StatusBadRequest)
+		log.Println(err)
 		return
 	}
 
 	payloadBytes, err := json.Marshal(claims)
 	if err != nil {
 		http.Error(w, "cannot marshal claims", http.StatusInternalServerError)
+		log.Println(err)
 		return
 	}
 
 	var payment IncomingPayment
 	if err := json.Unmarshal(payloadBytes, &payment); err != nil {
 		http.Error(w, "cannot parse payment", http.StatusBadRequest)
+		log.Println(err)
 		return
 	}
 
