@@ -12,7 +12,7 @@ func SendMessageInTelegramGroup(message string) {
 		log.Panic(err)
 	}
 
-	chatID := int64(-5065136042)
+	chatID := int64(-1003380906513)
 	msg := tgbotapi.NewMessage(chatID, message)
 
 	_, err = bot.Send(msg)

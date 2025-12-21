@@ -10,6 +10,7 @@ import (
 	"log"
 	"math/big"
 	"net/http"
+	"time"
 )
 
 type incomingPayment struct {
@@ -47,6 +48,16 @@ type JWK struct {
 	Kty string `json:"kty"`
 	N   string `json:"n"`
 	E   string `json:"e"`
+}
+
+func DateFormatTochka(date string) string {
+	t, err := time.Parse("2006-01-02", date)
+	if err != nil {
+		return date
+	} else {
+		return t.Format("02.01.2006")
+	}
+
 }
 
 func jwkToPublicKey(jwk JWK) (*rsa.PublicKey, error) {
@@ -138,20 +149,21 @@ func TochkaBankHandler(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Printf("Получен платеж: %+v\n", payment)
 
+	date := DateFormatTochka(payment.Date)
+
 	message := fmt.Sprintf(
 		"🏦 %s\n\n"+
 			"👤 Плательщик: %s\n"+
 			"🏢 Получатель: %s\n\n"+
 			"🧾 Назначение:\n%s\n\n"+
-			"💰 Сумма: %s %s\n"+
-			"📅 Дата: %s",
+			"💰 %s %s %s",
 		payment.SideRecipient.BankName,
 		payment.SidePayer.Name,
 		payment.SideRecipient.Name,
 		payment.Purpose,
+		date,
 		payment.SidePayer.Amount,
-		payment.SidePayer.Currency,
-		payment.Date,
+		"точка",
 	)
 
 	tg.SendMessageInTelegramGroup(message)

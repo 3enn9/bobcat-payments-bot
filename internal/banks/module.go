@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"time"
 )
 
 type Operation struct {
@@ -53,6 +54,16 @@ type ModulbankWebhook struct {
 	SHA1Hash   string    `json:"SHA1Hash"`
 }
 
+func DateFormatModule(date string) string {
+	t, err := time.Parse("2006-01-02T15:04:05", date)
+	if err != nil {
+		return date
+	} else {
+		return t.Format("02.01.2006")
+	}
+
+}
+
 func ModuleBankHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -94,20 +105,22 @@ func ModuleBankHandler(w http.ResponseWriter, r *http.Request) {
 
 	}
 
+	executed := DateFormatModule(payload.Operation.Executed)
+
 	message := fmt.Sprintf(
 		"🏦 %s\n\n"+
 			"👤 Плательщик: %s\n"+
 			"🏢 Получатель: %s\n\n"+
 			"🧾 Назначение:\n%s\n\n"+
-			"💰 Сумма: %.0f %s\n"+
-			"📅 Дата: %s",
+			"💰 %s %.0f %s",
+
 		`АО "Модульбанк"`,
 		payload.Operation.ContragentName,
 		recipientName,
 		payload.Operation.PaymentPurpose,
+		executed,
 		payload.Operation.Amount,
-		payload.Operation.Currency,
-		payload.Operation.Executed,
+		"модуль",
 	)
 
 	tg.SendMessageInTelegramGroup(message)
