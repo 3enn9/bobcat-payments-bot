@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/golang-jwt/jwt/v5"
+	"io"
 	"log"
 	"math/big"
 	"net/http"
@@ -89,10 +90,18 @@ func TochkaBankHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body := make([]byte, r.ContentLength)
-	_, err := r.Body.Read(body)
+	defer r.Body.Close()
+
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		log.Println(err)
+		http.Error(w, "error read body", http.StatusBadRequest)
+		log.Println("read body error:", err)
+		return
+	}
+
+	if len(body) == 0 {
+		http.Error(w, "empty body", http.StatusBadRequest)
+		log.Println("empty body")
 		return
 	}
 
@@ -122,28 +131,28 @@ func TochkaBankHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil || !token.Valid {
 		http.Error(w, "invalid signature", http.StatusUnauthorized)
-		log.Println(err)
+		log.Printf("invalid signature %v", err)
 		return
 	}
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
 		http.Error(w, "invalid claims", http.StatusBadRequest)
-		log.Println(err)
+		log.Printf("invalid claims %v", err)
 		return
 	}
 
 	payloadBytes, err := json.Marshal(claims)
 	if err != nil {
 		http.Error(w, "cannot marshal claims", http.StatusInternalServerError)
-		log.Println(err)
+		log.Printf("cannot marshal claims %v", err)
 		return
 	}
 
 	var payment incomingPayment
 	if err := json.Unmarshal(payloadBytes, &payment); err != nil {
 		http.Error(w, "cannot parse payment", http.StatusBadRequest)
-		log.Println(err)
+		log.Printf("cannot parse payment %v", err)
 		return
 	}
 
