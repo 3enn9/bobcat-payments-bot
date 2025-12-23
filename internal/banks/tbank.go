@@ -1,10 +1,13 @@
 package banks
 
 import (
+	"PaymentsBot/internal/tg"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"time"
 )
 
 type TBankPayment struct {
@@ -90,6 +93,14 @@ type Merch struct {
 	Name    string `json:"name"`
 }
 
+func formatRFC3339(date string) string {
+	t, err := time.Parse(time.RFC3339, date)
+	if err != nil {
+		return date
+	}
+	return t.Format("02.01.2006")
+}
+
 func TBankHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -115,6 +126,24 @@ func TBankHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("TBank %+v", payment)
+
+	date := formatRFC3339(payment.DrawDate)
+
+	message := fmt.Sprintf("🏦 %s\n\n"+
+		"👤 Плательщик: %s\n"+
+		"🏢 Получатель: %s\n\n"+
+		"🧾 Назначение:\n%s\n\n"+
+		"💰 %s %s %s",
+		payment.Receiver.BankName,
+		payment.Payer.Name,
+		payment.Receiver.Name,
+		payment.PayPurpose,
+		date,
+		payment.OperationAmount,
+		"тбанк",
+	)
+
+	tg.SendMessageInTelegramGroup(message)
 
 	w.WriteHeader(http.StatusOK)
 }
