@@ -14,6 +14,7 @@ func SendMessageInTelegramGroup(message string) {
 
 	chatID := int64(-1003380906513)
 	msg := tgbotapi.NewMessage(chatID, message)
+	msg.ParseMode = "HTML"
 
 	_, err = bot.Send(msg)
 	if err != nil {

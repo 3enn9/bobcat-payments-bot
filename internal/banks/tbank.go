@@ -129,12 +129,13 @@ func TBankHandler(w http.ResponseWriter, r *http.Request) {
 
 	date := formatRFC3339(payment.DrawDate)
 
-	message := fmt.Sprintf("🏦 %s\n\n"+
-		"👤 Плательщик: %s\n"+
-		"🏢 Получатель: %s\n\n"+
-		"🧾 Назначение:\n%s\n\n"+
-		"💰 Оплата:\n"+
-		"```%s %s %s```",
+	message := fmt.Sprintf(
+		"🏦 %s\n\n"+
+			"👤 Плательщик: %s\n"+
+			"🏢 Получатель: %s\n\n"+
+			"🧾 Назначение:\n%s\n\n"+
+			"💰 Оплата:\n"+
+			"<pre>%s %s %s</pre>",
 		payment.Receiver.BankName,
 		payment.Payer.Name,
 		payment.Receiver.Name,

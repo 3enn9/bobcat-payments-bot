@@ -166,7 +166,7 @@ func TochkaBankHandler(w http.ResponseWriter, r *http.Request) {
 			"🏢 Получатель: %s\n\n"+
 			"🧾 Назначение:\n%s\n\n"+
 			"💰 Оплата:\n"+
-			"```%s %s %s```",
+			"<pre>%s %s %s</pre>",
 		payment.SideRecipient.BankName,
 		payment.SidePayer.Name,
 		payment.SideRecipient.Name,

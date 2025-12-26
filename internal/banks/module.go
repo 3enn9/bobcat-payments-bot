@@ -113,8 +113,7 @@ func ModuleBankHandler(w http.ResponseWriter, r *http.Request) {
 			"🏢 Получатель: %s\n\n"+
 			"🧾 Назначение:\n%s\n\n"+
 			"💰 Оплата:\n"+
-			"```%s %.0f %s```",
-
+			"<pre>%s %.0f %s</pre>",
 		`АО "Модульбанк"`,
 		payload.Operation.ContragentName,
 		recipientName,
