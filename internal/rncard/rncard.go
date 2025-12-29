@@ -123,5 +123,8 @@ func FetchAndSendTransactions() error {
 
 	}
 	TgBot.SendMessageInTelegramGroup("Fuels", message)
+
+	log.Printf("fuels message: %s", message)
+
 	return nil
 }
