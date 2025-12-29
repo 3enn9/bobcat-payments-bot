@@ -1,7 +1,6 @@
 package banks
 
 import (
-	"PaymentsBot/internal/tg"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -125,8 +124,6 @@ func TBankHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("TBank %+v", payment)
-
 	date := formatRFC3339(payment.DrawDate)
 
 	message := fmt.Sprintf(
@@ -145,7 +142,9 @@ func TBankHandler(w http.ResponseWriter, r *http.Request) {
 		"тбанк",
 	)
 
-	tg.SendMessageInTelegramGroup(message)
+	TgBot.SendMessageInTelegramGroup("Payments", message)
+
+	log.Printf("TBank %+v", payment)
 
 	w.WriteHeader(http.StatusOK)
 }

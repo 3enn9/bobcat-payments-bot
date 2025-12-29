@@ -113,7 +113,7 @@ func FetchAndSendTransactions() error {
 		holder := strings.ReplaceAll(op.Holder, " ", "-")
 
 		operationInfo := fmt.Sprintf(
-			"%s %s %s %s",
+			"%s %s %s %s\n",
 			formattedDate,
 			sumStr,
 			holder,

@@ -1,7 +1,6 @@
 package banks
 
 import (
-	"PaymentsBot/internal/tg"
 	"crypto/rsa"
 	"encoding/base64"
 	"encoding/json"
@@ -156,8 +155,6 @@ func TochkaBankHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Printf("Получен платеж: %+v\n", payment)
-
 	date := DateFormatTochka(payment.Date)
 
 	message := fmt.Sprintf(
@@ -176,7 +173,9 @@ func TochkaBankHandler(w http.ResponseWriter, r *http.Request) {
 		"точка",
 	)
 
-	tg.SendMessageInTelegramGroup(message)
+	TgBot.SendMessageInTelegramGroup("Payments", message)
+
+	fmt.Println("tochkabank send message")
 
 	w.WriteHeader(http.StatusOK)
 }

@@ -1,7 +1,6 @@
 package banks
 
 import (
-	"PaymentsBot/internal/tg"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -123,9 +122,9 @@ func ModuleBankHandler(w http.ResponseWriter, r *http.Request) {
 		"модуль",
 	)
 
-	tg.SendMessageInTelegramGroup(message)
+	TgBot.SendMessageInTelegramGroup("Payments", message)
 
-	log.Printf("%+v\n", payload)
+	log.Println("modulebank send message")
 
 	w.WriteHeader(http.StatusOK)
 }
