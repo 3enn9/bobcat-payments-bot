@@ -22,7 +22,7 @@ func SendDailyScheduler(task func() error) {
 		if err != nil {
 			log.Printf("daily scheduler task error: %v", err)
 		}
-		
+		log.Printf("delay: %v", delay)
 		time.Sleep(delay)
 
 		err = task()

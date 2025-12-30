@@ -19,7 +19,7 @@ func NewTelegramService(token string) (*TelegramService, error) {
 
 	chats := map[string]int64{
 		"Payments": -1003380906513,
-		"Fuels":    -5169803767,
+		"Fuels":    -1003368403742,
 	}
 
 	return &TelegramService{bot, chats}, nil
@@ -37,6 +37,6 @@ func (s *TelegramService) SendMessageInTelegramGroup(chatType, message string) {
 
 	_, err := s.bot.Send(msg)
 	if err != nil {
-		log.Panic(err)
+		log.Println(err)
 	}
 }
