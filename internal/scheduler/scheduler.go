@@ -9,7 +9,7 @@ func SendDailyScheduler(task func() error) {
 	go func() {
 		now := time.Now()
 
-		nextRun := time.Date(now.Year(), now.Month(), now.Day(), 7, 0, 0, 0, now.Location())
+		nextRun := time.Date(now.Year(), now.Month(), now.Day(), 4, 0, 0, 0, now.Location())
 
 		if now.After(nextRun) {
 			nextRun = nextRun.Add(24 * time.Hour)

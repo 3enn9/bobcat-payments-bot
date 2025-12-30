@@ -1,6 +1,8 @@
 version: "3.9"
 services:
   app:
+    environment:
+      - TZ=Europe/Moscow
     build: .
     expose:
       - "8080"
