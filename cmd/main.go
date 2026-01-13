@@ -1,7 +1,7 @@
 package main
 
 import (
-	banks "PaymentsBot/internal/banks"
+	"PaymentsBot/internal/banks"
 	"PaymentsBot/internal/rncard"
 	"PaymentsBot/internal/scheduler"
 	"PaymentsBot/internal/tg"

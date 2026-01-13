@@ -88,18 +88,17 @@ func TochkaBankHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	w.WriteHeader(http.StatusOK)
 
 	defer r.Body.Close()
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		http.Error(w, "error read body", http.StatusBadRequest)
 		log.Println("read body error:", err)
 		return
 	}
 
 	if len(body) == 0 {
-		http.Error(w, "empty body", http.StatusBadRequest)
 		log.Println("empty body")
 		return
 	}
@@ -108,14 +107,12 @@ func TochkaBankHandler(w http.ResponseWriter, r *http.Request) {
 	keyJSON := `{"kty":"RSA","e":"AQAB","n":"rwm77av7GIttq-JF1itEgLCGEZW_zz16RlUQVYlLbJtyRSu61fCec_rroP6PxjXU2uLzUOaGaLgAPeUZAJrGuVp9nryKgbZceHckdHDYgJd9TsdJ1MYUsXaOb9joN9vmsCscBx1lwSlFQyNQsHUsrjuDk-opf6RCuazRQ9gkoDCX70HV8WBMFoVm-YWQKJHZEaIQxg_DU4gMFyKRkDGKsYKA0POL-UgWA1qkg6nHY5BOMKaqxbc5ky87muWB5nNk4mfmsckyFv9j1gBiXLKekA_y4UwG2o1pbOLpJS3bP_c95rm4M9ZBmGXqfOQhbjz8z-s9C11i-jmOQ2ByohS-ST3E5sqBzIsxxrxyQDTw--bZNhzpbciyYW4GfkkqyeYoOPd_84jPTBDKQXssvj8ZOj2XboS77tvEO1n1WlwUzh8HPCJod5_fEgSXuozpJtOggXBv0C2ps7yXlDZf-7Jar0UYc_NJEHJF-xShlqd6Q3sVL02PhSCM-ibn9DN9BKmD"}`
 	var jwk JWK
 	if err := json.Unmarshal([]byte(keyJSON), &jwk); err != nil {
-		http.Error(w, "invalid JWK", http.StatusInternalServerError)
 		log.Println(err)
 		return
 	}
 
 	pubKey, err := jwkToPublicKey(jwk)
 	if err != nil {
-		http.Error(w, "cannot parse public key", http.StatusInternalServerError)
 		log.Println(err)
 		return
 	}
@@ -129,28 +126,24 @@ func TochkaBankHandler(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if err != nil || !token.Valid {
-		http.Error(w, "invalid signature", http.StatusUnauthorized)
 		log.Printf("invalid signature %v", err)
 		return
 	}
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
-		http.Error(w, "invalid claims", http.StatusBadRequest)
 		log.Printf("invalid claims %v", err)
 		return
 	}
 
 	payloadBytes, err := json.Marshal(claims)
 	if err != nil {
-		http.Error(w, "cannot marshal claims", http.StatusInternalServerError)
 		log.Printf("cannot marshal claims %v", err)
 		return
 	}
 
 	var payment incomingPayment
 	if err := json.Unmarshal(payloadBytes, &payment); err != nil {
-		http.Error(w, "cannot parse payment", http.StatusBadRequest)
 		log.Printf("cannot parse payment %v", err)
 		return
 	}
@@ -175,7 +168,5 @@ func TochkaBankHandler(w http.ResponseWriter, r *http.Request) {
 
 	TgBot.SendMessageInTelegramGroup("Payments", message)
 
-	fmt.Println("tochkabank send message")
-
-	w.WriteHeader(http.StatusOK)
+	log.Println("tochkabank send message")
 }

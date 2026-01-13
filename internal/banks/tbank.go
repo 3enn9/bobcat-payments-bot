@@ -105,6 +105,7 @@ func TBankHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	w.WriteHeader(http.StatusOK)
 
 	defer r.Body.Close()
 
@@ -112,7 +113,6 @@ func TBankHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		log.Printf("tbank: read body error %v", err)
-		w.WriteHeader(http.StatusOK)
 		return
 	}
 
@@ -120,7 +120,6 @@ func TBankHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err = json.Unmarshal(bodyBytes, &payment); err != nil {
 		log.Println("Error unmarshaling tbank", err)
-		w.WriteHeader(http.StatusOK)
 		return
 	}
 
@@ -145,6 +144,4 @@ func TBankHandler(w http.ResponseWriter, r *http.Request) {
 	TgBot.SendMessageInTelegramGroup("Payments", message)
 
 	log.Printf("TBank %+v", payment)
-
-	w.WriteHeader(http.StatusOK)
 }

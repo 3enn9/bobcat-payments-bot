@@ -68,22 +68,20 @@ func ModuleBankHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	w.WriteHeader(http.StatusOK)
 
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
-		http.Error(w, "read error", http.StatusBadRequest)
 		return
 	}
 
 	var payload ModulbankWebhook
 	err = json.Unmarshal(bodyBytes, &payload)
 	if err != nil {
-		http.Error(w, "error marshaling", http.StatusBadRequest)
 		return
 	}
 
 	if payload.Operation.Category != "Debet" {
-		w.WriteHeader(http.StatusOK)
 		log.Println("Не входящий платеж")
 		return
 	}
@@ -98,7 +96,6 @@ func ModuleBankHandler(w http.ResponseWriter, r *http.Request) {
 	case "40802810670010198701":
 		recipientName = `ИП Архипов Николай Владимирович`
 	default:
-		w.WriteHeader(http.StatusOK)
 		log.Println("Операция не на расчетном счете")
 		return
 
@@ -125,6 +122,4 @@ func ModuleBankHandler(w http.ResponseWriter, r *http.Request) {
 	TgBot.SendMessageInTelegramGroup("Payments", message)
 
 	log.Println("modulebank send message")
-
-	w.WriteHeader(http.StatusOK)
 }

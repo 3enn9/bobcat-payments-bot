@@ -65,7 +65,7 @@ func FetchAndSendTransactions() error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("Bad request: %s", resp.Status)
+		return fmt.Errorf("bad request: %s", resp.Status)
 	}
 
 	var apiResp apiResponse
