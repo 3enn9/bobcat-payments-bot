@@ -3,6 +3,7 @@ package banks
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/patrickmn/go-cache"
 	"io"
 	"log"
 	"net/http"
@@ -92,6 +93,8 @@ type Merch struct {
 	Name    string `json:"name"`
 }
 
+var tbankCache = cache.New(5*time.Minute, 10*time.Minute)
+
 func formatRFC3339(date string) string {
 	t, err := time.Parse(time.RFC3339, date)
 	if err != nil {
@@ -119,9 +122,17 @@ func TBankHandler(w http.ResponseWriter, r *http.Request) {
 	var payment TBankPayment
 
 	if err = json.Unmarshal(bodyBytes, &payment); err != nil {
-		log.Println("Error unmarshaling tbank", err)
+		log.Println("error unmarshaling tbank", err)
 		return
 	}
+
+	opID := payment.OperationID
+
+	if _, found := tbankCache.Get(opID); found {
+		log.Println("tbank dublicate:", opID)
+		return
+	}
+	tbankCache.Set(opID, true, cache.DefaultExpiration)
 
 	date := formatRFC3339(payment.DrawDate)
 
