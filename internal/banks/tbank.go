@@ -152,7 +152,8 @@ func TBankHandler(w http.ResponseWriter, r *http.Request) {
 		"тбанк",
 	)
 
-	TgBot.SendMessageInTelegramGroup("Payments", message)
+	groupID := TgBot.Chats["Payments"]
+	TgBot.SendMessageInTelegramGroup(groupID, message)
 
 	log.Printf("TBank %+v", payment)
 }

@@ -3,11 +3,12 @@ package tg
 import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"log"
+	"strings"
 )
 
 type TelegramService struct {
 	bot   *tgbotapi.BotAPI
-	chats map[string]int64
+	Chats map[string]int64
 }
 
 func NewTelegramService(token string) (*TelegramService, error) {
@@ -25,12 +26,7 @@ func NewTelegramService(token string) (*TelegramService, error) {
 	return &TelegramService{bot, chats}, nil
 }
 
-func (s *TelegramService) SendMessageInTelegramGroup(chatType, message string) {
-	chatID, ok := s.chats[chatType]
-	if !ok {
-		log.Printf("Unknown key %s", chatType)
-		return
-	}
+func (s *TelegramService) SendMessageInTelegramGroup(chatID int64, message string) {
 
 	msg := tgbotapi.NewMessage(chatID, message)
 	msg.ParseMode = "HTML"
@@ -38,5 +34,23 @@ func (s *TelegramService) SendMessageInTelegramGroup(chatType, message string) {
 	_, err := s.bot.Send(msg)
 	if err != nil {
 		log.Println(err)
+	}
+}
+
+func (s *TelegramService) HandleUpdate(u tgbotapi.Update) {
+	if u.Message == nil {
+		return
+	}
+	text := u.Message.Text
+	chatID := u.Message.Chat.ID
+
+	if strings.HasPrefix(text, "/") {
+		s.handleCommand(chatID, text)
+	}
+}
+func (s *TelegramService) handleCommand(chatID int64, text string) {
+	switch text {
+	case "/start":
+		s.SendMessageInTelegramGroup(chatID, "hello")
 	}
 }

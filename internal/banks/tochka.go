@@ -166,7 +166,8 @@ func TochkaBankHandler(w http.ResponseWriter, r *http.Request) {
 		"точка",
 	)
 
-	TgBot.SendMessageInTelegramGroup("Payments", message)
+	groupID := TgBot.Chats["Payments"]
+	TgBot.SendMessageInTelegramGroup(groupID, message)
 
 	log.Println("tochkabank send message")
 }

@@ -122,7 +122,8 @@ func FetchAndSendTransactions() error {
 		message += operationInfo
 
 	}
-	TgBot.SendMessageInTelegramGroup("Fuels", message)
+	groupID := TgBot.Chats["Fuels"]
+	TgBot.SendMessageInTelegramGroup(groupID, message)
 
 	log.Printf("fuels message: %s", message)
 

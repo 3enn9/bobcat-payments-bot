@@ -118,8 +118,8 @@ func ModuleBankHandler(w http.ResponseWriter, r *http.Request) {
 		payload.Operation.Amount,
 		"модуль",
 	)
-
-	TgBot.SendMessageInTelegramGroup("Payments", message)
+	groupID := TgBot.Chats["Payments"]
+	TgBot.SendMessageInTelegramGroup(groupID, message)
 
 	log.Println("modulebank send message")
 }

@@ -21,6 +21,7 @@ func main() {
 
 	scheduler.SendDailyScheduler(rncard.FetchAndSendTransactions)
 
+	http.HandleFunc("/telegram/webhook", tg.WebhookHandler(TgBotService))
 	http.HandleFunc("/webhook", banks.TochkaBankHandler)
 	http.HandleFunc("/modulbank", banks.ModuleBankHandler)
 	http.HandleFunc("/tbank", banks.TBankHandler)
