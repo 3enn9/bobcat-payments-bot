@@ -6,6 +6,8 @@ services:
       - MYSQL_ROOT_PASSWORD=asdfjkl;
       - MYSQL_DATABASE=bobcat
     build: .
+    env_file:
+      - .env
     expose:
       - "8080"
     networks:
@@ -20,6 +22,7 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
       - caddy_config:/config
+      - ./.env:/app/.env:ro   # путь в контейнере
     depends_on:
       - app
     networks:
