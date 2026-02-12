@@ -3,11 +3,14 @@ services:
   app:
     environment:
       - TZ=Europe/Moscow
+      - MYSQL_ROOT_PASSWORD=asdfjkl;
+      - MYSQL_DATABASE=bobcat
     build: .
     expose:
       - "8080"
     networks:
       - web
+      - vnutri_net
   caddy:
     image: caddy:latest
     ports:
@@ -23,6 +26,9 @@ services:
       - web
 networks:
   web:
+  vnutri_net:
+    external: true
+    name: vnutri-telegram-bot_default
 volumes:
   caddy_data:
   caddy_config:

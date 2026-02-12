@@ -2,6 +2,8 @@ package main
 
 import (
 	"PaymentsBot/internal/banks"
+	"PaymentsBot/internal/config"
+	"PaymentsBot/internal/db"
 	"PaymentsBot/internal/rncard"
 	"PaymentsBot/internal/scheduler"
 	"PaymentsBot/internal/tg"
@@ -10,7 +12,14 @@ import (
 )
 
 func main() {
-	TgBotService, err := tg.NewTelegramService("8440241939:AAEvMsPT9FeOFWlvexZfvmxg9GcOxXoR7yE")
+	cf := config.NewConfig()
+	conn, err := db.NewConnectionDB(cf)
+	if err != nil {
+		log.Fatalf("DB connection failed: %v", err)
+	}
+	defer conn.Close()
+
+	TgBotService, err := tg.NewTelegramService(cf.Token)
 
 	if err != nil {
 		log.Fatalf("error create tgbot %v", err)
