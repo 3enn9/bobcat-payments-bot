@@ -79,6 +79,7 @@ func (s *TelegramService) handleAdd(chatID int64, text string) {
 	balance, err := s.updateBalance(chatID, amount)
 	if err != nil {
 		s.SendMessageInTelegramGroup(chatID, "Ошибка при обновлении баланса")
+		log.Printf("Ошибка: %v", err)
 		return
 	}
 
