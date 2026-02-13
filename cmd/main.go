@@ -17,7 +17,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("DB connection failed: %v", err)
 	}
-	log.Println("DB successfully connection")
 	defer conn.Close()
 
 	TgBotService, err := tg.NewTelegramService(cf.Token)

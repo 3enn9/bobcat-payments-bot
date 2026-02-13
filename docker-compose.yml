@@ -3,8 +3,6 @@ services:
   app:
     environment:
       - TZ=Europe/Moscow
-      - MYSQL_ROOT_PASSWORD=asdfjkl;
-      - MYSQL_DATABASE=bobcat
     build: .
     env_file:
       - .env
