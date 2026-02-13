@@ -85,7 +85,9 @@ func (s *TelegramService) handleAdd(chatID int64, text string) {
 
 	s.SendMessageInTelegramGroup(chatID,
 		fmt.Sprintf(
-			"Записано:\n%s\nСумма: %.2f\nБаланс: %.2f",
+			"💬 %s\n"+
+				"💰 Сумма: %.2f\n"+
+				"🏦 Касса: %.2f",
 			description,
 			amount,
 			balance,
