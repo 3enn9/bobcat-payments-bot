@@ -55,7 +55,7 @@ func (s *TelegramService) HandleUpdate(u tgbotapi.Update) {
 func (s *TelegramService) handleCommand(chatID int64, text string) {
 	switch {
 	case strings.HasPrefix(text, "/add"):
-		s.handleAdd(chatID, "")
+		s.handleAdd(chatID, text)
 
 	}
 }
