@@ -19,7 +19,7 @@ func main() {
 	}
 	defer conn.Close()
 
-	TgBotService, err := tg.NewTelegramService(cf.Token)
+	TgBotService, err := tg.NewTelegramService(cf.Token, conn)
 
 	if err != nil {
 		log.Fatalf("error create tgbot %v", err)
