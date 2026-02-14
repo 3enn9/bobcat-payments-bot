@@ -47,20 +47,21 @@ func (s *TelegramService) HandleUpdate(u tgbotapi.Update) {
 	}
 	text := u.Message.Text
 	chatID := u.Message.Chat.ID
+	title := u.Message.Chat.Title
 
 	if strings.HasPrefix(text, "/") {
-		s.handleCommand(chatID, text)
+		s.handleCommand(chatID, text, title)
 	}
 }
-func (s *TelegramService) handleCommand(chatID int64, text string) {
+func (s *TelegramService) handleCommand(chatID int64, text, chatName string) {
 	switch {
 	case strings.HasPrefix(text, "/add"):
-		s.handleAdd(chatID, text)
+		s.handleAdd(chatID, text, chatName)
 
 	}
 }
 
-func (s *TelegramService) handleAdd(chatID int64, text string) {
+func (s *TelegramService) handleAdd(chatID int64, text, title string) {
 	parts := strings.Fields(text)
 
 	if len(parts) < 3 {
@@ -76,7 +77,7 @@ func (s *TelegramService) handleAdd(chatID int64, text string) {
 	}
 	description := strings.Join(parts[1:len(parts)-1], " ")
 
-	balance, err := s.updateBalance(chatID, amount)
+	balance, err := s.updateBalance(chatID, title, amount)
 	if err != nil {
 		s.SendMessageInTelegramGroup(chatID, "Ошибка при обновлении баланса")
 		log.Printf("Ошибка: %v", err)
@@ -95,13 +96,14 @@ func (s *TelegramService) handleAdd(chatID int64, text string) {
 	)
 }
 
-func (s *TelegramService) updateBalance(chatID int64, amount float64) (float64, error) {
-	// если записи нет — создаём
+func (s *TelegramService) updateBalance(chatID int64, title string, amount float64) (float64, error) {
 	_, err := s.db.Exec(`
-		INSERT INTO workers (chat_id, balance)
-		VALUES (?, ?)
-		ON DUPLICATE KEY UPDATE balance = balance + VALUES(balance)
-	`, chatID, amount)
+		INSERT INTO workers (chat_id, title, balance)
+		VALUES (?, ?, ?)
+		ON DUPLICATE KEY UPDATE 
+			balance = balance + VALUES(balance),
+			title = VALUES(title)
+	`, chatID, title, amount)
 	if err != nil {
 		return 0, err
 	}
