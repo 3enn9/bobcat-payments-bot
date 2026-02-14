@@ -57,7 +57,8 @@ func (s *TelegramService) handleCommand(chatID int64, text, chatName string) {
 	switch {
 	case strings.HasPrefix(text, "/add"):
 		s.handleAdd(chatID, text, chatName)
-
+	case strings.HasPrefix(text, "/all"):
+		s.handleAll(chatID)
 	}
 }
 
@@ -118,4 +119,39 @@ func (s *TelegramService) updateBalance(chatID int64, title string, amount float
 	}
 
 	return balance, nil
+}
+
+func (s *TelegramService) handleAll(chatID int64) {
+	rows, err := s.db.Query(`
+		SELECT title, balance 
+		FROM workers 
+		ORDER BY title
+	`)
+	if err != nil {
+		s.SendMessageInTelegramGroup(chatID, err.Error())
+		return
+	}
+	defer rows.Close()
+
+	var result string
+	for rows.Next() {
+		var title string
+		var balance string
+
+		if err := rows.Scan(&title, &balance); err != nil {
+			s.SendMessageInTelegramGroup(chatID, err.Error())
+			return
+		}
+		if title == "" {
+			continue
+		}
+
+		result += fmt.Sprintf("• %s — %.2f\n", title, balance)
+
+	}
+
+	if result == "" {
+		result = "Нет данных"
+	}
+	s.SendMessageInTelegramGroup(chatID, result)
 }
