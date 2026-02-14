@@ -136,7 +136,7 @@ func (s *TelegramService) handleAll(chatID int64) {
 	var result string
 	for rows.Next() {
 		var title string
-		var balance string
+		var balance float64
 
 		if err := rows.Scan(&title, &balance); err != nil {
 			s.SendMessageInTelegramGroup(chatID, err.Error())
