@@ -84,14 +84,16 @@ func (s *TelegramService) handleAdd(chatID int64, text, title string) {
 		log.Printf("Ошибка: %v", err)
 		return
 	}
-	s.SendMessageInTelegramGroup(-1003797529492,
-		fmt.Sprintf(
-			"💬 %s\n"+
-				"💰 Сумма: %.2f\n",
-			description,
-			amount,
-		),
-	)
+	if amount > 0 {
+		s.SendMessageInTelegramGroup(-1003797529492,
+			fmt.Sprintf(
+				"💬 %s\n"+
+					"💰 Сумма: %.2f\n",
+				description,
+				amount,
+			),
+		)
+	}
 
 	s.SendMessageInTelegramGroup(chatID,
 		fmt.Sprintf(
