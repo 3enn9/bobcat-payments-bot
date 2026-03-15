@@ -25,6 +25,7 @@ func NewTelegramService(token string, db *sql.DB) (*TelegramService, error) {
 	chats := map[string]int64{
 		"Payments": -1003380906513,
 		"Fuels":    -1003368403742,
+		"Cash":     -1003797529492,
 	}
 
 	return &TelegramService{bot, chats, db}, nil
@@ -47,11 +48,12 @@ func (s *TelegramService) HandleUpdate(u tgbotapi.Update) {
 	}
 	text := u.Message.Text
 	chatID := u.Message.Chat.ID
-	title := u.Message.Chat.Title
+	chatName := u.Message.Chat.Title
 
 	if strings.HasPrefix(text, "/") {
-		s.handleCommand(chatID, text, title)
+		s.handleCommand(chatID, text, chatName)
 	}
+
 }
 func (s *TelegramService) handleCommand(chatID int64, text, chatName string) {
 	switch {
@@ -62,49 +64,66 @@ func (s *TelegramService) handleCommand(chatID int64, text, chatName string) {
 	}
 }
 
-func (s *TelegramService) handleAdd(chatID int64, text, title string) {
-	parts := strings.Fields(text)
+func (s *TelegramService) handleAdd(chatID int64, text, chatName string) {
 
-	if len(parts) < 3 {
-		s.SendMessageInTelegramGroup(chatID, "Формат: /add описание сумма")
-		return
-	}
+	operationArray := strings.Split(text, "\n")
 
-	amountStr := parts[len(parts)-1]
-	amount, err := strconv.ParseFloat(amountStr, 64)
-	if err != nil {
-		s.SendMessageInTelegramGroup(chatID, "Сумма должна быть числом")
-		return
-	}
-	description := strings.Join(parts[1:len(parts)-1], " ")
+	var operations []string
+	var errorsList []string
+	var totalAmount float64
+	var balance float64
 
-	balance, err := s.updateBalance(chatID, title, amount)
-	if err != nil {
-		s.SendMessageInTelegramGroup(chatID, "Ошибка при обновлении баланса")
-		log.Printf("Ошибка: %v", err)
-		return
-	}
-	if amount > 0 {
-		s.SendMessageInTelegramGroup(-1003797529492,
-			fmt.Sprintf(
-				"💬 %s\n"+
-					"💰 Сумма: %.2f\n",
-				description,
-				amount,
-			),
-		)
-	}
+	for i, operation := range operationArray {
+		parts := strings.Fields(operation)
 
-	s.SendMessageInTelegramGroup(chatID,
-		fmt.Sprintf(
-			"💬 %s\n"+
-				"💰 Сумма: %.2f\n"+
-				"🏦 Касса: %.2f",
-			description,
-			amount,
-			balance,
-		),
+		if i == 0 {
+			parts = parts[1:]
+		}
+
+		if len(parts) < 2 {
+			s.SendMessageInTelegramGroup(chatID, "Формат: /add описание сумма\nописание сумма\n...")
+			return
+		}
+
+		amountStr := parts[len(parts)-1]
+		amount, err := strconv.ParseFloat(amountStr, 64)
+		if err != nil {
+			errorsList = append(errorsList, operation+" (неверная сумма)")
+			continue
+		}
+		description := strings.Join(parts[:len(parts)-1], " ")
+
+		balance, err = s.updateBalance(chatID, chatName, amount)
+		if err != nil {
+			errorsList = append(errorsList, operation+" (ошибка БД)")
+			continue
+		}
+
+		operations = append(operations, fmt.Sprintf("• %s: %.2f", description, amount))
+		totalAmount += amount
+
+		if amount > 0 {
+			s.SendMessageInTelegramGroup(s.Chats["Cash"],
+				fmt.Sprintf(
+					"💬 %s\n💰 Сумма: %.2f\n",
+					description,
+					amount,
+				),
+			)
+		}
+	}
+	msg := fmt.Sprintf(
+		"📊 Операции:\n%s\n\n💰 Итого: %.2f\n🏦 Касса: %.2f",
+		strings.Join(operations, "\n"),
+		totalAmount,
+		balance,
 	)
+
+	if len(errorsList) > 0 {
+		msg += "\n\n⚠ Пропущены:\n" + strings.Join(errorsList, "\n")
+	}
+
+	s.SendMessageInTelegramGroup(chatID, msg)
 }
 
 func (s *TelegramService) updateBalance(chatID int64, title string, amount float64) (float64, error) {
