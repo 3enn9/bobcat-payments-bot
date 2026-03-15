@@ -76,7 +76,7 @@ func (s *TelegramService) handleAdd(chatID int64, text, chatName string) {
 	for i, operation := range operationArray {
 		parts := strings.Fields(operation)
 
-		if len(parts) < 3 {
+		if len(parts) < 2 {
 			s.SendMessageInTelegramGroup(chatID, "Формат: /add описание сумма\nописание сумма\n...")
 			return
 		}
