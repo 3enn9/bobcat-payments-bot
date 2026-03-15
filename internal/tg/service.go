@@ -77,8 +77,8 @@ func (s *TelegramService) handleAdd(chatID int64, text, chatName string) {
 		parts := strings.Fields(operation)
 
 		if len(parts) < 2 {
-			s.SendMessageInTelegramGroup(chatID, "Формат: /add описание сумма\nописание сумма\n...")
-			return
+			errorsList = append(errorsList, operation+" (неверный формат)")
+			continue
 		}
 
 		if i == 0 {
