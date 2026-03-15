@@ -76,13 +76,13 @@ func (s *TelegramService) handleAdd(chatID int64, text, chatName string) {
 	for i, operation := range operationArray {
 		parts := strings.Fields(operation)
 
-		if i == 0 {
-			parts = parts[1:]
-		}
-
-		if len(parts) < 2 {
+		if len(parts) < 3 {
 			s.SendMessageInTelegramGroup(chatID, "Формат: /add описание сумма\nописание сумма\n...")
 			return
+		}
+
+		if i == 0 {
+			parts = parts[1:]
 		}
 
 		amountStr := parts[len(parts)-1]
