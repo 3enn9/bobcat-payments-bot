@@ -126,6 +126,11 @@ func TBankHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if payment.TypeOfOperation == "Debit" {
+		log.Println("type of operation Debit")
+		return
+	}
+
 	opID := payment.OperationID
 
 	if _, found := tbankCache.Get(opID); found {
