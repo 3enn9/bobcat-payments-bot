@@ -143,10 +143,10 @@ func TBankHandler(w http.ResponseWriter, r *http.Request) {
 			"🧾 Назначение:\n%s\n\n"+
 			"💰 Оплата:\n"+
 			"<pre>%s %s %s</pre>",
-		payment.Receiver.BankName,
-		payment.Payer.Name,
+		`АО "ТБанк"`,
+		payment.CounterParty.Name,
 		payment.Receiver.Name,
-		payment.PayPurpose,
+		payment.Description,
 		date,
 		payment.OperationAmount,
 		"тбанк",
