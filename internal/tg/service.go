@@ -105,7 +105,8 @@ func (s *TelegramService) handleAdd(chatID int64, text, chatName string) {
 		if amount > 0 {
 			s.SendMessageInTelegramGroup(s.Chats["Cash"],
 				fmt.Sprintf(
-					"💬 %s\n💰 Сумма: %.2f\n",
+					"%s\n💬 %s\n💰 Сумма: %.2f\n",
+					chatName,
 					description,
 					amount,
 				),
