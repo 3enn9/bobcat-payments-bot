@@ -4,6 +4,7 @@ services:
     environment:
       - TZ=Europe/Moscow
     build: .
+    restart: unless-stopped
     env_file:
       - .env
     expose:
@@ -13,6 +14,7 @@ services:
       - vnutri_net
   caddy:
     image: caddy:latest
+    restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
@@ -20,7 +22,7 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
       - caddy_config:/config
-      - ./.env:/app/.env:ro   # путь в контейнере
+      - ./.env:/app/.env:ro
     depends_on:
       - app
     networks:

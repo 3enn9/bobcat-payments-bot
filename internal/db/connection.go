@@ -9,11 +9,11 @@ import (
 	"time"
 )
 
-func NewConnectionDB(c *config.Config) (*sql.DB, error) {
+func NewConnectionDB(c *config.Config) (*Database, error) {
 
 	dataSourceName := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true", c.Root, c.Password, c.Host, c.Port, c.Dbname)
-	var db *sql.DB
 	var err error
+	var db *sql.DB
 
 	for i := 0; i < 20; i++ {
 		db, err = sql.Open("mysql", dataSourceName)
@@ -22,7 +22,7 @@ func NewConnectionDB(c *config.Config) (*sql.DB, error) {
 			log.Printf("❌ Failed to open DB connection (try %d/20): %v", i+1, err)
 		} else if pingErr := db.Ping(); pingErr == nil {
 			log.Println("✅ Connected to DB")
-			return db, nil
+			return &Database{DB: db}, nil
 		} else {
 			log.Printf("⚠️ Waiting for DB to be ready (try %d/20)...", i+1)
 			db.Close() // важно закрыть неудачное соединение

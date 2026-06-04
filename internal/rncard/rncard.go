@@ -50,7 +50,7 @@ func FetchAndSendTransactions() error {
 
 	params := url.Values{}
 	params.Set("u", "Kal9n")
-	params.Set("p", "Kal9n474788")
+	params.Set("p", "K@l9n474788")
 	params.Set("contract", "ISS163200")
 	params.Set("begin", beginStr)
 	params.Set("end", endStr)
