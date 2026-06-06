@@ -1,3 +1,3 @@
-v2972255.hosted-by-vdsina.ru, gopaygo.com.chickenkiller.com {
+gopaygo.com.chickenkiller.com {
     reverse_proxy app:8080
 }
