@@ -2,6 +2,7 @@ package tg
 
 import (
 	"PaymentsBot/internal/db"
+	"fmt"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"log"
 	"strings"
@@ -41,7 +42,13 @@ func (s *TelegramService) SendMessageInTelegramGroup(chatID int64, message strin
 
 	if strings.Contains(message, "Касса:") {
 		pin := tgbotapi.PinChatMessageConfig{ChatID: chatID, MessageID: sentMsg.MessageID, DisableNotification: true}
-		s.bot.Request(pin)
+		resp, err := s.bot.Request(pin)
+		if err != nil {
+			fmt.Printf("Error pin message")
+			return
+		}
+		fmt.Println(resp.Description)
+
 	}
 }
 
