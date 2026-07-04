@@ -1,141 +1,26 @@
 package banks
 
 import (
-	"encoding/json"
+	domainPayment "PaymentsBot/internal/domain/payment"
 	"fmt"
 	"github.com/patrickmn/go-cache"
-	"io"
 	"log"
-	"net/http"
 	"time"
 )
 
-type TBankPayment struct {
-	OperationID     string `json:"operationId"`
-	TypeOfOperation string `json:"typeOfOperation"`
-	AccountNumber   string `json:"accountNumber"`
-	DocumentNumber  string `json:"documentNumber"`
-
-	OperationAmount              string `json:"operationAmount"`
-	OperationCurrencyDigitalCode string `json:"operationCurrencyDigitalCode"`
-
-	AccountAmount              string `json:"accountAmount"`
-	AccountCurrencyDigitalCode string `json:"accountCurrencyDigitalCode"`
-
-	RubleAmount string `json:"rubleAmount"`
-
-	CounterParty CounterParty `json:"counterParty"`
-
-	Description string `json:"description"`
-
-	AuthorizationDate string `json:"authorizationDate"`
-	TrxnPostDate      string `json:"trxnPostDate"`
-
-	PayVo    string `json:"payVo"`
-	Priority string `json:"priority"`
-
-	CardNumber string `json:"cardNumber"`
-	Ucid       string `json:"ucid"`
-	Mcc        string `json:"mcc"`
-
-	Merch Merch `json:"merch"`
-
-	Status          string `json:"status"`
-	OperationStatus string `json:"operationStatus"`
-	Bic             string `json:"bic"`
-	Rrn             string `json:"rrn"`
-	Category        string `json:"category"`
-
-	PayPurpose string `json:"payPurpose"`
-
-	Receiver Party `json:"receiver"`
-	Payer    Party `json:"payer"`
-
-	ChargeDate string `json:"chargeDate"`
-	DrawDate   string `json:"drawDate"`
-
-	Kbk          string `json:"kbk"`
-	Oktmo        string `json:"oktmo"`
-	TaxEvidence  string `json:"taxEvidence"`
-	TaxPeriod    string `json:"taxPeriod"`
-	TaxDocNumber string `json:"taxDocNumber"`
-	TaxDocDate   string `json:"taxDocDate"`
-
-	NalType string `json:"nalType"`
-
-	DocDate string `json:"docDate"`
-	VO      string `json:"VO"`
-}
-
-type CounterParty struct {
-	Account     string `json:"account"`
-	BankBic     string `json:"bankBic"`
-	BankName    string `json:"bankName"`
-	CorrAccount string `json:"corrAccount"`
-	Inn         string `json:"inn"`
-	Name        string `json:"name"`
-}
-
-type Party struct {
-	Account     string `json:"account"`
-	Name        string `json:"name"`
-	Inn         string `json:"inn"`
-	Bic         string `json:"bic"`
-	CorrAccount string `json:"corrAccount"`
-	BankName    string `json:"bankName"`
-}
-
-type Merch struct {
-	Address string `json:"address"`
-	City    string `json:"city"`
-	Country string `json:"country"`
-	Index   string `json:"index"`
-	Name    string `json:"name"`
-}
-
 var tbankCache = cache.New(5*time.Minute, 10*time.Minute)
 
-func formatRFC3339(date string) string {
-	t, err := time.Parse(time.RFC3339, date)
-	if err != nil {
-		return date
-	}
-	return t.Format("02.01.2006")
-}
-
-func TBankHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	w.WriteHeader(http.StatusOK)
-
-	defer r.Body.Close()
-
-	bodyBytes, err := io.ReadAll(r.Body)
-
-	if err != nil {
-		log.Printf("tbank: read body error %v", err)
-		return
-	}
-
-	var payment TBankPayment
-
-	if err = json.Unmarshal(bodyBytes, &payment); err != nil {
-		log.Println("error unmarshaling tbank", err)
-		return
-	}
+func (b *BankService) TBank(payment domainPayment.TBankPayment) error {
 
 	if payment.TypeOfOperation == "Debit" {
-		log.Println("type of operation Debit")
-		return
+		return domainPayment.ErrTypeOfOperation
 	}
 
 	opID := payment.OperationID
 
 	if _, found := tbankCache.Get(opID); found {
 		log.Println("tbank dublicate:", opID)
-		return
+		return nil
 	}
 	tbankCache.Set(opID, true, cache.DefaultExpiration)
 
@@ -157,8 +42,12 @@ func TBankHandler(w http.ResponseWriter, r *http.Request) {
 		"тбанк",
 	)
 
-	groupID := TgBot.Chats["Payments"]
-	TgBot.SendMessageInTelegramGroup(groupID, message)
+	err := b.messenger.SendMessageInGroupName("Payments", message)
+	if err != nil {
+		return err
+	}
 
 	log.Printf("TBank %+v", payment)
+
+	return nil
 }

@@ -1,20 +1,13 @@
 package db
 
 import (
+	"PaymentsBot/internal/domain/payment"
 	"database/sql"
 	"fmt"
 )
 
 type Database struct {
 	DB *sql.DB
-}
-
-type Payment struct {
-	TelegramGroupID int64
-	Title           string
-	Operation       string
-	Description     string
-	Amount          float64
 }
 
 func (d *Database) UpdateBalance(chatID int64, title string, amount float64) error {
@@ -70,13 +63,13 @@ func (d *Database) AllBalance() (string, error) {
 	return result, err
 }
 
-func (d *Database) AddPayment(payment Payment) error {
+func (d *Database) AddPayment(payment payment.Payment) error {
 	_, err := d.DB.Exec(`
 		INSERT INTO operations
 		(telegram_group_id, title, operation, description, amount)
 		VALUES (?, ?, ?, ?, ?)
 	`,
-		payment.TelegramGroupID,
+		payment.GroupID,
 		payment.Title,
 		payment.Operation,
 		payment.Description,

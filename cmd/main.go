@@ -4,10 +4,15 @@ import (
 	"PaymentsBot/internal/banks"
 	"PaymentsBot/internal/config"
 	"PaymentsBot/internal/db"
+	multi "PaymentsBot/internal/multiMessenger"
 	"PaymentsBot/internal/rncard"
 	"PaymentsBot/internal/scheduler"
 	"PaymentsBot/internal/tg"
+	"PaymentsBot/internal/usecase"
+	"PaymentsBot/transport"
+	"PaymentsBot/transport/http/handlers"
 	"context"
+	"errors"
 	"log"
 	"net/http"
 	"os"
@@ -18,35 +23,32 @@ import (
 
 func main() {
 	cf := config.NewConfig()
-	DBInstance, err := db.NewConnectionDB(cf)
+
+	dbInstance, err := db.NewConnectionDB(cf)
 	if err != nil {
 		log.Fatalf("DB connection failed: %v", err)
 	}
-	defer DBInstance.DB.Close()
+	defer dbInstance.DB.Close()
 
-	TgBotService, err := tg.NewTelegramService(cf.Token, DBInstance)
-
+	tgBotService, err := tg.NewTelegramService(cf.Token, dbInstance)
 	if err != nil {
 		log.Fatalf("error create tgbot %v", err)
 	}
 
-	banks.SetTelegram(TgBotService)
-	rncard.SetTelegram(TgBotService)
+	multiMessengers := multi.NewMultiMessenger([]usecase.SendMessanger{tgBotService})
+	rnCardService := rncard.NewRnCardService(multiMessengers)
+	banksService := banks.NewBankService(multiMessengers)
+	banksHandler := handlers.NewBanksHandler(banksService)
+	telegramHandler := handlers.NewTelegramHandler(tgBotService)
+	router := transport.NewRouter(banksHandler, telegramHandler)
 
-	scheduler.SendDailyScheduler(rncard.FetchAndSendTransactions)
-	mux := http.NewServeMux()
+	scheduler.SendDailyScheduler(rnCardService.FetchAndSendTransactions)
 
-	server := &http.Server{Handler: mux, Addr: ":8080"}
-
-	mux.HandleFunc("/telegram/webhook", tg.WebhookHandler(TgBotService))
-	mux.HandleFunc("/webhook", banks.TochkaBankHandler)
-	mux.HandleFunc("/modulbank", banks.ModuleBankHandler)
-	mux.HandleFunc("/tbank", banks.TBankHandler)
+	server := &http.Server{Handler: router, Addr: ":8080"}
 
 	go func() {
 		log.Println("Server started at :8080")
-
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatalf("listen error: %v", err)
 		}
 	}()
@@ -63,16 +65,18 @@ func main() {
 
 	defer cancel()
 
-	TgBotService.SendMessageInTelegramGroup(877804669, "Server stopped")
+	err = tgBotService.SendMessageInGroupID(877804669, "Server stopped")
+	if err != nil {
+		log.Printf("error send server stopped message: %v", err)
+	}
 
 	if err := server.Shutdown(ctx); err != nil {
 		log.Printf("shutdown error: %v", err)
 	}
 
-	if err := DBInstance.DB.Close(); err != nil {
+	if err := dbInstance.DB.Close(); err != nil {
 		log.Printf("db close error: %v", err)
 	}
 
 	log.Println("Server stopped")
-
 }

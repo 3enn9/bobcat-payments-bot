@@ -1,7 +1,8 @@
 package rncard
 
 import (
-	"PaymentsBot/internal/tg"
+	multi "PaymentsBot/internal/multiMessenger"
+	"PaymentsBot/internal/usecase"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -26,13 +27,15 @@ type operation struct {
 	Date   string  `json:"Date"`
 }
 
-var TgBot *tg.TelegramService
-
-func SetTelegram(t *tg.TelegramService) {
-	TgBot = t
+type RnCard struct {
+	messenger usecase.SendMessanger
 }
 
-func FetchAndSendTransactions() error {
+func NewRnCardService(service *multi.MultiMessenger) *RnCard {
+	return &RnCard{messenger: service}
+}
+
+func (r *RnCard) FetchAndSendTransactions() error {
 
 	var message string
 
@@ -122,8 +125,12 @@ func FetchAndSendTransactions() error {
 		message += operationInfo
 
 	}
-	groupID := TgBot.Chats["Fuels"]
-	TgBot.SendMessageInTelegramGroup(groupID, message)
+	
+	err = r.messenger.SendMessageInGroupName("Fuels", message)
+
+	if err != nil {
+		return err
+	}
 
 	log.Printf("fuels message: %s", message)
 
