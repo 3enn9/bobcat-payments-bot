@@ -2,7 +2,6 @@ package rncard
 
 import (
 	multi "PaymentsBot/internal/multiMessenger"
-	"PaymentsBot/internal/usecase"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -28,7 +27,8 @@ type operation struct {
 }
 
 type RnCard struct {
-	messenger usecase.SendMessanger
+	messenger *multi.MultiMessenger
+
 }
 
 func NewRnCardService(service *multi.MultiMessenger) *RnCard {

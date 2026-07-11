@@ -5,6 +5,7 @@ import (
 	"PaymentsBot/internal/config"
 	"PaymentsBot/internal/db"
 	multi "PaymentsBot/internal/multiMessenger"
+	"PaymentsBot/internal/payments"
 	"PaymentsBot/internal/rncard"
 	"PaymentsBot/internal/scheduler"
 	"PaymentsBot/internal/tg"
@@ -29,8 +30,8 @@ func main() {
 		log.Fatalf("DB connection failed: %v", err)
 	}
 	defer dbInstance.DB.Close()
-
-	tgBotService, err := tg.NewTelegramService(cf.Token, dbInstance)
+	paymentsService := payments.NewPaymentsService(dbInstance)
+	tgBotService, err := tg.NewTelegramService(cf.Token, paymentsService)
 	if err != nil {
 		log.Fatalf("error create tgbot %v", err)
 	}
