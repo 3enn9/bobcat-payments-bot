@@ -25,8 +25,7 @@ func (p *MaxHandler) MaxUpdates(w http.ResponseWriter, r *http.Request) {
 
 	var update schemes.MessageCreatedUpdate
 	if err := json.Unmarshal(body, &update); err != nil {
-		log.Println(err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		w.WriteHeader(http.StatusOK)
 		return
 	}
 
