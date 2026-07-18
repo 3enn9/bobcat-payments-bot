@@ -11,8 +11,8 @@ import (
 )
 
 type TelegramService struct {
-	bot   *tgbotapi.BotAPI
-	Chats map[string]int64
+	bot      *tgbotapi.BotAPI
+	Chats    map[string]int64
 	payments *payments.PaymentsService
 }
 
@@ -47,7 +47,7 @@ func (s *TelegramService) SendMessageInGroupID(chatID int64, message string) err
 		resp, err := s.bot.Request(pin)
 		if err != nil {
 			fmt.Printf("Error pin message")
-			return messenger.ErrPinMessage
+			return nil
 		}
 		fmt.Println(resp.Description)
 
@@ -57,7 +57,7 @@ func (s *TelegramService) SendMessageInGroupID(chatID int64, message string) err
 
 func (s *TelegramService) SendMessageInGroupName(nameGroup string, message string) error {
 	chatID, ok := s.Chats[nameGroup]
-	if !ok{
+	if !ok {
 		return fmt.Errorf("groupNmae not in map chats")
 	}
 	msg := tgbotapi.NewMessage(chatID, message)
@@ -65,12 +65,12 @@ func (s *TelegramService) SendMessageInGroupName(nameGroup string, message strin
 
 	_, err := s.bot.Send(msg)
 	if err != nil {
-		return messenger.ErrSendMessage
+		fmt.Printf("Error send message")
+		return nil
 	}
 
 	return nil
 }
-
 
 func (s *TelegramService) Updates(u tgbotapi.Update) error {
 	if u.Message == nil {
@@ -83,34 +83,41 @@ func (s *TelegramService) Updates(u tgbotapi.Update) error {
 	switch {
 	case strings.HasPrefix(text, "/add "):
 		cashCh := make(chan string, 1)
-		err := s.payments.AddPayment(cashCh, chatID, text, chatName)
-		
+		result, err := s.payments.AddPayment(cashCh, chatID, text, chatName)
 
-		if err != nil{
+		if err != nil {
 			log.Println("error AddPayments")
 			return nil
 		}
-		s.SendMessageInGroupID(chatID, )
+		err = s.SendMessageInGroupID(chatID, result.GroupMessage)
+		if err != nil {
+			log.Printf("error send message in groupID %v", err)
+		}
+		err = s.SendMessageInGroupName("Cash", result.CashMessage)
+		if err != nil {
+			log.Printf("error send message in groupName %v", err)
+		}
 	case strings.HasPrefix(text, "/all "):
 		msg, err := s.payments.AllBalance(chatID)
-		if err != nil{
-			log.Println("error AllBalance")
+		if err != nil {
+			log.Printf("error AllBalance %v", err)
 			return nil
 		}
-		s.SendMessageInGroupID(chatID, msg)
+		err = s.SendMessageInGroupID(chatID, msg)
+		if err != nil {
+			log.Printf("error send message in groupID %v", err)
+		}
 	case strings.HasPrefix(text, "/dep "):
-		s.payments.Deposit(chatID, text, chatName)
+		err := s.payments.Deposit(chatID, text, chatName)
+		if err != nil {
+			log.Printf("error deposit %v", err)
+		}
 	case strings.HasPrefix(text, "/salary "):
-		s.payments.Salary(chatID)
+		err := s.payments.Salary(chatID)
+		if err != nil {
+			log.Printf("error salary %v", err)
+		}
 	}
 
 	return nil
-}
-
-func (s *TelegramService) GetGroupID(groupName string) (int64, error) {
-	id, ok := s.Chats[groupName]
-	if !ok {
-		return 0, messenger.ErrGroupExists
-	}
-	return id, nil
 }

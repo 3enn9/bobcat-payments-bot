@@ -4,6 +4,7 @@ import (
 	"PaymentsBot/internal/banks"
 	"PaymentsBot/internal/config"
 	"PaymentsBot/internal/db"
+	max2 "PaymentsBot/internal/max"
 	multi "PaymentsBot/internal/multiMessenger"
 	"PaymentsBot/internal/payments"
 	"PaymentsBot/internal/rncard"
@@ -36,12 +37,19 @@ func main() {
 		log.Fatalf("error create tgbot %v", err)
 	}
 
-	multiMessengers := multi.NewMultiMessenger([]usecase.SendMessanger{tgBotService})
+	maxBotService, err := max2.NewMaxService(cf.MaxToken, paymentsService)
+	if err != nil {
+		log.Fatalf("error create tgbot %v", err)
+	}
+
+	multiMessengers := multi.NewMultiMessenger([]usecase.SendMessanger{tgBotService, maxBotService})
 	rnCardService := rncard.NewRnCardService(multiMessengers)
 	banksService := banks.NewBankService(multiMessengers)
 	banksHandler := handlers.NewBanksHandler(banksService)
 	telegramHandler := handlers.NewTelegramHandler(tgBotService)
-	router := transport.NewRouter(banksHandler, telegramHandler)
+	maxHandler := handlers.NewMaxHandler(maxBotService)
+
+	router := transport.NewRouter(banksHandler, telegramHandler, maxHandler)
 
 	scheduler.SendDailyScheduler(rnCardService.FetchAndSendTransactions)
 

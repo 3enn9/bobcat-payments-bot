@@ -13,6 +13,7 @@ type Config struct {
 	Dbname   string
 	Host     string
 	Token    string
+	MaxToken string
 }
 
 func NewConfig() *Config {
@@ -28,5 +29,6 @@ func NewConfig() *Config {
 		Dbname:   os.Getenv("DB_NAME"),
 		Host:     os.Getenv("DB_HOST"),
 		Token:    os.Getenv("BOT_TOKEN"),
+		MaxToken: os.Getenv("MAX_TOKEN"),
 	}
 }

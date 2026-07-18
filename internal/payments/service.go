@@ -13,7 +13,12 @@ type PaymentsService struct {
 	db usecase.Repository
 }
 
-func NewPaymentsService(db usecase.Repository) *PaymentsService{
+type AddPaymentResult struct {
+	GroupMessage string
+	CashMessage  string
+}
+
+func NewPaymentsService(db usecase.Repository) *PaymentsService {
 	return &PaymentsService{db: db}
 }
 
@@ -21,10 +26,10 @@ func (p *PaymentsService) Balance(chatID int64) (int64, error) {
 	return 0, nil
 }
 
-func (p *PaymentsService) AddPayment(cashCh chan string, chatID int64, text, chatName string) error {
+func (p *PaymentsService) AddPayment(cashCh chan string, chatID int64, text, chatName string) (*AddPaymentResult, error) {
 
 	operationArray := strings.Split(text, "\n")
-
+	var cashMessages []string
 	var operations []string
 	var errorsList []string
 	var totalAmount float64
@@ -77,12 +82,14 @@ func (p *PaymentsService) AddPayment(cashCh chan string, chatID int64, text, cha
 		totalAmount += amount
 
 		if amount > 0 {
-			cashCh <- fmt.Sprintf("%s\n💬 %s\n💰 Сумма: %.2f\n", chatName, description, amount)
+			cashMessages = append(cashMessages,
+				fmt.Sprintf("%s\n💬 %s\n💰 Сумма: %.2f",
+					chatName, description, amount))
 		}
 	}
 	balance, err := p.db.GetBalance(chatID)
 	if err != nil {
-		return fmt.Errorf("error GetBalance: %v", err)
+		return nil, fmt.Errorf("error GetBalance: %v", err)
 	}
 
 	msg := fmt.Sprintf(
@@ -96,11 +103,10 @@ func (p *PaymentsService) AddPayment(cashCh chan string, chatID int64, text, cha
 		msg += "\n\n⚠ Пропущены:\n" + strings.Join(errorsList, "\n")
 	}
 
-	err = p.messenger.SendMessageInGroupID(chatID, msg)
-	if err != nil {
-		return err
-	}
-	return err
+	return &AddPaymentResult{
+		GroupMessage: msg,
+		CashMessage:  strings.Join(cashMessages, "\n\n"),
+	}, nil
 }
 
 func (p *PaymentsService) AllBalance(chatID int64) (string, error) {
