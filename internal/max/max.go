@@ -7,7 +7,6 @@ import (
 	maxbot "github.com/max-messenger/max-bot-api-client-go"
 	"github.com/max-messenger/max-bot-api-client-go/schemes"
 	"log"
-	"strings"
 )
 
 type MaxService struct {
@@ -65,8 +64,8 @@ func (m *MaxService) Updates(update schemes.UpdateInterface) error {
 }
 
 func (m *MaxService) handleMessage(upd *schemes.MessageCreatedUpdate) {
-	command := strings.Fields(upd.Message.Body.Text)[0]
+	//command := strings.Fields(upd.Message.Body.Text)[0]
 
-	fmt.Printf("inbox command %s", command)
+	//fmt.Printf("inbox command %s", command)
 	fmt.Printf("chatID from message %v", upd.GetChatID())
 }
