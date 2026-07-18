@@ -21,7 +21,7 @@ func (p *MaxHandler) MaxUpdates(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	body, _ := io.ReadAll(r.Body)
-	log.Println(string(body))
+	//log.Println(string(body))
 
 	var update schemes.MessageCreatedUpdate
 	if err := json.Unmarshal(body, &update); err != nil {

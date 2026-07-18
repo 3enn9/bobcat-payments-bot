@@ -21,7 +21,10 @@ func NewMaxService(token string, payments *payments.PaymentsService) (*MaxServic
 	if err != nil {
 		return nil, err
 	}
-	chats := map[string]int64{}
+	chats := map[string]int64{
+		"Payments": -77028763384544,
+		"Fuels":    -77028768299744,
+		"Cash":     -77028778785504}
 	return &MaxService{Bot: api, Chats: chats, payments: payments}, nil
 }
 
