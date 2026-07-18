@@ -13,7 +13,7 @@ FROM alpine:latest
 
 RUN apk add --no-cache ca-certificates
 
-COPY russian-trusted-root-ca.crt /usr/local/share/ca-certificates/russian-trusted-root-ca.crt
+COPY certs/russian-trusted-root-ca.crt /usr/local/share/ca-certificates/
 
 RUN update-ca-certificates
 
