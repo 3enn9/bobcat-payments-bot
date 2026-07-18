@@ -97,7 +97,7 @@ func (s *TelegramService) Updates(u tgbotapi.Update) error {
 		if err != nil {
 			log.Printf("error send message in groupName %v", err)
 		}
-	case strings.HasPrefix(text, "/all "):
+	case strings.HasPrefix(text, "/all"):
 		msg, err := s.payments.AllBalance(chatID)
 		if err != nil {
 			log.Printf("error AllBalance %v", err)

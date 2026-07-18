@@ -4,6 +4,7 @@ import (
 	max2 "PaymentsBot/internal/max"
 	"encoding/json"
 	"github.com/max-messenger/max-bot-api-client-go/schemes"
+	"io"
 	"log"
 	"net/http"
 )
@@ -19,8 +20,12 @@ func NewMaxHandler(useCase *max2.MaxService) *MaxHandler {
 func (p *MaxHandler) MaxUpdates(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
+	body, _ := io.ReadAll(r.Body)
+	log.Println(string(body))
+
 	var update schemes.MessageCreatedUpdate
-	if err := json.NewDecoder(r.Body).Decode(&update); err != nil {
+	if err := json.Unmarshal(body, &update); err != nil {
+		log.Println(err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
