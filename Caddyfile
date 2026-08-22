@@ -1,3 +1,14 @@
 gopaygo.com.chickenkiller.com {
-    reverse_proxy app:8080
+
+    handle /miniapp/* {
+        reverse_proxy miniapp:80
+    }
+
+    handle /api/miniapp/* {
+        reverse_proxy app:8080
+    }
+
+    handle {
+        reverse_proxy app:8080
+    }
 }

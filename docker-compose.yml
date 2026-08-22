@@ -1,37 +1,72 @@
 version: "3.9"
+
 services:
+
   app:
     environment:
       - TZ=Europe/Moscow
+
     build: .
+
     restart: unless-stopped
+
     env_file:
       - .env
+
     expose:
       - "8080"
+
     networks:
       - web
       - vnutri_net
+
+  miniapp:
+    build:
+      context: ./miniapp
+      args:
+        VITE_API_URL: "/api/miniapp"
+
+    restart: unless-stopped
+
+    expose:
+      - "80"
+
+    networks:
+      - web
+
   caddy:
     image: caddy:latest
+
     restart: unless-stopped
+
     ports:
       - "80:80"
       - "443:443"
+
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
       - caddy_config:/config
       - ./.env:/app/.env:ro
+
     depends_on:
       - app
+      - miniapp
+
     networks:
       - web
+      - vnutri_net
+
 networks:
+
   web:
+
   vnutri_net:
     external: true
     name: vnutri-telegram-bot_default
+
 volumes:
+
   caddy_data:
+
   caddy_config:

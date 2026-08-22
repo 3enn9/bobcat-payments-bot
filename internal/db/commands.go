@@ -4,6 +4,7 @@ import (
 	"PaymentsBot/internal/domain/payment"
 	"database/sql"
 	"fmt"
+	"time"
 )
 
 type Database struct {
@@ -81,4 +82,40 @@ func (d *Database) AddPayment(payment payment.Payment) error {
 	}
 
 	return nil
+}
+
+type MiniAppRequest struct {
+	ID          int64
+	MaxUserID   string
+	MaxUsername string
+	Name        string
+	Contact     string
+	Message     string
+	CreatedAt   time.Time
+}
+
+func (d *Database) CreateMiniAppRequest(
+	maxUserID string,
+	maxUsername string,
+	name string,
+	contact string,
+	message string,
+) (int64, error) {
+	result, err := d.DB.Exec(`
+		INSERT INTO miniapp_requests
+		(max_user_id, max_username, name, contact, message)
+		VALUES (?, ?, ?, ?, ?)
+	`,
+		maxUserID,
+		maxUsername,
+		name,
+		contact,
+		message,
+	)
+
+	if err != nil {
+		return 0, err
+	}
+
+	return result.LastInsertId()
 }

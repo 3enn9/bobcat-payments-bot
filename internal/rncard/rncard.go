@@ -28,7 +28,6 @@ type operation struct {
 
 type RnCard struct {
 	messenger *multi.MultiMessenger
-
 }
 
 func NewRnCardService(service *multi.MultiMessenger) *RnCard {
@@ -125,7 +124,7 @@ func (r *RnCard) FetchAndSendTransactions() error {
 		message += operationInfo
 
 	}
-	
+
 	err = r.messenger.SendMessageInGroupName("Fuels", message)
 
 	if err != nil {

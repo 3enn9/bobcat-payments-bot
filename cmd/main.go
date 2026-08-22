@@ -48,8 +48,14 @@ func main() {
 	banksHandler := handlers.NewBanksHandler(banksService)
 	telegramHandler := handlers.NewTelegramHandler(tgBotService)
 	maxHandler := handlers.NewMaxHandler(maxBotService)
+	miniAppHandler := handlers.NewMiniAppHandler(dbInstance)
 
-	router := transport.NewRouter(banksHandler, telegramHandler, maxHandler)
+	router := transport.NewRouter(
+		banksHandler,
+		telegramHandler,
+		maxHandler,
+		miniAppHandler,
+	)
 
 	scheduler.SendDailyScheduler(rnCardService.FetchAndSendTransactions)
 
