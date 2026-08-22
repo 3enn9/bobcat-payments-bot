@@ -1,1 +1,102 @@
-import{useState}from"react";import RequestForm from"./components/RequestForm";export default function App(){const[id,setId]=useState<number|null>(null);if(id!==null)return <main className="page"><section className="card success"><div className="icon">✓</div><h1>Заявка отправлена</h1><p>Спасибо! Мы получили вашу заявку.<br/>Номер заявки: <strong>#{id}</strong></p><button onClick={()=>setId(null)}>Отправить ещё одну</button></section></main>;return <main className="page"><section className="card"><div className="eyebrow">MAX MINI APP</div><h1>Оставьте заявку</h1><p className="subtitle">Заполните форму — данные уйдут в backend и сохранятся в базе.</p><RequestForm onSuccess={setId}/></section></main>}
+import { useState } from "react";
+import RequestForm from "./components/RequestForm";
+
+type Screen = "home" | "client" | "worker";
+
+export default function App() {
+  const [screen, setScreen] = useState<Screen>("home");
+
+  if (screen === "client") {
+    return (
+      <div className="page">
+        <div className="card">
+          <button
+            type="button"
+            className="back-button"
+            onClick={() => setScreen("home")}
+          >
+            ← Назад
+          </button>
+
+          <div className="eyebrow">Bobcatsar64</div>
+
+          <h1>Оставить заявку</h1>
+
+          <p className="subtitle">
+            Заполните форму, и мы свяжемся с вами.
+          </p>
+
+          <RequestForm
+            onSuccess={(id) => {
+              console.log("Заявка создана:", id);
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (screen === "worker") {
+    return (
+      <div className="page">
+        <div className="card">
+          <button
+            type="button"
+            className="back-button"
+            onClick={() => setScreen("home")}
+          >
+            ← Назад
+          </button>
+
+          <div className="eyebrow">GOPAYGO</div>
+
+          <h1>Работник</h1>
+
+          <p className="subtitle">
+            Раздел работника будет доступен позже.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <main className="home-screen">
+      <div className="logo">Bobcatsar64</div>
+
+      <h1>Добро пожаловать!</h1>
+
+      <p className="subtitle">
+        Выберите, как продолжить
+      </p>
+
+      <div className="role-buttons">
+        <button
+          type="button"
+          className="role-button"
+          onClick={() => setScreen("client")}
+        >
+          <span className="role-icon">👤</span>
+
+          <span>
+            <strong>Клиент</strong>
+            <small>Оставить заявку</small>
+          </span>
+        </button>
+
+        <button
+          type="button"
+          className="role-button"
+          onClick={() => setScreen("worker")}
+        >
+          <span className="role-icon">👷</span>
+
+          <span>
+            <strong>Работник</strong>
+            <small>Перейти в кабинет</small>
+          </span>
+        </button>
+      </div>
+    </main>
+  );
+}
