@@ -3,10 +3,13 @@ package max
 import (
 	"PaymentsBot/internal/payments"
 	"context"
+	"encoding/json"
 	"fmt"
+	"log"
+	"strings"
+
 	maxbot "github.com/max-messenger/max-bot-api-client-go"
 	"github.com/max-messenger/max-bot-api-client-go/schemes"
-	"log"
 )
 
 type MaxService struct {
@@ -64,8 +67,54 @@ func (m *MaxService) Updates(update schemes.UpdateInterface) error {
 }
 
 func (m *MaxService) handleMessage(upd *schemes.MessageCreatedUpdate) {
-	//command := strings.Fields(upd.Message.Body.Text)[0]
+	text := strings.TrimSpace(upd.GetText())
+	if text == "" {
+		return
+	}
 
-	//fmt.Printf("inbox command %s", command)
-	fmt.Printf("chatID from message %v", upd.GetChatID())
+	fields := strings.Fields(text)
+	cmd := strings.Split(fields[0], "@")[0]
+
+	switch cmd {
+	case "/group":
+		m.handleGroupCommand(upd)
+	default:
+		log.Printf("max: unknown command=%q chatID=%d", cmd, upd.GetChatID())
+	}
+}
+
+func (m *MaxService) handleGroupCommand(upd *schemes.MessageCreatedUpdate) {
+	chatID := upd.GetChatID()
+	ctx := context.Background()
+
+	chat, err := m.Bot.Chats.GetChat(ctx, chatID)
+	if err != nil {
+		log.Printf("max /group: GetChat error chatID=%d: %v", chatID, err)
+		return
+	}
+
+	logJSON("max /group: chat", chat)
+
+	membership, err := m.Bot.Chats.GetChatMembership(ctx, chatID)
+	if err != nil {
+		log.Printf("max /group: GetChatMembership error chatID=%d: %v", chatID, err)
+	} else {
+		logJSON("max /group: membership", membership)
+	}
+
+	admins, err := m.Bot.Chats.GetChatAdmins(ctx, chatID)
+	if err != nil {
+		log.Printf("max /group: GetChatAdmins error chatID=%d: %v", chatID, err)
+	} else {
+		logJSON("max /group: admins", admins)
+	}
+}
+
+func logJSON(prefix string, v any) {
+	data, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		log.Printf("%s: %#v", prefix, v)
+		return
+	}
+	log.Printf("%s:\n%s", prefix, string(data))
 }
