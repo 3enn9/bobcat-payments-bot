@@ -1,6 +1,7 @@
 package max
 
 import (
+	"PaymentsBot/internal/db"
 	"PaymentsBot/internal/payments"
 	"context"
 	"encoding/json"
@@ -16,9 +17,10 @@ type MaxService struct {
 	Bot      *maxbot.Api
 	Chats    map[string]int64
 	payments *payments.PaymentsService
+	db       *db.Database
 }
 
-func NewMaxService(token string, payments *payments.PaymentsService) (*MaxService, error) {
+func NewMaxService(token string, payments *payments.PaymentsService, database *db.Database) (*MaxService, error) {
 	api, err := maxbot.New(token)
 	if err != nil {
 		return nil, err
@@ -26,8 +28,10 @@ func NewMaxService(token string, payments *payments.PaymentsService) (*MaxServic
 	chats := map[string]int64{
 		"Payments": -77028763384544,
 		"Fuels":    -77028768299744,
-		"Cash":     -77028778785504}
-	return &MaxService{Bot: api, Chats: chats, payments: payments}, nil
+		"Cash":     -77028778785504,
+		"Rogatka":  -71392114984255, // TODO: заменить на chat_id «Рогатка заявки»
+	}
+	return &MaxService{Bot: api, Chats: chats, payments: payments, db: database}, nil
 }
 
 func (m *MaxService) SendMessageInGroupID(chatID int64, message string) error {
@@ -78,9 +82,38 @@ func (m *MaxService) handleMessage(upd *schemes.MessageCreatedUpdate) {
 	switch cmd {
 	case "/group":
 		m.handleGroupCommand(upd)
-	default:
-		log.Printf("max: unknown command=%q chatID=%d", cmd, upd.GetChatID())
+		return
 	}
+
+	if strings.HasPrefix(cmd, "/") {
+		log.Printf("max: unknown command=%q chatID=%d", cmd, upd.GetChatID())
+		return
+	}
+
+	if upd.GetChatID() == m.Chats["Rogatka"] {
+		m.saveRogatkaRequest(upd, text)
+	}
+}
+
+func (m *MaxService) saveRogatkaRequest(upd *schemes.MessageCreatedUpdate, text string) {
+	if upd.Message.Sender.IsBot {
+		return
+	}
+
+	id, err := m.db.CreateRogatkaRequest(
+		upd.GetChatID(),
+		upd.Message.Sender.UserId,
+		upd.Message.Sender.Username,
+		upd.Message.Sender.Name,
+		upd.Message.Body.Mid,
+		text,
+	)
+	if err != nil {
+		log.Printf("max rogatka: save error chatID=%d: %v", upd.GetChatID(), err)
+		return
+	}
+
+	log.Printf("max rogatka: saved id=%d chatID=%d message=%q", id, upd.GetChatID(), text)
 }
 
 func (m *MaxService) handleGroupCommand(upd *schemes.MessageCreatedUpdate) {

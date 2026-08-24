@@ -119,3 +119,30 @@ func (d *Database) CreateMiniAppRequest(
 
 	return result.LastInsertId()
 }
+
+func (d *Database) CreateRogatkaRequest(
+	maxChatID int64,
+	maxUserID int64,
+	maxUsername string,
+	maxUserName string,
+	maxMessageID string,
+	message string,
+) (int64, error) {
+	result, err := d.DB.Exec(`
+		INSERT INTO rogatka_requests
+		(max_chat_id, max_user_id, max_username, max_user_name, max_message_id, message)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`,
+		maxChatID,
+		maxUserID,
+		maxUsername,
+		maxUserName,
+		maxMessageID,
+		message,
+	)
+	if err != nil {
+		return 0, err
+	}
+
+	return result.LastInsertId()
+}

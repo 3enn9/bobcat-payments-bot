@@ -37,9 +37,9 @@ func main() {
 		log.Fatalf("error create tgbot %v", err)
 	}
 
-	maxBotService, err := max2.NewMaxService(cf.MaxToken, paymentsService)
+	maxBotService, err := max2.NewMaxService(cf.MaxToken, paymentsService, dbInstance)
 	if err != nil {
-		log.Fatalf("error create tgbot %v", err)
+		log.Fatalf("error create maxbot %v", err)
 	}
 
 	multiMessengers := multi.NewMultiMessenger([]usecase.SendMessanger{tgBotService, maxBotService})
