@@ -2,22 +2,27 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"PaymentsBot/internal/db"
+	max2 "PaymentsBot/internal/max"
 
 	"github.com/gorilla/mux"
 )
 
 type MiniAppHandler struct {
-	db *db.Database
+	db  *db.Database
+	max *max2.MaxService
 }
 
-func NewMiniAppHandler(database *db.Database) *MiniAppHandler {
+func NewMiniAppHandler(database *db.Database, maxService *max2.MaxService) *MiniAppHandler {
 	return &MiniAppHandler{
-		db: database,
+		db:  database,
+		max: maxService,
 	}
 }
 
@@ -160,7 +165,7 @@ func (h *MiniAppHandler) AssignRogatkaDriver(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	ok, err := h.db.AssignRogatkaDriver(id, input.DriverName)
+	message, ok, err := h.db.AssignRogatkaDriver(id, input.DriverName)
 	if err != nil {
 		http.Error(w, `{"success":false,"error":"Ошибка назначения водителя"}`, http.StatusInternalServerError)
 		return
@@ -168,6 +173,11 @@ func (h *MiniAppHandler) AssignRogatkaDriver(w http.ResponseWriter, r *http.Requ
 	if !ok {
 		http.Error(w, `{"success":false,"error":"Заявка не найдена или уже назначена"}`, http.StatusNotFound)
 		return
+	}
+
+	notify := fmt.Sprintf("%s: %s", input.DriverName, message)
+	if err := h.max.SendMessageInGroupName("DriverRequest", notify); err != nil {
+		log.Printf("miniapp assign: send to DriverRequest failed: %v", err)
 	}
 
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{

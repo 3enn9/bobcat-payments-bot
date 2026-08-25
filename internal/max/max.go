@@ -26,10 +26,11 @@ func NewMaxService(token string, payments *payments.PaymentsService, database *d
 		return nil, err
 	}
 	chats := map[string]int64{
-		"Payments": -77028763384544,
-		"Fuels":    -77028768299744,
-		"Cash":     -77028778785504,
-		"Rogatka":  -71392114984255, // TODO: заменить на chat_id «Рогатка заявки»
+		"Payments":      -77028763384544,
+		"Fuels":         -77028768299744,
+		"Cash":          -77028778785504,
+		"Rogatka":       -71392114984255,
+		"DriverRequest": -78173743561440,
 	}
 	return &MaxService{Bot: api, Chats: chats, payments: payments, db: database}, nil
 }

@@ -48,7 +48,7 @@ func main() {
 	banksHandler := handlers.NewBanksHandler(banksService)
 	telegramHandler := handlers.NewTelegramHandler(tgBotService)
 	maxHandler := handlers.NewMaxHandler(maxBotService)
-	miniAppHandler := handlers.NewMiniAppHandler(dbInstance)
+	miniAppHandler := handlers.NewMiniAppHandler(dbInstance, maxBotService)
 
 	router := transport.NewRouter(
 		banksHandler,

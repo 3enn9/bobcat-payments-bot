@@ -203,7 +203,21 @@ func (d *Database) ListRogatkaRequests() ([]RogatkaRequest, error) {
 	return requests, nil
 }
 
-func (d *Database) AssignRogatkaDriver(id int64, driverName string) (bool, error) {
+func (d *Database) AssignRogatkaDriver(id int64, driverName string) (string, bool, error) {
+	var message string
+	err := d.DB.QueryRow(`
+		SELECT message
+		FROM rogatka_requests
+		WHERE id = ?
+		  AND (driver_name IS NULL OR driver_name = '')
+	`, id).Scan(&message)
+	if err == sql.ErrNoRows {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+
 	result, err := d.DB.Exec(`
 		UPDATE rogatka_requests
 		SET driver_name = ?
@@ -211,15 +225,18 @@ func (d *Database) AssignRogatkaDriver(id int64, driverName string) (bool, error
 		  AND (driver_name IS NULL OR driver_name = '')
 	`, driverName, id)
 	if err != nil {
-		return false, err
+		return "", false, err
 	}
 
 	affected, err := result.RowsAffected()
 	if err != nil {
-		return false, err
+		return "", false, err
+	}
+	if affected == 0 {
+		return "", false, nil
 	}
 
-	return affected > 0, nil
+	return message, true, nil
 }
 
 func (d *Database) DeleteRogatkaRequest(id int64) (bool, error) {
