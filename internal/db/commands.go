@@ -146,3 +146,51 @@ func (d *Database) CreateRogatkaRequest(
 
 	return result.LastInsertId()
 }
+
+type RogatkaRequest struct {
+	ID           int64     `json:"id"`
+	MaxChatID    int64     `json:"maxChatId"`
+	MaxUserID    int64     `json:"maxUserId"`
+	MaxUsername  string    `json:"maxUsername"`
+	MaxUserName  string    `json:"maxUserName"`
+	MaxMessageID string    `json:"maxMessageId"`
+	Message      string    `json:"message"`
+	CreatedAt    time.Time `json:"createdAt"`
+}
+
+func (d *Database) ListRogatkaRequests() ([]RogatkaRequest, error) {
+	rows, err := d.DB.Query(`
+		SELECT id, max_chat_id, max_user_id, max_username, max_user_name,
+		       max_message_id, message, created_at
+		FROM rogatka_requests
+		ORDER BY created_at DESC, id DESC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	requests := make([]RogatkaRequest, 0)
+	for rows.Next() {
+		var item RogatkaRequest
+		if err := rows.Scan(
+			&item.ID,
+			&item.MaxChatID,
+			&item.MaxUserID,
+			&item.MaxUsername,
+			&item.MaxUserName,
+			&item.MaxMessageID,
+			&item.Message,
+			&item.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		requests = append(requests, item)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return requests, nil
+}

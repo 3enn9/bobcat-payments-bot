@@ -45,5 +45,10 @@ func NewRouter(
 		miniApp.CreateRequest,
 	).Methods(http.MethodPost, http.MethodOptions)
 
+	router.HandleFunc(
+		"/api/miniapp/rogatka-requests",
+		miniApp.ListRogatkaRequests,
+	).Methods(http.MethodGet, http.MethodOptions)
+
 	return router
 }

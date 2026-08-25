@@ -98,3 +98,27 @@ func (h *MiniAppHandler) CreateRequest(w http.ResponseWriter, r *http.Request) {
 		"id":      id,
 	})
 }
+
+func (h *MiniAppHandler) ListRogatkaRequests(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	requests, err := h.db.ListRogatkaRequests()
+	if err != nil {
+		http.Error(
+			w,
+			`{"success":false,"error":"Ошибка загрузки заявок"}`,
+			http.StatusInternalServerError,
+		)
+		return
+	}
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":  true,
+		"requests": requests,
+	})
+}

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import RequestForm from "./components/RequestForm";
+import WorkerRequests from "./components/WorkerRequests";
 
 type Screen = "home" | "client" | "worker";
 
@@ -38,8 +39,8 @@ export default function App() {
 
   if (screen === "worker") {
     return (
-      <div className="page">
-        <div className="card">
+      <div className="page page-worker">
+        <div className="card card-worker">
           <button
             type="button"
             className="back-button"
@@ -52,9 +53,9 @@ export default function App() {
 
           <h1>Работник</h1>
 
-          <p className="subtitle">
-            Раздел работника будет доступен позже.
-          </p>
+          <p className="subtitle">Заявки из группы «Рогатка»</p>
+
+          <WorkerRequests />
         </div>
       </div>
     );
