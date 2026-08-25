@@ -10,6 +10,8 @@ export type RogatkaRequest = {
   createdAt: string;
 };
 
+export type RogatkaListStatus = "active" | "assigned";
+
 type ListRogatkaResponse = {
   success: boolean;
   requests?: RogatkaRequest[];
@@ -21,8 +23,12 @@ type AssignDriverResponse = {
   error?: string;
 };
 
-export async function fetchRogatkaRequests(): Promise<RogatkaRequest[]> {
-  const response = await fetch("/api/miniapp/rogatka-requests");
+export async function fetchRogatkaRequests(
+  status: RogatkaListStatus = "active",
+): Promise<RogatkaRequest[]> {
+  const response = await fetch(
+    `/api/miniapp/rogatka-requests?status=${encodeURIComponent(status)}`,
+  );
   const data = (await response.json()) as ListRogatkaResponse;
 
   if (!response.ok || !data.success) {

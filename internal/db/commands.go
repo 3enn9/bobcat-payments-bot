@@ -159,14 +159,25 @@ type RogatkaRequest struct {
 	CreatedAt    time.Time `json:"createdAt"`
 }
 
-func (d *Database) ListRogatkaRequests() ([]RogatkaRequest, error) {
-	rows, err := d.DB.Query(`
+func (d *Database) ListRogatkaRequests(assigned bool) ([]RogatkaRequest, error) {
+	query := `
 		SELECT id, max_chat_id, max_user_id, max_username, max_user_name,
 		       max_message_id, message, driver_name, created_at
 		FROM rogatka_requests
 		WHERE driver_name IS NULL OR driver_name = ''
 		ORDER BY created_at DESC, id DESC
-	`)
+	`
+	if assigned {
+		query = `
+			SELECT id, max_chat_id, max_user_id, max_username, max_user_name,
+			       max_message_id, message, driver_name, created_at
+			FROM rogatka_requests
+			WHERE driver_name IS NOT NULL AND driver_name <> ''
+			ORDER BY created_at DESC, id DESC
+		`
+	}
+
+	rows, err := d.DB.Query(query)
 	if err != nil {
 		return nil, err
 	}

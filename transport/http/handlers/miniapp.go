@@ -115,7 +115,19 @@ func (h *MiniAppHandler) ListRogatkaRequests(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	requests, err := h.db.ListRogatkaRequests()
+	status := strings.TrimSpace(r.URL.Query().Get("status"))
+	assigned := false
+	switch status {
+	case "", "active":
+		assigned = false
+	case "assigned":
+		assigned = true
+	default:
+		http.Error(w, `{"success":false,"error":"Некорректный статус"}`, http.StatusBadRequest)
+		return
+	}
+
+	requests, err := h.db.ListRogatkaRequests(assigned)
 	if err != nil {
 		http.Error(
 			w,

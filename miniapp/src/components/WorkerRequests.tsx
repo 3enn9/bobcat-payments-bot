@@ -4,6 +4,7 @@ import {
   assignRogatkaDriver,
   deleteRogatkaRequest,
   fetchRogatkaRequests,
+  type RogatkaListStatus,
   type RogatkaRequest,
 } from "../api/rogatka";
 
@@ -28,6 +29,7 @@ function formatDate(value: string): string {
 }
 
 export default function WorkerRequests() {
+  const [tab, setTab] = useState<RogatkaListStatus>("active");
   const [requests, setRequests] = useState<RogatkaRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -42,9 +44,12 @@ export default function WorkerRequests() {
     async function load() {
       setLoading(true);
       setError("");
+      setPanel(null);
+      setDriverName("");
+      setActionError("");
 
       try {
-        const items = await fetchRogatkaRequests();
+        const items = await fetchRogatkaRequests(tab);
         if (!cancelled) {
           setRequests(items);
         }
@@ -66,7 +71,7 @@ export default function WorkerRequests() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [tab]);
 
   function closePanel() {
     setPanel(null);
@@ -135,123 +140,157 @@ export default function WorkerRequests() {
     }
   }
 
-  if (loading) {
-    return <p className="placeholder">Загрузка заявок...</p>;
-  }
-
-  if (error) {
-    return <div className="error">{error}</div>;
-  }
-
-  if (requests.length === 0) {
-    return <p className="placeholder">Заявок пока нет.</p>;
-  }
-
   return (
-    <div className="requests-scroll">
-      <ul className="requests-list">
-        {requests.map((item) => {
-          const isAssigning = panel?.type === "assign" && panel.id === item.id;
-          const isDeleting = panel?.type === "delete" && panel.id === item.id;
+    <div className="worker-requests">
+      <div className="table-tabs" role="tablist" aria-label="Таблицы заявок">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "active"}
+          className={`table-tab${tab === "active" ? " table-tab-active" : ""}`}
+          onClick={() => setTab("active")}
+        >
+          Активные
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "assigned"}
+          className={`table-tab${tab === "assigned" ? " table-tab-active" : ""}`}
+          onClick={() => setTab("assigned")}
+        >
+          Назначено
+        </button>
+      </div>
 
-          return (
-            <li key={item.id} className="request-item">
-              <div className="request-item-top">
-                <div className="request-item-meta">
-                  <span className="request-item-author">
-                    {item.maxUserName || item.maxUsername || "Без имени"}
-                  </span>
-                  <time dateTime={item.createdAt}>
-                    {formatDate(item.createdAt)}
-                  </time>
-                </div>
+      {loading && <p className="placeholder">Загрузка заявок...</p>}
 
-                <div className="request-item-actions">
-                  <button
-                    type="button"
-                    className="icon-action icon-action-plus"
-                    aria-label="Назначить водителя"
-                    disabled={saving}
-                    onClick={() => openAssign(item.id)}
-                  >
-                    +
-                  </button>
-                  <button
-                    type="button"
-                    className="icon-action icon-action-minus"
-                    aria-label="Удалить заявку"
-                    disabled={saving}
-                    onClick={() => openDelete(item.id)}
-                  >
-                    −
-                  </button>
-                </div>
-              </div>
+      {!loading && error && <div className="error">{error}</div>}
 
-              <p className="request-item-message">{item.message}</p>
+      {!loading && !error && requests.length === 0 && (
+        <p className="placeholder">
+          {tab === "active" ? "Активных заявок пока нет." : "Назначенных заявок пока нет."}
+        </p>
+      )}
 
-              {isAssigning && (
-                <form className="assign-form" onSubmit={confirmAssign}>
-                  <label>
-                    <span>Фамилия водителя</span>
-                    <input
-                      value={driverName}
-                      onChange={(event) => setDriverName(event.target.value)}
-                      placeholder="Иванов"
-                      maxLength={100}
-                      autoFocus
-                      disabled={saving}
-                    />
-                  </label>
+      {!loading && !error && requests.length > 0 && (
+        <div className="requests-scroll">
+          <ul className="requests-list">
+            {requests.map((item) => {
+              const isAssigning =
+                panel?.type === "assign" && panel.id === item.id;
+              const isDeleting =
+                panel?.type === "delete" && panel.id === item.id;
 
-                  {actionError && <div className="error">{actionError}</div>}
+              return (
+                <li key={item.id} className="request-item">
+                  <div className="request-item-top">
+                    <div className="request-item-meta">
+                      <span className="request-item-author">
+                        {item.maxUserName || item.maxUsername || "Без имени"}
+                      </span>
+                      <time dateTime={item.createdAt}>
+                        {formatDate(item.createdAt)}
+                      </time>
+                      {tab === "assigned" && item.driverName && (
+                        <span className="request-item-driver">
+                          Водитель: {item.driverName}
+                        </span>
+                      )}
+                    </div>
 
-                  <div className="assign-form-actions">
-                    <button
-                      type="button"
-                      className="secondary-button"
-                      onClick={closePanel}
-                      disabled={saving}
-                    >
-                      Отмена
-                    </button>
-                    <button type="submit" disabled={saving}>
-                      {saving ? "Сохраняем..." : "Подтвердить"}
-                    </button>
+                    <div className="request-item-actions">
+                      {tab === "active" && (
+                        <button
+                          type="button"
+                          className="icon-action icon-action-plus"
+                          aria-label="Назначить водителя"
+                          disabled={saving}
+                          onClick={() => openAssign(item.id)}
+                        >
+                          +
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="icon-action icon-action-minus"
+                        aria-label="Удалить заявку"
+                        disabled={saving}
+                        onClick={() => openDelete(item.id)}
+                      >
+                        −
+                      </button>
+                    </div>
                   </div>
-                </form>
-              )}
 
-              {isDeleting && (
-                <div className="assign-form delete-confirm">
-                  <p className="delete-confirm-text">Удалить заявку?</p>
+                  <p className="request-item-message">{item.message}</p>
 
-                  {actionError && <div className="error">{actionError}</div>}
+                  {isAssigning && (
+                    <form className="assign-form" onSubmit={confirmAssign}>
+                      <label>
+                        <span>Фамилия водителя</span>
+                        <input
+                          value={driverName}
+                          onChange={(event) =>
+                            setDriverName(event.target.value)
+                          }
+                          placeholder="Иванов"
+                          maxLength={100}
+                          autoFocus
+                          disabled={saving}
+                        />
+                      </label>
 
-                  <div className="assign-form-actions">
-                    <button
-                      type="button"
-                      className="secondary-button"
-                      onClick={closePanel}
-                      disabled={saving}
-                    >
-                      Отмена
-                    </button>
-                    <button
-                      type="button"
-                      className="danger-button"
-                      onClick={confirmDelete}
-                      disabled={saving}
-                    >
-                      {saving ? "Удаляем..." : "Удалить"}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </li>
-          );
-        })}
-      </ul>
+                      {actionError && <div className="error">{actionError}</div>}
+
+                      <div className="assign-form-actions">
+                        <button
+                          type="button"
+                          className="secondary-button"
+                          onClick={closePanel}
+                          disabled={saving}
+                        >
+                          Отмена
+                        </button>
+                        <button type="submit" disabled={saving}>
+                          {saving ? "Сохраняем..." : "Подтвердить"}
+                        </button>
+                      </div>
+                    </form>
+                  )}
+
+                  {isDeleting && (
+                    <div className="assign-form delete-confirm">
+                      <p className="delete-confirm-text">Удалить заявку?</p>
+
+                      {actionError && <div className="error">{actionError}</div>}
+
+                      <div className="assign-form-actions">
+                        <button
+                          type="button"
+                          className="secondary-button"
+                          onClick={closePanel}
+                          disabled={saving}
+                        >
+                          Отмена
+                        </button>
+                        <button
+                          type="button"
+                          className="danger-button"
+                          onClick={confirmDelete}
+                          disabled={saving}
+                        >
+                          {saving ? "Удаляем..." : "Удалить"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
