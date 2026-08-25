@@ -155,14 +155,16 @@ type RogatkaRequest struct {
 	MaxUserName  string    `json:"maxUserName"`
 	MaxMessageID string    `json:"maxMessageId"`
 	Message      string    `json:"message"`
+	DriverName   *string   `json:"driverName"`
 	CreatedAt    time.Time `json:"createdAt"`
 }
 
 func (d *Database) ListRogatkaRequests() ([]RogatkaRequest, error) {
 	rows, err := d.DB.Query(`
 		SELECT id, max_chat_id, max_user_id, max_username, max_user_name,
-		       max_message_id, message, created_at
+		       max_message_id, message, driver_name, created_at
 		FROM rogatka_requests
+		WHERE driver_name IS NULL OR driver_name = ''
 		ORDER BY created_at DESC, id DESC
 	`)
 	if err != nil {
@@ -173,6 +175,7 @@ func (d *Database) ListRogatkaRequests() ([]RogatkaRequest, error) {
 	requests := make([]RogatkaRequest, 0)
 	for rows.Next() {
 		var item RogatkaRequest
+		var driverName sql.NullString
 		if err := rows.Scan(
 			&item.ID,
 			&item.MaxChatID,
@@ -181,9 +184,14 @@ func (d *Database) ListRogatkaRequests() ([]RogatkaRequest, error) {
 			&item.MaxUserName,
 			&item.MaxMessageID,
 			&item.Message,
+			&driverName,
 			&item.CreatedAt,
 		); err != nil {
 			return nil, err
+		}
+		if driverName.Valid {
+			name := driverName.String
+			item.DriverName = &name
 		}
 		requests = append(requests, item)
 	}
@@ -193,4 +201,23 @@ func (d *Database) ListRogatkaRequests() ([]RogatkaRequest, error) {
 	}
 
 	return requests, nil
+}
+
+func (d *Database) AssignRogatkaDriver(id int64, driverName string) (bool, error) {
+	result, err := d.DB.Exec(`
+		UPDATE rogatka_requests
+		SET driver_name = ?
+		WHERE id = ?
+		  AND (driver_name IS NULL OR driver_name = '')
+	`, driverName, id)
+	if err != nil {
+		return false, err
+	}
+
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+
+	return affected > 0, nil
 }

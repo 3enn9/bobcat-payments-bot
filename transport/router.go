@@ -50,5 +50,10 @@ func NewRouter(
 		miniApp.ListRogatkaRequests,
 	).Methods(http.MethodGet, http.MethodOptions)
 
+	router.HandleFunc(
+		"/api/miniapp/rogatka-requests/{id}/assign",
+		miniApp.AssignRogatkaDriver,
+	).Methods(http.MethodPost, http.MethodOptions)
+
 	return router
 }

@@ -3,9 +3,12 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"PaymentsBot/internal/db"
+
+	"github.com/gorilla/mux"
 )
 
 type MiniAppHandler struct {
@@ -120,5 +123,54 @@ func (h *MiniAppHandler) ListRogatkaRequests(w http.ResponseWriter, r *http.Requ
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"success":  true,
 		"requests": requests,
+	})
+}
+
+type assignRogatkaDriverRequest struct {
+	DriverName string `json:"driverName"`
+}
+
+func (h *MiniAppHandler) AssignRogatkaDriver(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	id, err := strconv.ParseInt(mux.Vars(r)["id"], 10, 64)
+	if err != nil || id <= 0 {
+		http.Error(w, `{"success":false,"error":"Некорректный ID"}`, http.StatusBadRequest)
+		return
+	}
+
+	var input assignRogatkaDriverRequest
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		http.Error(w, `{"success":false,"error":"Некорректный JSON"}`, http.StatusBadRequest)
+		return
+	}
+
+	input.DriverName = strings.TrimSpace(input.DriverName)
+	if input.DriverName == "" {
+		http.Error(w, `{"success":false,"error":"Укажите фамилию водителя"}`, http.StatusBadRequest)
+		return
+	}
+	if len([]rune(input.DriverName)) > 100 {
+		http.Error(w, `{"success":false,"error":"Фамилия слишком длинная"}`, http.StatusBadRequest)
+		return
+	}
+
+	ok, err := h.db.AssignRogatkaDriver(id, input.DriverName)
+	if err != nil {
+		http.Error(w, `{"success":false,"error":"Ошибка назначения водителя"}`, http.StatusInternalServerError)
+		return
+	}
+	if !ok {
+		http.Error(w, `{"success":false,"error":"Заявка не найдена или уже назначена"}`, http.StatusNotFound)
+		return
+	}
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
 	})
 }
