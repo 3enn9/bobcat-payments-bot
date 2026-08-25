@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"strings"
 
@@ -31,8 +32,38 @@ func NewMaxService(token string, payments *payments.PaymentsService, database *d
 		"Cash":          -77028778785504,
 		"Rogatka":       -71392114984255,
 		"DriverRequest": -78173743561440,
+		"WorkerDone":    -78179579607776,
 	}
 	return &MaxService{Bot: api, Chats: chats, payments: payments, db: database}, nil
+}
+
+type PhotoUpload struct {
+	Name   string
+	Reader io.Reader
+}
+
+func (m *MaxService) SendMessageWithPhotos(groupName, text string, photos []PhotoUpload) error {
+	chatID, ok := m.Chats[groupName]
+	if !ok {
+		return fmt.Errorf("group name does not exist: %s", groupName)
+	}
+
+	ctx := context.Background()
+	msg := maxbot.NewMessage().SetChat(chatID).SetText(text)
+
+	for _, photo := range photos {
+		tokens, err := m.Bot.Uploads.UploadPhotoFromReaderWithName(ctx, photo.Reader, photo.Name)
+		if err != nil {
+			return fmt.Errorf("upload photo %s: %w", photo.Name, err)
+		}
+		msg.AddPhoto(tokens)
+	}
+
+	if err := m.Bot.Messages.Send(ctx, msg); err != nil {
+		return fmt.Errorf("send message: %w", err)
+	}
+
+	return nil
 }
 
 func (m *MaxService) SendMessageInGroupID(chatID int64, message string) error {

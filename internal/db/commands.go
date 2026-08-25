@@ -4,6 +4,7 @@ import (
 	"PaymentsBot/internal/domain/payment"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -148,36 +149,92 @@ func (d *Database) CreateRogatkaRequest(
 }
 
 type RogatkaRequest struct {
-	ID           int64     `json:"id"`
-	MaxChatID    int64     `json:"maxChatId"`
-	MaxUserID    int64     `json:"maxUserId"`
-	MaxUsername  string    `json:"maxUsername"`
-	MaxUserName  string    `json:"maxUserName"`
-	MaxMessageID string    `json:"maxMessageId"`
-	Message      string    `json:"message"`
-	DriverName   *string   `json:"driverName"`
-	CreatedAt    time.Time `json:"createdAt"`
+	ID            int64     `json:"id"`
+	MaxChatID     int64     `json:"maxChatId"`
+	MaxUserID     int64     `json:"maxUserId"`
+	MaxUsername   string    `json:"maxUsername"`
+	MaxUserName   string    `json:"maxUserName"`
+	MaxMessageID  string    `json:"maxMessageId"`
+	Message       string    `json:"message"`
+	DriverName    *string   `json:"driverName"`
+	IsCompleted   bool      `json:"isCompleted"`
+	DriverComment *string   `json:"driverComment"`
+	CreatedAt     time.Time `json:"createdAt"`
 }
 
-func (d *Database) ListRogatkaRequests(assigned bool) ([]RogatkaRequest, error) {
-	query := `
-		SELECT id, max_chat_id, max_user_id, max_username, max_user_name,
-		       max_message_id, message, driver_name, created_at
-		FROM rogatka_requests
-		WHERE driver_name IS NULL OR driver_name = ''
-		ORDER BY created_at DESC, id DESC
-	`
-	if assigned {
-		query = `
-			SELECT id, max_chat_id, max_user_id, max_username, max_user_name,
-			       max_message_id, message, driver_name, created_at
-			FROM rogatka_requests
-			WHERE driver_name IS NOT NULL AND driver_name <> ''
-			ORDER BY created_at DESC, id DESC
-		`
+func scanRogatkaRequest(scanner interface {
+	Scan(dest ...any) error
+}) (RogatkaRequest, error) {
+	var item RogatkaRequest
+	var driverName sql.NullString
+	var driverComment sql.NullString
+	var isCompleted int
+
+	if err := scanner.Scan(
+		&item.ID,
+		&item.MaxChatID,
+		&item.MaxUserID,
+		&item.MaxUsername,
+		&item.MaxUserName,
+		&item.MaxMessageID,
+		&item.Message,
+		&driverName,
+		&isCompleted,
+		&driverComment,
+		&item.CreatedAt,
+	); err != nil {
+		return RogatkaRequest{}, err
 	}
 
-	rows, err := d.DB.Query(query)
+	item.IsCompleted = isCompleted != 0
+	if driverName.Valid {
+		name := driverName.String
+		item.DriverName = &name
+	}
+	if driverComment.Valid {
+		comment := driverComment.String
+		item.DriverComment = &comment
+	}
+
+	return item, nil
+}
+
+func (d *Database) ListRogatkaRequests(assigned bool, driverName string) ([]RogatkaRequest, error) {
+	driverName = strings.TrimSpace(driverName)
+
+	var (
+		rows *sql.Rows
+		err  error
+	)
+
+	switch {
+	case driverName != "":
+		rows, err = d.DB.Query(`
+			SELECT id, max_chat_id, max_user_id, max_username, max_user_name,
+			       max_message_id, message, driver_name, is_completed, driver_comment, created_at
+			FROM rogatka_requests
+			WHERE LOWER(driver_name) = LOWER(?)
+			  AND is_completed = 0
+			ORDER BY created_at DESC, id DESC
+		`, driverName)
+	case assigned:
+		rows, err = d.DB.Query(`
+			SELECT id, max_chat_id, max_user_id, max_username, max_user_name,
+			       max_message_id, message, driver_name, is_completed, driver_comment, created_at
+			FROM rogatka_requests
+			WHERE driver_name IS NOT NULL AND driver_name <> ''
+			  AND is_completed = 0
+			ORDER BY created_at DESC, id DESC
+		`)
+	default:
+		rows, err = d.DB.Query(`
+			SELECT id, max_chat_id, max_user_id, max_username, max_user_name,
+			       max_message_id, message, driver_name, is_completed, driver_comment, created_at
+			FROM rogatka_requests
+			WHERE driver_name IS NULL OR driver_name = ''
+			ORDER BY created_at DESC, id DESC
+		`)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -185,24 +242,9 @@ func (d *Database) ListRogatkaRequests(assigned bool) ([]RogatkaRequest, error) 
 
 	requests := make([]RogatkaRequest, 0)
 	for rows.Next() {
-		var item RogatkaRequest
-		var driverName sql.NullString
-		if err := rows.Scan(
-			&item.ID,
-			&item.MaxChatID,
-			&item.MaxUserID,
-			&item.MaxUsername,
-			&item.MaxUserName,
-			&item.MaxMessageID,
-			&item.Message,
-			&driverName,
-			&item.CreatedAt,
-		); err != nil {
+		item, err := scanRogatkaRequest(rows)
+		if err != nil {
 			return nil, err
-		}
-		if driverName.Valid {
-			name := driverName.String
-			item.DriverName = &name
 		}
 		requests = append(requests, item)
 	}
@@ -212,6 +254,48 @@ func (d *Database) ListRogatkaRequests(assigned bool) ([]RogatkaRequest, error) 
 	}
 
 	return requests, nil
+}
+
+func (d *Database) GetOpenRogatkaForDriver(id int64, driverName string) (*RogatkaRequest, error) {
+	row := d.DB.QueryRow(`
+		SELECT id, max_chat_id, max_user_id, max_username, max_user_name,
+		       max_message_id, message, driver_name, is_completed, driver_comment, created_at
+		FROM rogatka_requests
+		WHERE id = ?
+		  AND LOWER(driver_name) = LOWER(?)
+		  AND is_completed = 0
+	`, id, driverName)
+
+	item, err := scanRogatkaRequest(row)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return &item, nil
+}
+
+func (d *Database) CompleteRogatkaRequest(id int64, driverName, comment string) (bool, error) {
+	result, err := d.DB.Exec(`
+		UPDATE rogatka_requests
+		SET is_completed = 1,
+		    driver_comment = ?
+		WHERE id = ?
+		  AND LOWER(driver_name) = LOWER(?)
+		  AND is_completed = 0
+	`, comment, id, driverName)
+	if err != nil {
+		return false, err
+	}
+
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+
+	return affected > 0, nil
 }
 
 func (d *Database) AssignRogatkaDriver(id int64, driverName string) (string, bool, error) {

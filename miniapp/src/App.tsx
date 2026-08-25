@@ -1,5 +1,6 @@
 import { useState } from "react";
 import RequestForm from "./components/RequestForm";
+import WorkerCabinet from "./components/WorkerCabinet";
 import WorkerRequests from "./components/WorkerRequests";
 
 type Screen = "home" | "client" | "worker" | "kosenko";
@@ -39,21 +40,20 @@ export default function App() {
 
   if (screen === "worker") {
     return (
-      <div className="page">
-        <div className="card">
-          <button
-            type="button"
-            className="back-button"
-            onClick={() => setScreen("home")}
-          >
-            ← Назад
-          </button>
+      <div className="page page-worker">
+        <div className="card card-worker">
+          <div className="worker-header">
+            <button
+              type="button"
+              className="back-button"
+              onClick={() => setScreen("home")}
+            >
+              ← Назад
+            </button>
+            <h1>Работник</h1>
+          </div>
 
-          <div className="eyebrow">GOPAYGO</div>
-
-          <h1>Работник</h1>
-
-          <p className="subtitle">Страница в разработке</p>
+          <WorkerCabinet />
         </div>
       </div>
     );

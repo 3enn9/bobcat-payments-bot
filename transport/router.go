@@ -56,6 +56,11 @@ func NewRouter(
 	).Methods(http.MethodPost, http.MethodOptions)
 
 	router.HandleFunc(
+		"/api/miniapp/rogatka-requests/{id}/complete",
+		miniApp.CompleteRogatkaRequest,
+	).Methods(http.MethodPost, http.MethodOptions)
+
+	router.HandleFunc(
 		"/api/miniapp/rogatka-requests/{id}",
 		miniApp.DeleteRogatkaRequest,
 	).Methods(http.MethodDelete, http.MethodOptions)
