@@ -63,19 +63,16 @@ export default function App() {
     return (
       <div className="page page-worker">
         <div className="card card-worker">
-          <button
-            type="button"
-            className="back-button"
-            onClick={() => setScreen("home")}
-          >
-            ← Назад
-          </button>
-
-          <div className="eyebrow">GOPAYGO</div>
-
-          <h1>Косенко</h1>
-
-          <p className="subtitle">Заявки из группы «Рогатка»</p>
+          <div className="worker-header">
+            <button
+              type="button"
+              className="back-button"
+              onClick={() => setScreen("home")}
+            >
+              ← Назад
+            </button>
+            <h1>Косенко</h1>
+          </div>
 
           <WorkerRequests />
         </div>
