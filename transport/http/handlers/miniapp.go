@@ -174,3 +174,32 @@ func (h *MiniAppHandler) AssignRogatkaDriver(w http.ResponseWriter, r *http.Requ
 		"success": true,
 	})
 }
+
+func (h *MiniAppHandler) DeleteRogatkaRequest(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	id, err := strconv.ParseInt(mux.Vars(r)["id"], 10, 64)
+	if err != nil || id <= 0 {
+		http.Error(w, `{"success":false,"error":"Некорректный ID"}`, http.StatusBadRequest)
+		return
+	}
+
+	ok, err := h.db.DeleteRogatkaRequest(id)
+	if err != nil {
+		http.Error(w, `{"success":false,"error":"Ошибка удаления заявки"}`, http.StatusInternalServerError)
+		return
+	}
+	if !ok {
+		http.Error(w, `{"success":false,"error":"Заявка не найдена"}`, http.StatusNotFound)
+		return
+	}
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+	})
+}

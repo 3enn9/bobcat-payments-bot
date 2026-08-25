@@ -50,3 +50,15 @@ export async function assignRogatkaDriver(
     throw new Error(data.error || "Не удалось назначить водителя");
   }
 }
+
+export async function deleteRogatkaRequest(id: number): Promise<void> {
+  const response = await fetch(`/api/miniapp/rogatka-requests/${id}`, {
+    method: "DELETE",
+  });
+
+  const data = (await response.json()) as AssignDriverResponse;
+
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || "Не удалось удалить заявку");
+  }
+}

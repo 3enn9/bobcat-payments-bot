@@ -201,8 +201,9 @@
 }
 
 .icon-action-minus {
-  background: #ececec;
-  color: #777;
+  background: #fff;
+  color: #c62828;
+  border: 1px solid #f0c0c0;
 }
 
 .request-item-message {
@@ -229,6 +230,18 @@
 .secondary-button {
   background: #ececec;
   color: #222;
+}
+
+.delete-confirm-text {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+  color: #333;
+}
+
+.danger-button {
+  background: #c62828;
+  color: #fff;
 }
 
 @media (max-width: 520px) {

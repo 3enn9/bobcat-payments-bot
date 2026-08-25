@@ -221,3 +221,20 @@ func (d *Database) AssignRogatkaDriver(id int64, driverName string) (bool, error
 
 	return affected > 0, nil
 }
+
+func (d *Database) DeleteRogatkaRequest(id int64) (bool, error) {
+	result, err := d.DB.Exec(`
+		DELETE FROM rogatka_requests
+		WHERE id = ?
+	`, id)
+	if err != nil {
+		return false, err
+	}
+
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+
+	return affected > 0, nil
+}

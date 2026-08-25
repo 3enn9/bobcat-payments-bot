@@ -2,9 +2,15 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import {
   assignRogatkaDriver,
+  deleteRogatkaRequest,
   fetchRogatkaRequests,
   type RogatkaRequest,
 } from "../api/rogatka";
+
+type PanelMode =
+  | { type: "assign"; id: number }
+  | { type: "delete"; id: number }
+  | null;
 
 function formatDate(value: string): string {
   const date = new Date(value);
@@ -25,9 +31,9 @@ export default function WorkerRequests() {
   const [requests, setRequests] = useState<RogatkaRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [assigningId, setAssigningId] = useState<number | null>(null);
+  const [panel, setPanel] = useState<PanelMode>(null);
   const [driverName, setDriverName] = useState("");
-  const [assignError, setAssignError] = useState("");
+  const [actionError, setActionError] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -62,40 +68,67 @@ export default function WorkerRequests() {
     };
   }, []);
 
-  function openAssign(id: number) {
-    setAssigningId(id);
+  function closePanel() {
+    setPanel(null);
     setDriverName("");
-    setAssignError("");
+    setActionError("");
   }
 
-  function closeAssign() {
-    setAssigningId(null);
+  function openAssign(id: number) {
+    setPanel({ type: "assign", id });
     setDriverName("");
-    setAssignError("");
+    setActionError("");
+  }
+
+  function openDelete(id: number) {
+    setPanel({ type: "delete", id });
+    setDriverName("");
+    setActionError("");
   }
 
   async function confirmAssign(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (assigningId === null) {
+    if (panel?.type !== "assign") {
       return;
     }
 
     const name = driverName.trim();
     if (!name) {
-      setAssignError("Введите фамилию водителя");
+      setActionError("Введите фамилию водителя");
       return;
     }
 
     setSaving(true);
-    setAssignError("");
+    setActionError("");
 
     try {
-      await assignRogatkaDriver(assigningId, name);
-      setRequests((prev) => prev.filter((item) => item.id !== assigningId));
-      closeAssign();
+      await assignRogatkaDriver(panel.id, name);
+      setRequests((prev) => prev.filter((item) => item.id !== panel.id));
+      closePanel();
     } catch (err) {
-      setAssignError(
+      setActionError(
         err instanceof Error ? err.message : "Не удалось назначить водителя",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function confirmDelete() {
+    if (panel?.type !== "delete") {
+      return;
+    }
+
+    setSaving(true);
+    setActionError("");
+
+    try {
+      await deleteRogatkaRequest(panel.id);
+      setRequests((prev) => prev.filter((item) => item.id !== panel.id));
+      closePanel();
+    } catch (err) {
+      setActionError(
+        err instanceof Error ? err.message : "Не удалось удалить заявку",
       );
     } finally {
       setSaving(false);
@@ -118,7 +151,8 @@ export default function WorkerRequests() {
     <div className="requests-scroll">
       <ul className="requests-list">
         {requests.map((item) => {
-          const isAssigning = assigningId === item.id;
+          const isAssigning = panel?.type === "assign" && panel.id === item.id;
+          const isDeleting = panel?.type === "delete" && panel.id === item.id;
 
           return (
             <li key={item.id} className="request-item">
@@ -145,9 +179,9 @@ export default function WorkerRequests() {
                   <button
                     type="button"
                     className="icon-action icon-action-minus"
-                    aria-label="Дополнительное действие"
-                    disabled
-                    title="Скоро"
+                    aria-label="Удалить заявку"
+                    disabled={saving}
+                    onClick={() => openDelete(item.id)}
                   >
                     −
                   </button>
@@ -170,13 +204,13 @@ export default function WorkerRequests() {
                     />
                   </label>
 
-                  {assignError && <div className="error">{assignError}</div>}
+                  {actionError && <div className="error">{actionError}</div>}
 
                   <div className="assign-form-actions">
                     <button
                       type="button"
                       className="secondary-button"
-                      onClick={closeAssign}
+                      onClick={closePanel}
                       disabled={saving}
                     >
                       Отмена
@@ -186,6 +220,33 @@ export default function WorkerRequests() {
                     </button>
                   </div>
                 </form>
+              )}
+
+              {isDeleting && (
+                <div className="assign-form delete-confirm">
+                  <p className="delete-confirm-text">Удалить заявку?</p>
+
+                  {actionError && <div className="error">{actionError}</div>}
+
+                  <div className="assign-form-actions">
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={closePanel}
+                      disabled={saving}
+                    >
+                      Отмена
+                    </button>
+                    <button
+                      type="button"
+                      className="danger-button"
+                      onClick={confirmDelete}
+                      disabled={saving}
+                    >
+                      {saving ? "Удаляем..." : "Удалить"}
+                    </button>
+                  </div>
+                </div>
               )}
             </li>
           );
