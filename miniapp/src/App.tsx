@@ -2,7 +2,7 @@ import { useState } from "react";
 import RequestForm from "./components/RequestForm";
 import WorkerRequests from "./components/WorkerRequests";
 
-type Screen = "home" | "client" | "worker";
+type Screen = "home" | "client" | "worker" | "kosenko";
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>("home");
@@ -39,6 +39,28 @@ export default function App() {
 
   if (screen === "worker") {
     return (
+      <div className="page">
+        <div className="card">
+          <button
+            type="button"
+            className="back-button"
+            onClick={() => setScreen("home")}
+          >
+            ← Назад
+          </button>
+
+          <div className="eyebrow">GOPAYGO</div>
+
+          <h1>Работник</h1>
+
+          <p className="subtitle">Страница в разработке</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (screen === "kosenko") {
+    return (
       <div className="page page-worker">
         <div className="card card-worker">
           <button
@@ -51,7 +73,7 @@ export default function App() {
 
           <div className="eyebrow">GOPAYGO</div>
 
-          <h1>Работник</h1>
+          <h1>Косенко</h1>
 
           <p className="subtitle">Заявки из группы «Рогатка»</p>
 
@@ -95,6 +117,19 @@ export default function App() {
           <span>
             <strong>Работник</strong>
             <small>Перейти в кабинет</small>
+          </span>
+        </button>
+
+        <button
+          type="button"
+          className="role-button"
+          onClick={() => setScreen("kosenko")}
+        >
+          <span className="role-icon">📋</span>
+
+          <span>
+            <strong>Косенко</strong>
+            <small>Заявки Рогатка</small>
           </span>
         </button>
       </div>
