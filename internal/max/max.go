@@ -33,6 +33,7 @@ func NewMaxService(token string, payments *payments.PaymentsService, database *d
 		"Rogatka":       -71392114984255,
 		"DriverRequest": -78173743561440,
 		"WorkerDone":    -78179579607776,
+		"Invoices":      -78218659838688,
 	}
 	return &MaxService{Bot: api, Chats: chats, payments: payments, db: database}, nil
 }
@@ -78,13 +79,14 @@ func (m *MaxService) SendMessageInGroupName(nameGroup string, message string) er
 	chatID, ok := m.Chats[nameGroup]
 	if !ok {
 		log.Println("group name does not exists")
-		return nil
+		return fmt.Errorf("group name does not exist: %s", nameGroup)
 	}
 
 	msg := maxbot.NewMessage().SetChat(chatID).SetText(message)
 	err := m.Bot.Messages.Send(context.Background(), msg)
 	if err != nil {
 		log.Printf("error send message %v", err)
+		return err
 	}
 	return nil
 }

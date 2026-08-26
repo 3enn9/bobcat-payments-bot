@@ -2,8 +2,9 @@ import { useState } from "react";
 import RequestForm from "./components/RequestForm";
 import WorkerCabinet from "./components/WorkerCabinet";
 import WorkerRequests from "./components/WorkerRequests";
+import InvoiceForm from "./components/InvoiceForm";
 
-type Screen = "home" | "client" | "worker" | "kosenko";
+type Screen = "home" | "client" | "worker" | "kosenko" | "invoices";
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>("home");
@@ -80,6 +81,29 @@ export default function App() {
     );
   }
 
+  if (screen === "invoices") {
+    return (
+      <div className="page page-worker">
+        <div className="card card-worker">
+          <div className="worker-header">
+            <button
+              type="button"
+              className="back-button"
+              onClick={() => setScreen("home")}
+            >
+              ← Назад
+            </button>
+            <h1>Счета</h1>
+          </div>
+
+          <div className="requests-scroll">
+            <InvoiceForm />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <main className="home-screen">
       <div className="logo">Bobcatsar64</div>
@@ -127,6 +151,19 @@ export default function App() {
           <span>
             <strong>Косенко</strong>
             <small>Заявки Рогатка</small>
+          </span>
+        </button>
+
+        <button
+          type="button"
+          className="role-button"
+          onClick={() => setScreen("invoices")}
+        >
+          <span className="role-icon">🧾</span>
+
+          <span>
+            <strong>Счета</strong>
+            <small>Конструктор счетов</small>
           </span>
         </button>
       </div>

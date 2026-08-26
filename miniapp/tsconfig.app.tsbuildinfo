@@ -1,1 +1,1 @@
-{"root":["./src/app.tsx","./src/main.tsx","./src/max.ts","./src/vite-env.d.ts","./src/api/requests.ts","./src/api/rogatka.ts","./src/components/requestform.tsx","./src/components/workerrequests.tsx"],"version":"5.9.3"}
+{"root":["./src/app.tsx","./src/main.tsx","./src/max.ts","./src/vite-env.d.ts","./src/api/invoices.ts","./src/api/requests.ts","./src/api/rogatka.ts","./src/components/invoiceform.tsx","./src/components/requestform.tsx","./src/components/workercabinet.tsx","./src/components/workerrequests.tsx"],"version":"5.9.3"}

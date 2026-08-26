@@ -65,5 +65,25 @@ func NewRouter(
 		miniApp.DeleteRogatkaRequest,
 	).Methods(http.MethodDelete, http.MethodOptions)
 
+	router.HandleFunc(
+		"/api/miniapp/invoices/suppliers",
+		miniApp.SearchInvoiceSuppliers,
+	).Methods(http.MethodGet, http.MethodOptions)
+
+	router.HandleFunc(
+		"/api/miniapp/invoices/buyers",
+		miniApp.SearchInvoiceBuyers,
+	).Methods(http.MethodGet, http.MethodOptions)
+
+	router.HandleFunc(
+		"/api/miniapp/invoices/banks",
+		miniApp.SearchInvoiceBanks,
+	).Methods(http.MethodGet, http.MethodOptions)
+
+	router.HandleFunc(
+		"/api/miniapp/invoices",
+		miniApp.CreateInvoice,
+	).Methods(http.MethodPost, http.MethodOptions)
+
 	return router
 }
