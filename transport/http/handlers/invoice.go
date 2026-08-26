@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -208,9 +209,49 @@ func (h *MiniAppHandler) CreateInvoice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	text := formatInvoiceMessage(created.Number, invoiceDate, input.Basis, input.Supplier, input.Buyer, input.Bank, items, total, vat)
-	if err := h.max.SendMessageInGroupName("Invoices", text); err != nil {
-		log.Printf("invoice send to MAX failed: %v", err)
+	pdfItems := make([]invoice.PDFItem, 0, len(items))
+	for _, item := range items {
+		pdfItems = append(pdfItems, invoice.PDFItem{
+			Position: item.Position,
+			Title:    item.Title,
+			Quantity: item.Quantity,
+			Unit:     item.Unit,
+			Price:    item.Price,
+			Amount:   item.Amount,
+		})
+	}
+
+	pdfBytes, err := invoice.GeneratePDF(invoice.PDFData{
+		Number:          created.Number,
+		Date:            invoiceDate,
+		Basis:           input.Basis,
+		BankName:        input.Bank.Name,
+		BankBIK:         input.Bank.BIK,
+		BankAccount:     input.Bank.Account,
+		BankCorrAccount: input.Bank.CorrAccount,
+		SupplierName:    input.Supplier.Name,
+		SupplierINN:     input.Supplier.INN,
+		SupplierKPP:     input.Supplier.KPP,
+		SupplierAddress: input.Supplier.AddressText,
+		BuyerName:       input.Buyer.Name,
+		BuyerINN:        input.Buyer.INN,
+		BuyerKPP:        input.Buyer.KPP,
+		BuyerAddress:    input.Buyer.AddressText,
+		Items:           pdfItems,
+		Total:           total,
+		VatAmount:       vat,
+	})
+	if err != nil {
+		log.Printf("invoice pdf error: %v", err)
+		http.Error(w, `{"success":false,"error":"Ошибка формирования PDF"}`, http.StatusInternalServerError)
+		return
+	}
+
+	fileName := fmt.Sprintf("schet_%d.pdf", created.Number)
+	if err := h.max.SendFileToGroup("Invoices", fileName, bytes.NewReader(pdfBytes)); err != nil {
+		log.Printf("invoice send PDF to MAX failed: %v", err)
+		http.Error(w, `{"success":false,"error":"Ошибка отправки PDF в группу"}`, http.StatusInternalServerError)
+		return
 	}
 
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -222,70 +263,4 @@ func (h *MiniAppHandler) CreateInvoice(w http.ResponseWriter, r *http.Request) {
 
 func roundMoney(v float64) float64 {
 	return math.Round(v*100) / 100
-}
-
-func formatInvoiceMessage(
-	number int,
-	date time.Time,
-	basis string,
-	supplier partyPayload,
-	buyer partyPayload,
-	bank bankPayload,
-	items []db.InvoiceItemInput,
-	total, vat float64,
-) string {
-	var b strings.Builder
-	b.WriteString(fmt.Sprintf("%s\nБанк получателя\n", bank.Name))
-	b.WriteString(fmt.Sprintf("БИК %s\n", bank.BIK))
-	b.WriteString(fmt.Sprintf("Корр. счёт %s\n", bank.CorrAccount))
-	b.WriteString(fmt.Sprintf("Р/с %s\n\n", bank.Account))
-	b.WriteString(fmt.Sprintf("Счет на оплату № %d от %s\n\n", number, formatRuDate(date)))
-	b.WriteString(fmt.Sprintf(
-		"Поставщик (Исполнитель):\n%s, ИНН %s, КПП %s, %s\n\n",
-		supplier.Name, supplier.INN, supplier.KPP, supplier.AddressText,
-	))
-	b.WriteString(fmt.Sprintf(
-		"Покупатель (Заказчик):\n%s, ИНН %s, КПП %s, %s\n\n",
-		buyer.Name, buyer.INN, buyer.KPP, buyer.AddressText,
-	))
-	if basis != "" {
-		b.WriteString(fmt.Sprintf("Основание: %s\n\n", basis))
-	}
-	b.WriteString("№ | Товары (работы, услуги) | Кол-во | Ед. | Цена | Сумма\n")
-	for _, item := range items {
-		b.WriteString(fmt.Sprintf(
-			"%d | %s | %s %s | %s | %s\n",
-			item.Position,
-			item.Title,
-			formatQty(item.Quantity),
-			item.Unit,
-			db.FormatMoney(item.Price),
-			db.FormatMoney(item.Amount),
-		))
-	}
-	b.WriteString(fmt.Sprintf("\nИтого: %s\n", db.FormatMoney(total)))
-	b.WriteString(fmt.Sprintf("В том числе НДС 22%%: %s\n", db.FormatMoney(vat)))
-	b.WriteString(fmt.Sprintf("Всего к оплате: %s\n\n", db.FormatMoney(total)))
-	b.WriteString(fmt.Sprintf(
-		"Всего наименований %d, на сумму %s руб.\n%s",
-		len(items),
-		db.FormatMoney(total),
-		invoice.AmountInWords(total),
-	))
-	return b.String()
-}
-
-func formatRuDate(t time.Time) string {
-	months := []string{
-		"", "января", "февраля", "марта", "апреля", "мая", "июня",
-		"июля", "августа", "сентября", "октября", "ноября", "декабря",
-	}
-	return fmt.Sprintf("%d %s %d г.", t.Day(), months[int(t.Month())], t.Year())
-}
-
-func formatQty(q float64) string {
-	if q == float64(int64(q)) {
-		return fmt.Sprintf("%d", int64(q))
-	}
-	return strings.Replace(fmt.Sprintf("%.3f", q), ".", ",", 1)
 }
