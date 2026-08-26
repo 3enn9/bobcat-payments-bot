@@ -1,7 +1,6 @@
 package db
 
 import (
-	"database/sql"
 	"fmt"
 	"strings"
 	"time"
@@ -9,6 +8,7 @@ import (
 
 type InvoiceBank struct {
 	ID          int64  `json:"id"`
+	SupplierID  int64  `json:"supplierId"`
 	Name        string `json:"name"`
 	BIK         string `json:"bik"`
 	Account     string `json:"account"`
@@ -16,14 +16,12 @@ type InvoiceBank struct {
 }
 
 type InvoiceSupplier struct {
-	ID                int64         `json:"id"`
-	Name              string        `json:"name"`
-	INN               string        `json:"inn"`
-	KPP               string        `json:"kpp"`
-	AddressText       string        `json:"addressText"`
-	BankID            *int64        `json:"bankId"`
-	LastInvoiceNumber int           `json:"lastInvoiceNumber"`
-	Bank              *InvoiceBank  `json:"bank,omitempty"`
+	ID                int64  `json:"id"`
+	Name              string `json:"name"`
+	INN               string `json:"inn"`
+	KPP               string `json:"kpp"`
+	AddressText       string `json:"addressText"`
+	LastInvoiceNumber int    `json:"lastInvoiceNumber"`
 }
 
 type InvoiceBuyer struct {
@@ -71,18 +69,23 @@ type CreatedInvoice struct {
 	Number int
 }
 
-func (d *Database) SearchInvoiceBanks(q string, limit int) ([]InvoiceBank, error) {
+func (d *Database) SearchInvoiceBanks(q string, supplierID int64, limit int) ([]InvoiceBank, error) {
 	if limit <= 0 || limit > 50 {
 		limit = 20
 	}
+	if supplierID <= 0 {
+		return []InvoiceBank{}, nil
+	}
+
 	q = strings.TrimSpace(q)
 	rows, err := d.DB.Query(`
-		SELECT id, name, bik, account, corr_account
+		SELECT id, supplier_id, name, bik, account, corr_account
 		FROM invoice_banks
-		WHERE (? = '' OR name LIKE CONCAT('%', ?, '%') OR bik LIKE CONCAT('%', ?, '%'))
+		WHERE supplier_id = ?
+		  AND (? = '' OR name LIKE CONCAT('%', ?, '%') OR bik LIKE CONCAT('%', ?, '%') OR account LIKE CONCAT('%', ?, '%'))
 		ORDER BY name
 		LIMIT ?
-	`, q, q, q, limit)
+	`, supplierID, q, q, q, q, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +94,7 @@ func (d *Database) SearchInvoiceBanks(q string, limit int) ([]InvoiceBank, error
 	result := make([]InvoiceBank, 0)
 	for rows.Next() {
 		var item InvoiceBank
-		if err := rows.Scan(&item.ID, &item.Name, &item.BIK, &item.Account, &item.CorrAccount); err != nil {
+		if err := rows.Scan(&item.ID, &item.SupplierID, &item.Name, &item.BIK, &item.Account, &item.CorrAccount); err != nil {
 			return nil, err
 		}
 		result = append(result, item)
@@ -105,12 +108,10 @@ func (d *Database) SearchInvoiceSuppliers(q string, limit int) ([]InvoiceSupplie
 	}
 	q = strings.TrimSpace(q)
 	rows, err := d.DB.Query(`
-		SELECT s.id, s.name, s.inn, s.kpp, s.address_text, s.bank_id, s.last_invoice_number,
-		       b.id, b.name, b.bik, b.account, b.corr_account
-		FROM invoice_suppliers s
-		LEFT JOIN invoice_banks b ON b.id = s.bank_id
-		WHERE (? = '' OR s.name LIKE CONCAT('%', ?, '%') OR s.inn LIKE CONCAT('%', ?, '%'))
-		ORDER BY s.name
+		SELECT id, name, inn, kpp, address_text, last_invoice_number
+		FROM invoice_suppliers
+		WHERE (? = '' OR name LIKE CONCAT('%', ?, '%') OR inn LIKE CONCAT('%', ?, '%'))
+		ORDER BY name
 		LIMIT ?
 	`, q, q, q, limit)
 	if err != nil {
@@ -121,27 +122,8 @@ func (d *Database) SearchInvoiceSuppliers(q string, limit int) ([]InvoiceSupplie
 	result := make([]InvoiceSupplier, 0)
 	for rows.Next() {
 		var item InvoiceSupplier
-		var bankID sql.NullInt64
-		var bID sql.NullInt64
-		var bName, bBIK, bAccount, bCorr sql.NullString
-		if err := rows.Scan(
-			&item.ID, &item.Name, &item.INN, &item.KPP, &item.AddressText, &bankID, &item.LastInvoiceNumber,
-			&bID, &bName, &bBIK, &bAccount, &bCorr,
-		); err != nil {
+		if err := rows.Scan(&item.ID, &item.Name, &item.INN, &item.KPP, &item.AddressText, &item.LastInvoiceNumber); err != nil {
 			return nil, err
-		}
-		if bankID.Valid {
-			id := bankID.Int64
-			item.BankID = &id
-		}
-		if bID.Valid {
-			item.Bank = &InvoiceBank{
-				ID:          bID.Int64,
-				Name:        bName.String,
-				BIK:         bBIK.String,
-				Account:     bAccount.String,
-				CorrAccount: bCorr.String,
-			}
 		}
 		result = append(result, item)
 	}
@@ -176,94 +158,6 @@ func (d *Database) SearchInvoiceBuyers(q string, limit int) ([]InvoiceBuyer, err
 	return result, rows.Err()
 }
 
-func (d *Database) UpsertInvoiceBank(id *int64, name, bik, account, corrAccount string) (int64, error) {
-	name = strings.TrimSpace(name)
-	bik = strings.TrimSpace(bik)
-	account = strings.TrimSpace(account)
-	corrAccount = strings.TrimSpace(corrAccount)
-
-	if id != nil && *id > 0 {
-		_, err := d.DB.Exec(`
-			UPDATE invoice_banks
-			SET name = ?, bik = ?, account = ?, corr_account = ?
-			WHERE id = ?
-		`, name, bik, account, corrAccount, *id)
-		if err != nil {
-			return 0, err
-		}
-		return *id, nil
-	}
-
-	result, err := d.DB.Exec(`
-		INSERT INTO invoice_banks (name, bik, account, corr_account)
-		VALUES (?, ?, ?, ?)
-	`, name, bik, account, corrAccount)
-	if err != nil {
-		return 0, err
-	}
-	return result.LastInsertId()
-}
-
-func (d *Database) UpsertInvoiceSupplier(
-	id *int64,
-	name, inn, kpp, addressText string,
-	bankID *int64,
-) (int64, error) {
-	name = strings.TrimSpace(name)
-	inn = strings.TrimSpace(inn)
-	kpp = strings.TrimSpace(kpp)
-	addressText = strings.TrimSpace(addressText)
-
-	if id != nil && *id > 0 {
-		_, err := d.DB.Exec(`
-			UPDATE invoice_suppliers
-			SET name = ?, inn = ?, kpp = ?, address_text = ?, bank_id = ?
-			WHERE id = ?
-		`, name, inn, kpp, addressText, bankID, *id)
-		if err != nil {
-			return 0, err
-		}
-		return *id, nil
-	}
-
-	result, err := d.DB.Exec(`
-		INSERT INTO invoice_suppliers (name, inn, kpp, address_text, bank_id, last_invoice_number)
-		VALUES (?, ?, ?, ?, ?, 0)
-	`, name, inn, kpp, addressText, bankID)
-	if err != nil {
-		return 0, err
-	}
-	return result.LastInsertId()
-}
-
-func (d *Database) UpsertInvoiceBuyer(id *int64, name, inn, kpp, addressText string) (int64, error) {
-	name = strings.TrimSpace(name)
-	inn = strings.TrimSpace(inn)
-	kpp = strings.TrimSpace(kpp)
-	addressText = strings.TrimSpace(addressText)
-
-	if id != nil && *id > 0 {
-		_, err := d.DB.Exec(`
-			UPDATE invoice_buyers
-			SET name = ?, inn = ?, kpp = ?, address_text = ?
-			WHERE id = ?
-		`, name, inn, kpp, addressText, *id)
-		if err != nil {
-			return 0, err
-		}
-		return *id, nil
-	}
-
-	result, err := d.DB.Exec(`
-		INSERT INTO invoice_buyers (name, inn, kpp, address_text)
-		VALUES (?, ?, ?, ?)
-	`, name, inn, kpp, addressText)
-	if err != nil {
-		return 0, err
-	}
-	return result.LastInsertId()
-}
-
 func (d *Database) CreateInvoice(input CreateInvoiceInput) (*CreatedInvoice, error) {
 	tx, err := d.DB.Begin()
 	if err != nil {
@@ -273,37 +167,12 @@ func (d *Database) CreateInvoice(input CreateInvoiceInput) (*CreatedInvoice, err
 		_ = tx.Rollback()
 	}()
 
-	bankID := input.BankID
-	if bankID == nil || *bankID == 0 {
-		result, err := tx.Exec(`
-			INSERT INTO invoice_banks (name, bik, account, corr_account)
-			VALUES (?, ?, ?, ?)
-		`, input.BankName, input.BankBIK, input.BankAccount, input.BankCorrAccount)
-		if err != nil {
-			return nil, err
-		}
-		id, err := result.LastInsertId()
-		if err != nil {
-			return nil, err
-		}
-		bankID = &id
-	} else {
-		_, err := tx.Exec(`
-			UPDATE invoice_banks
-			SET name = ?, bik = ?, account = ?, corr_account = ?
-			WHERE id = ?
-		`, input.BankName, input.BankBIK, input.BankAccount, input.BankCorrAccount, *bankID)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	supplierID := input.SupplierID
 	if supplierID == nil || *supplierID == 0 {
 		result, err := tx.Exec(`
-			INSERT INTO invoice_suppliers (name, inn, kpp, address_text, bank_id, last_invoice_number)
-			VALUES (?, ?, ?, ?, ?, 0)
-		`, input.SupplierName, input.SupplierINN, input.SupplierKPP, input.SupplierAddress, bankID)
+			INSERT INTO invoice_suppliers (name, inn, kpp, address_text, last_invoice_number)
+			VALUES (?, ?, ?, ?, 0)
+		`, input.SupplierName, input.SupplierINN, input.SupplierKPP, input.SupplierAddress)
 		if err != nil {
 			return nil, err
 		}
@@ -315,11 +184,43 @@ func (d *Database) CreateInvoice(input CreateInvoiceInput) (*CreatedInvoice, err
 	} else {
 		_, err := tx.Exec(`
 			UPDATE invoice_suppliers
-			SET name = ?, inn = ?, kpp = ?, address_text = ?, bank_id = ?
+			SET name = ?, inn = ?, kpp = ?, address_text = ?
 			WHERE id = ?
-		`, input.SupplierName, input.SupplierINN, input.SupplierKPP, input.SupplierAddress, bankID, *supplierID)
+		`, input.SupplierName, input.SupplierINN, input.SupplierKPP, input.SupplierAddress, *supplierID)
 		if err != nil {
 			return nil, err
+		}
+	}
+
+	bankID := input.BankID
+	if bankID == nil || *bankID == 0 {
+		result, err := tx.Exec(`
+			INSERT INTO invoice_banks (supplier_id, name, bik, account, corr_account)
+			VALUES (?, ?, ?, ?, ?)
+		`, *supplierID, input.BankName, input.BankBIK, input.BankAccount, input.BankCorrAccount)
+		if err != nil {
+			return nil, err
+		}
+		id, err := result.LastInsertId()
+		if err != nil {
+			return nil, err
+		}
+		bankID = &id
+	} else {
+		res, err := tx.Exec(`
+			UPDATE invoice_banks
+			SET name = ?, bik = ?, account = ?, corr_account = ?
+			WHERE id = ? AND supplier_id = ?
+		`, input.BankName, input.BankBIK, input.BankAccount, input.BankCorrAccount, *bankID, *supplierID)
+		if err != nil {
+			return nil, err
+		}
+		affected, err := res.RowsAffected()
+		if err != nil {
+			return nil, err
+		}
+		if affected == 0 {
+			return nil, fmt.Errorf("bank does not belong to supplier")
 		}
 	}
 

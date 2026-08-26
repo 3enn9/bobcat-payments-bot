@@ -8,6 +8,7 @@ export type InvoiceParty = {
 
 export type InvoiceBank = {
   id?: number | null;
+  supplierId?: number | null;
   name: string;
   bik: string;
   account: string;
@@ -15,9 +16,7 @@ export type InvoiceBank = {
 };
 
 export type InvoiceSupplier = InvoiceParty & {
-  bankId?: number | null;
   lastInvoiceNumber?: number;
-  bank?: InvoiceBank | null;
 };
 
 export type InvoiceItem = {
@@ -42,10 +41,21 @@ type CreateInvoiceResponse = {
   error?: string;
 };
 
-async function search<T>(path: string, q: string): Promise<T[]> {
+async function search<T>(
+  path: string,
+  q: string,
+  extra?: Record<string, string>,
+): Promise<T[]> {
   const params = new URLSearchParams();
   if (q) {
     params.set("q", q);
+  }
+  if (extra) {
+    for (const [key, value] of Object.entries(extra)) {
+      if (value) {
+        params.set(key, value);
+      }
+    }
   }
   const response = await fetch(`${path}?${params.toString()}`);
   const data = (await response.json()) as ListResponse<T>;
@@ -63,8 +73,13 @@ export function searchBuyers(q: string) {
   return search<InvoiceParty>("/api/miniapp/invoices/buyers", q);
 }
 
-export function searchBanks(q: string) {
-  return search<InvoiceBank>("/api/miniapp/invoices/banks", q);
+export function searchBanks(q: string, supplierId?: number | null) {
+  if (!supplierId) {
+    return Promise.resolve([] as InvoiceBank[]);
+  }
+  return search<InvoiceBank>("/api/miniapp/invoices/banks", q, {
+    supplierId: String(supplierId),
+  });
 }
 
 export async function createInvoice(payload: {

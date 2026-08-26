@@ -64,20 +64,24 @@ type SuggestProps = {
   label: string;
   value: string;
   kind: SuggestKind;
+  supplierId?: number | null;
   onChange: (value: string) => void;
   onPick: (item: InvoiceSupplier | InvoiceParty | InvoiceBank) => void;
   renderItem: (item: InvoiceSupplier | InvoiceParty | InvoiceBank) => string;
   disabled?: boolean;
+  hint?: string;
 };
 
 function AutocompleteField({
   label,
   value,
   kind,
+  supplierId,
   onChange,
   onPick,
   renderItem,
   disabled,
+  hint,
 }: SuggestProps) {
   const [items, setItems] = useState<
     Array<InvoiceSupplier | InvoiceParty | InvoiceBank>
@@ -89,6 +93,30 @@ function AutocompleteField({
     if (timer.current) {
       window.clearTimeout(timer.current);
     }
+    if (kind === "banks" && !supplierId) {
+      setItems([]);
+      setOpen(false);
+      return;
+    }
+    if (value.trim().length < 1 && kind === "banks" && supplierId) {
+      // allow listing banks of supplier with short/empty query
+      timer.current = window.setTimeout(() => {
+        void searchBanks("", supplierId)
+          .then((result) => {
+            setItems(result);
+            setOpen(result.length > 0);
+          })
+          .catch(() => {
+            setItems([]);
+            setOpen(false);
+          });
+      }, 150);
+      return () => {
+        if (timer.current) {
+          window.clearTimeout(timer.current);
+        }
+      };
+    }
     if (value.trim().length < 2) {
       setItems([]);
       setOpen(false);
@@ -96,14 +124,14 @@ function AutocompleteField({
     }
 
     timer.current = window.setTimeout(() => {
-      const loader =
+      const request =
         kind === "suppliers"
-          ? searchSuppliers
+          ? searchSuppliers(value.trim())
           : kind === "buyers"
-            ? searchBuyers
-            : searchBanks;
+            ? searchBuyers(value.trim())
+            : searchBanks(value.trim(), supplierId);
 
-      void loader(value.trim())
+      void request
         .then((result) => {
           setItems(result);
           setOpen(result.length > 0);
@@ -119,7 +147,7 @@ function AutocompleteField({
         window.clearTimeout(timer.current);
       }
     };
-  }, [value, kind]);
+  }, [value, kind, supplierId]);
 
   return (
     <label className="invoice-field">
@@ -127,7 +155,12 @@ function AutocompleteField({
       <div className="autocomplete">
         <input
           value={value}
-          disabled={disabled}
+          disabled={disabled || (kind === "banks" && !supplierId)}
+          placeholder={
+            kind === "banks" && !supplierId
+              ? "Сначала выберите поставщика"
+              : undefined
+          }
           onChange={(event) => onChange(event.target.value)}
           onFocus={() => {
             if (items.length > 0) {
@@ -157,6 +190,7 @@ function AutocompleteField({
           </ul>
         )}
       </div>
+      {hint && <small className="invoice-hint">{hint}</small>}
     </label>
   );
 }
@@ -205,15 +239,7 @@ export default function InvoiceForm() {
       kpp: item.kpp,
       addressText: item.addressText,
     });
-    if (item.bank) {
-      setBank({
-        id: item.bank.id ?? null,
-        name: item.bank.name,
-        bik: item.bank.bik,
-        account: item.bank.account,
-        corrAccount: item.bank.corrAccount,
-      });
-    }
+    setBank(emptyBank());
   }
 
   function pickBuyer(item: InvoiceParty) {
@@ -287,7 +313,10 @@ export default function InvoiceForm() {
           kind="suppliers"
           value={supplier.name}
           disabled={saving}
-          onChange={(name) => setSupplier((prev) => ({ ...prev, id: null, name }))}
+          onChange={(name) => {
+            setSupplier((prev) => ({ ...prev, id: null, name }));
+            setBank(emptyBank());
+          }}
           onPick={(item) => pickSupplier(item as InvoiceSupplier)}
           renderItem={(item) =>
             `${(item as InvoiceSupplier).name} · ИНН ${(item as InvoiceSupplier).inn}`
@@ -387,13 +416,16 @@ export default function InvoiceForm() {
         <AutocompleteField
           label="Наименование банка"
           kind="banks"
+          supplierId={supplier.id}
           value={bank.name}
           disabled={saving}
+          hint="Банк привязан к выбранному поставщику. Можно выбрать из списка или ввести новый."
           onChange={(name) => setBank((prev) => ({ ...prev, id: null, name }))}
           onPick={(item) => pickBank(item as InvoiceBank)}
-          renderItem={(item) =>
-            `${(item as InvoiceBank).name} · БИК ${(item as InvoiceBank).bik}`
-          }
+          renderItem={(item) => {
+            const bankItem = item as InvoiceBank;
+            return `${bankItem.name} · р/с ${bankItem.account}`;
+          }}
         />
         <div className="invoice-grid-2">
           <label className="invoice-field">
@@ -475,56 +507,69 @@ export default function InvoiceForm() {
               100;
             return (
               <div key={line.key} className="invoice-line">
-                <div className="invoice-line-num">{index + 1}</div>
-                <input
-                  className="invoice-line-title"
-                  placeholder="Наименование услуги"
-                  value={line.title}
-                  disabled={saving}
-                  onChange={(event) =>
-                    updateLine(line.key, { title: event.target.value })
-                  }
-                />
-                <input
-                  placeholder="Кол-во"
-                  value={line.quantity}
-                  disabled={saving}
-                  onChange={(event) =>
-                    updateLine(line.key, { quantity: event.target.value })
-                  }
-                />
-                <input
-                  placeholder="Ед."
-                  value={line.unit}
-                  disabled={saving}
-                  onChange={(event) =>
-                    updateLine(line.key, { unit: event.target.value })
-                  }
-                />
-                <input
-                  placeholder="Цена"
-                  value={line.price}
-                  disabled={saving}
-                  onChange={(event) =>
-                    updateLine(line.key, { price: event.target.value })
-                  }
-                />
-                <div className="invoice-line-sum">{money(amount)}</div>
-                {lines.length > 1 && (
-                  <button
-                    type="button"
-                    className="icon-action icon-action-minus"
+                <div className="invoice-line-top">
+                  <div className="invoice-line-num">{index + 1}</div>
+                  <input
+                    className="invoice-line-title"
+                    placeholder="Наименование услуги"
+                    value={line.title}
                     disabled={saving}
-                    aria-label="Удалить позицию"
-                    onClick={() =>
-                      setLines((prev) =>
-                        prev.filter((item) => item.key !== line.key),
-                      )
+                    onChange={(event) =>
+                      updateLine(line.key, { title: event.target.value })
                     }
-                  >
-                    −
-                  </button>
-                )}
+                  />
+                  {lines.length > 1 && (
+                    <button
+                      type="button"
+                      className="icon-action icon-action-minus"
+                      disabled={saving}
+                      aria-label="Удалить позицию"
+                      onClick={() =>
+                        setLines((prev) =>
+                          prev.filter((item) => item.key !== line.key),
+                        )
+                      }
+                    >
+                      −
+                    </button>
+                  )}
+                </div>
+                <div className="invoice-line-meta">
+                  <label>
+                    <span>Кол-во</span>
+                    <input
+                      value={line.quantity}
+                      disabled={saving}
+                      onChange={(event) =>
+                        updateLine(line.key, { quantity: event.target.value })
+                      }
+                    />
+                  </label>
+                  <label>
+                    <span>Ед.</span>
+                    <input
+                      value={line.unit}
+                      disabled={saving}
+                      onChange={(event) =>
+                        updateLine(line.key, { unit: event.target.value })
+                      }
+                    />
+                  </label>
+                  <label>
+                    <span>Цена</span>
+                    <input
+                      value={line.price}
+                      disabled={saving}
+                      onChange={(event) =>
+                        updateLine(line.key, { price: event.target.value })
+                      }
+                    />
+                  </label>
+                  <div className="invoice-line-sum">
+                    <span>Сумма</span>
+                    <strong>{money(amount)}</strong>
+                  </div>
+                </div>
               </div>
             );
           })}

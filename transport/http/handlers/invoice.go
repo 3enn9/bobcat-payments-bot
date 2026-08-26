@@ -6,6 +6,7 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -60,8 +61,23 @@ func (h *MiniAppHandler) SearchInvoiceBuyers(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *MiniAppHandler) SearchInvoiceBanks(w http.ResponseWriter, r *http.Request) {
-	h.searchJSON(w, r, func(q string) (any, error) {
-		return h.db.SearchInvoiceBanks(q, 20)
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	q := strings.TrimSpace(r.URL.Query().Get("q"))
+	supplierID, _ := strconv.ParseInt(strings.TrimSpace(r.URL.Query().Get("supplierId")), 10, 64)
+	items, err := h.db.SearchInvoiceBanks(q, supplierID, 20)
+	if err != nil {
+		http.Error(w, `{"success":false,"error":"Ошибка поиска"}`, http.StatusInternalServerError)
+		return
+	}
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"items":   items,
 	})
 }
 
