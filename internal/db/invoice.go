@@ -1,6 +1,7 @@
 package db
 
 import (
+	"database/sql"
 	"fmt"
 	"strings"
 	"time"
@@ -193,6 +194,20 @@ func (d *Database) CreateInvoice(input CreateInvoiceInput) (*CreatedInvoice, err
 	}
 
 	bankID := input.BankID
+	if bankID != nil && *bankID > 0 {
+		var ownerID int64
+		err := tx.QueryRow(`
+			SELECT supplier_id
+			FROM invoice_banks
+			WHERE id = ?
+		`, *bankID).Scan(&ownerID)
+		if err == sql.ErrNoRows || ownerID != *supplierID {
+			bankID = nil
+		} else if err != nil {
+			return nil, err
+		}
+	}
+
 	if bankID == nil || *bankID == 0 {
 		result, err := tx.Exec(`
 			INSERT INTO invoice_banks (supplier_id, name, bik, account, corr_account)
@@ -207,20 +222,13 @@ func (d *Database) CreateInvoice(input CreateInvoiceInput) (*CreatedInvoice, err
 		}
 		bankID = &id
 	} else {
-		res, err := tx.Exec(`
+		_, err := tx.Exec(`
 			UPDATE invoice_banks
 			SET name = ?, bik = ?, account = ?, corr_account = ?
 			WHERE id = ? AND supplier_id = ?
 		`, input.BankName, input.BankBIK, input.BankAccount, input.BankCorrAccount, *bankID, *supplierID)
 		if err != nil {
 			return nil, err
-		}
-		affected, err := res.RowsAffected()
-		if err != nil {
-			return nil, err
-		}
-		if affected == 0 {
-			return nil, fmt.Errorf("bank does not belong to supplier")
 		}
 	}
 
