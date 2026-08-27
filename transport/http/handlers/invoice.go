@@ -279,7 +279,6 @@ func (h *MiniAppHandler) CreateInvoice(w http.ResponseWriter, r *http.Request) {
 		Items:           items,
 	})
 	if err != nil {
-		log.Printf("create invoice error: %v", err)
 		if errors.Is(err, db.ErrInvoiceExists) {
 			w.WriteHeader(http.StatusConflict)
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -289,6 +288,7 @@ func (h *MiniAppHandler) CreateInvoice(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
+		log.Printf("create invoice error: %v", err)
 		http.Error(w, `{"success":false,"error":"Ошибка сохранения счёта"}`, http.StatusInternalServerError)
 		return
 	}

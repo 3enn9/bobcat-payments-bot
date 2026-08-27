@@ -638,6 +638,30 @@
   font-size: 14px;
 }
 
+.invoice-replace-prompt {
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: #fff8e6;
+  border: 1px solid #f0d48a;
+  color: #6b4f00;
+  font-size: 14px;
+}
+
+.invoice-replace-prompt p {
+  margin: 0 0 12px;
+  line-height: 1.45;
+}
+
+.invoice-replace-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.invoice-replace-actions button {
+  width: 100%;
+}
+
 @media (max-width: 520px) {
   .invoice-line-meta {
     grid-template-columns: 1fr 1fr;

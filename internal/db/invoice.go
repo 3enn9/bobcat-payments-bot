@@ -178,18 +178,36 @@ func (d *Database) CreateInvoice(input CreateInvoiceInput) (*CreatedInvoice, err
 
 	supplierID := input.SupplierID
 	if supplierID == nil || *supplierID == 0 {
-		result, err := tx.Exec(`
-			INSERT INTO invoice_suppliers (name, inn, kpp, address_text, last_invoice_number)
-			VALUES (?, ?, ?, ?, 0)
-		`, input.SupplierName, input.SupplierINN, input.SupplierKPP, input.SupplierAddress)
-		if err != nil {
-			return nil, err
+		var existingID int64
+		lookupErr := tx.QueryRow(`
+			SELECT id FROM invoice_suppliers WHERE inn = ? LIMIT 1
+		`, input.SupplierINN).Scan(&existingID)
+		if lookupErr == nil {
+			supplierID = &existingID
+			_, err = tx.Exec(`
+				UPDATE invoice_suppliers
+				SET name = ?, inn = ?, kpp = ?, address_text = ?
+				WHERE id = ?
+			`, input.SupplierName, input.SupplierINN, input.SupplierKPP, input.SupplierAddress, *supplierID)
+			if err != nil {
+				return nil, err
+			}
+		} else if lookupErr == sql.ErrNoRows {
+			result, err := tx.Exec(`
+				INSERT INTO invoice_suppliers (name, inn, kpp, address_text, last_invoice_number)
+				VALUES (?, ?, ?, ?, 0)
+			`, input.SupplierName, input.SupplierINN, input.SupplierKPP, input.SupplierAddress)
+			if err != nil {
+				return nil, err
+			}
+			id, err := result.LastInsertId()
+			if err != nil {
+				return nil, err
+			}
+			supplierID = &id
+		} else {
+			return nil, lookupErr
 		}
-		id, err := result.LastInsertId()
-		if err != nil {
-			return nil, err
-		}
-		supplierID = &id
 	} else {
 		_, err := tx.Exec(`
 			UPDATE invoice_suppliers

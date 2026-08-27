@@ -209,6 +209,7 @@ export default function InvoiceForm() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [replacePrompt, setReplacePrompt] = useState<number | null>(null);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
 
   const hasVAT = supplier.inn.trim() === "6454116198"; // ООО "СарСтройТех"
@@ -274,10 +275,41 @@ export default function InvoiceForm() {
     });
   }
 
+  async function performCreate(replaceExisting: boolean) {
+    const number = Math.trunc(parseNum(invoiceNumber));
+    const result = await createInvoice(
+      {
+        number,
+        invoiceDate,
+        basis: basis.trim(),
+        supplier,
+        buyer,
+        bank,
+        items: totals.items,
+        sendToEmail,
+        replaceExisting,
+      },
+      photos,
+    );
+    setReplacePrompt(null);
+    setSuccess(
+      result.replaced
+        ? `Счёт № ${result.number} заменён и отправлен`
+        : `Счёт № ${result.number} создан и отправлен`,
+    );
+    if (!result.replaced) {
+      setInvoiceNumber(String(result.number + 1));
+    }
+    setLines([newLine()]);
+    setBasis("");
+    setPhotos([]);
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     setSuccess("");
+    setReplacePrompt(null);
 
     const number = Math.trunc(parseNum(invoiceNumber));
     if (!Number.isFinite(number) || number <= 0) {
@@ -305,56 +337,31 @@ export default function InvoiceForm() {
       return;
     }
 
-    const payload = {
-      number,
-      invoiceDate,
-      basis: basis.trim(),
-      supplier,
-      buyer,
-      bank,
-      items: totals.items,
-      sendToEmail,
-    };
-
     setSaving(true);
     try {
-      let replaceExisting = false;
-      while (true) {
-        try {
-          const result = await createInvoice({ ...payload, replaceExisting }, photos);
-          setSuccess(
-            result.replaced
-              ? `Счёт № ${result.number} заменён и отправлен`
-              : `Счёт № ${result.number} создан и отправлен`,
-          );
-          if (!result.replaced) {
-            setInvoiceNumber(String(result.number + 1));
-          }
-          setLines([newLine()]);
-          setBasis("");
-          setPhotos([]);
-          break;
-        } catch (err) {
-          if (
-            err instanceof InvoiceApiError &&
-            err.code === "invoice_exists" &&
-            !replaceExisting
-          ) {
-            const ok = window.confirm(
-              err.message ||
-                `Счёт № ${number} уже существует. Заменить его новым?`,
-            );
-            if (!ok) {
-              break;
-            }
-            replaceExisting = true;
-            continue;
-          }
-          throw err;
-        }
-      }
+      await performCreate(false);
     } catch (err) {
+      if (err instanceof InvoiceApiError && err.code === "invoice_exists") {
+        setReplacePrompt(number);
+        return;
+      }
       setError(err instanceof Error ? err.message : "Ошибка создания счёта");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function confirmReplace() {
+    if (replacePrompt == null) {
+      return;
+    }
+    setError("");
+    setSuccess("");
+    setSaving(true);
+    try {
+      await performCreate(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ошибка замены счёта");
     } finally {
       setSaving(false);
     }
@@ -736,6 +743,27 @@ export default function InvoiceForm() {
           </ul>
         )}
       </section>
+
+      {replacePrompt != null && (
+        <div className="invoice-replace-prompt">
+          <p>
+            Счёт № {replacePrompt} уже существует. Заменить его новым?
+          </p>
+          <div className="invoice-replace-actions">
+            <button
+              type="button"
+              className="secondary-button"
+              disabled={saving}
+              onClick={() => setReplacePrompt(null)}
+            >
+              Отмена
+            </button>
+            <button type="button" disabled={saving} onClick={() => void confirmReplace()}>
+              {saving ? "Заменяем..." : "Заменить"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {error && <div className="error">{error}</div>}
       {success && <div className="invoice-success">{success}</div>}
