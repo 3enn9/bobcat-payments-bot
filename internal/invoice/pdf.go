@@ -251,10 +251,14 @@ func GeneratePDF(data PDFData) ([]byte, error) {
 	y = pdf.GetY() + 10
 
 	pdf.SetFont("arial", "", 10)
-	pdf.SetXY(left, y)
-	pdf.CellFormat(90, 5, "Руководитель ________________  Моисеенко А. Н.", "", 0, "L", false, 0, "")
-	pdf.SetXY(left+95, y)
-	pdf.CellFormat(90, 5, "Бухгалтер ________________  Моисеенко А. Н.", "", 0, "L", false, 0, "")
+	if isEntrepreneurName(data.SupplierName) {
+		writeEntrepreneurSignature(pdf, left, y, pageW, data.SupplierName)
+	} else {
+		pdf.SetXY(left, y)
+		pdf.CellFormat(90, 5, "Руководитель ________________  Моисеенко А. Н.", "", 0, "L", false, 0, "")
+		pdf.SetXY(left+95, y)
+		pdf.CellFormat(90, 5, "Бухгалтер ________________  Моисеенко А. Н.", "", 0, "L", false, 0, "")
+	}
 
 	var buf bytes.Buffer
 	if err := pdf.Output(&buf); err != nil {
@@ -264,6 +268,70 @@ func GeneratePDF(data PDFData) ([]byte, error) {
 		return nil, pdf.Error()
 	}
 	return buf.Bytes(), nil
+}
+
+func writeEntrepreneurSignature(pdf *fpdf.Fpdf, left, y, pageW float64, supplierName string) {
+	label := "Предприниматель"
+	shortName := entrepreneurShortName(supplierName)
+
+	pdf.SetFont("arial", "", 10)
+	labelW := pdf.GetStringWidth(label) + 1
+	nameW := pdf.GetStringWidth(shortName) + 1
+
+	lineStart := left + labelW + 3
+	lineEnd := left + pageW
+	nameX := lineEnd - nameW
+	if nameX < lineStart+20 {
+		nameX = lineStart + 20
+	}
+
+	pdf.SetXY(left, y+2)
+	pdf.CellFormat(labelW, 5, label, "", 0, "L", false, 0, "")
+
+	// Фамилия и инициалы справа над линией
+	pdf.SetXY(nameX, y)
+	pdf.CellFormat(nameW, 4, shortName, "", 0, "L", false, 0, "")
+
+	lineY := y + 5.5
+	pdf.SetDrawColor(0, 0, 0)
+	pdf.Line(lineStart, lineY, lineEnd, lineY)
+}
+
+func isEntrepreneurName(name string) bool {
+	n := strings.ToLower(strings.TrimSpace(name))
+	n = strings.ReplaceAll(n, "\u00a0", " ")
+	return strings.HasPrefix(n, "ип ") || strings.HasPrefix(n, "ип\"") || n == "ип"
+}
+
+// entrepreneurShortName: "ИП Архипов Николай Николаевич" → "Архипов Н.Н."
+func entrepreneurShortName(full string) string {
+	s := strings.TrimSpace(strings.ReplaceAll(full, "\u00a0", " "))
+	fields := strings.Fields(s)
+	if len(fields) == 0 {
+		return s
+	}
+	if strings.EqualFold(fields[0], "ИП") {
+		fields = fields[1:]
+	}
+	if len(fields) == 0 {
+		return s
+	}
+	surname := fields[0]
+	if len(fields) == 1 {
+		return surname
+	}
+	var b strings.Builder
+	b.WriteString(surname)
+	b.WriteByte(' ')
+	for _, part := range fields[1:] {
+		runes := []rune(part)
+		if len(runes) == 0 {
+			continue
+		}
+		b.WriteRune(runes[0])
+		b.WriteByte('.')
+	}
+	return b.String()
 }
 
 // SupplierHasVAT — НДС 22% только у ООО "СарСтройТех" (ИНН 6454116198).
