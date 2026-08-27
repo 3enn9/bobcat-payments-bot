@@ -3,7 +3,6 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"log"
 	"math"
@@ -213,10 +212,6 @@ func (h *MiniAppHandler) CreateInvoice(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, `{"success":false,"error":"Некорректный email"}`, http.StatusBadRequest)
 			return
 		}
-		if h.mail == nil || !h.mail.Enabled() {
-			http.Error(w, `{"success":false,"error":"Отправка на почту не настроена"}`, http.StatusBadRequest)
-			return
-		}
 	}
 
 	invoiceDate, err := time.Parse("2006-01-02", strings.TrimSpace(input.InvoiceDate))
@@ -335,12 +330,7 @@ func (h *MiniAppHandler) CreateInvoice(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if input.SendToEmail {
-		subject := fmt.Sprintf("Счёт № %d", created.Number)
-		if err := h.mail.SendPDF(input.Buyer.Email, subject, fileName, pdfBytes); err != nil {
-			log.Printf("invoice send email failed: %v", err)
-			http.Error(w, `{"success":false,"error":"Счёт создан, но не удалось отправить на почту"}`, http.StatusInternalServerError)
-			return
-		}
+		log.Printf("invoice email stub: счёт № %d -> %s (отправка на почту пока отключена)", created.Number, input.Buyer.Email)
 	}
 
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{

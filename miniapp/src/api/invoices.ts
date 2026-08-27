@@ -4,7 +4,7 @@ export type InvoiceParty = {
   inn: string;
   kpp: string;
   addressText: string;
-  email?: string;
+  email: string;
 };
 
 export type InvoiceBank = {

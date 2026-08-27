@@ -246,6 +246,7 @@ export default function InvoiceForm() {
       inn: item.inn,
       kpp: item.kpp,
       addressText: item.addressText,
+      email: "",
     });
     setInvoiceNumber(String((item.lastInvoiceNumber ?? 0) + 1));
     setBank(emptyBank());
@@ -468,7 +469,7 @@ export default function InvoiceForm() {
             <span>Email</span>
             <input
               type="email"
-              value={buyer.email ?? ""}
+              value={buyer.email}
               disabled={saving}
               placeholder="email@example.com"
               onChange={(event) =>
