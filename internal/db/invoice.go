@@ -31,6 +31,7 @@ type InvoiceBuyer struct {
 	INN         string `json:"inn"`
 	KPP         string `json:"kpp"`
 	AddressText string `json:"addressText"`
+	Email       string `json:"email"`
 }
 
 type InvoiceItemInput struct {
@@ -61,6 +62,7 @@ type CreateInvoiceInput struct {
 	BuyerINN        string
 	BuyerKPP        string
 	BuyerAddress    string
+	BuyerEmail      string
 	Total           float64
 	VatAmount       float64
 	Items           []InvoiceItemInput
@@ -138,12 +140,12 @@ func (d *Database) SearchInvoiceBuyers(q string, limit int) ([]InvoiceBuyer, err
 	}
 	q = strings.TrimSpace(q)
 	rows, err := d.DB.Query(`
-		SELECT id, name, inn, kpp, address_text
+		SELECT id, name, inn, kpp, address_text, email
 		FROM invoice_buyers
-		WHERE (? = '' OR name LIKE CONCAT('%', ?, '%') OR inn LIKE CONCAT('%', ?, '%'))
+		WHERE (? = '' OR name LIKE CONCAT('%', ?, '%') OR inn LIKE CONCAT('%', ?, '%') OR email LIKE CONCAT('%', ?, '%'))
 		ORDER BY name
 		LIMIT ?
-	`, q, q, q, limit)
+	`, q, q, q, q, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +154,7 @@ func (d *Database) SearchInvoiceBuyers(q string, limit int) ([]InvoiceBuyer, err
 	result := make([]InvoiceBuyer, 0)
 	for rows.Next() {
 		var item InvoiceBuyer
-		if err := rows.Scan(&item.ID, &item.Name, &item.INN, &item.KPP, &item.AddressText); err != nil {
+		if err := rows.Scan(&item.ID, &item.Name, &item.INN, &item.KPP, &item.AddressText, &item.Email); err != nil {
 			return nil, err
 		}
 		result = append(result, item)
@@ -236,9 +238,9 @@ func (d *Database) CreateInvoice(input CreateInvoiceInput) (*CreatedInvoice, err
 	buyerID := input.BuyerID
 	if buyerID == nil || *buyerID == 0 {
 		result, err := tx.Exec(`
-			INSERT INTO invoice_buyers (name, inn, kpp, address_text)
-			VALUES (?, ?, ?, ?)
-		`, input.BuyerName, input.BuyerINN, input.BuyerKPP, input.BuyerAddress)
+			INSERT INTO invoice_buyers (name, inn, kpp, address_text, email)
+			VALUES (?, ?, ?, ?, ?)
+		`, input.BuyerName, input.BuyerINN, input.BuyerKPP, input.BuyerAddress, input.BuyerEmail)
 		if err != nil {
 			return nil, err
 		}
@@ -250,9 +252,9 @@ func (d *Database) CreateInvoice(input CreateInvoiceInput) (*CreatedInvoice, err
 	} else {
 		_, err := tx.Exec(`
 			UPDATE invoice_buyers
-			SET name = ?, inn = ?, kpp = ?, address_text = ?
+			SET name = ?, inn = ?, kpp = ?, address_text = ?, email = ?
 			WHERE id = ?
-		`, input.BuyerName, input.BuyerINN, input.BuyerKPP, input.BuyerAddress, *buyerID)
+		`, input.BuyerName, input.BuyerINN, input.BuyerKPP, input.BuyerAddress, input.BuyerEmail, *buyerID)
 		if err != nil {
 			return nil, err
 		}

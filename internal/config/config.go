@@ -14,6 +14,11 @@ type Config struct {
 	Host     string
 	Token    string
 	MaxToken string
+	SMTPHost string
+	SMTPPort string
+	SMTPUser string
+	SMTPPass string
+	SMTPFrom string
 }
 
 func NewConfig() *Config {
@@ -30,5 +35,10 @@ func NewConfig() *Config {
 		Host:     os.Getenv("DB_HOST"),
 		Token:    os.Getenv("BOT_TOKEN"),
 		MaxToken: os.Getenv("MAX_TOKEN"),
+		SMTPHost: os.Getenv("SMTP_HOST"),
+		SMTPPort: os.Getenv("SMTP_PORT"),
+		SMTPUser: os.Getenv("SMTP_USER"),
+		SMTPPass: os.Getenv("SMTP_PASS"),
+		SMTPFrom: os.Getenv("SMTP_FROM"),
 	}
 }

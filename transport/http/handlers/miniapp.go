@@ -12,19 +12,22 @@ import (
 
 	"PaymentsBot/internal/db"
 	max2 "PaymentsBot/internal/max"
+	mailpkg "PaymentsBot/internal/mail"
 
 	"github.com/gorilla/mux"
 )
 
 type MiniAppHandler struct {
-	db  *db.Database
-	max *max2.MaxService
+	db   *db.Database
+	max  *max2.MaxService
+	mail *mailpkg.Service
 }
 
-func NewMiniAppHandler(database *db.Database, maxService *max2.MaxService) *MiniAppHandler {
+func NewMiniAppHandler(database *db.Database, maxService *max2.MaxService, mailService *mailpkg.Service) *MiniAppHandler {
 	return &MiniAppHandler{
-		db:  database,
-		max: maxService,
+		db:   database,
+		max:  maxService,
+		mail: mailService,
 	}
 }
 

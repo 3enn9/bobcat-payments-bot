@@ -467,6 +467,22 @@
   white-space: nowrap;
 }
 
+.invoice-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 650;
+  color: #444;
+  cursor: pointer;
+}
+
+.invoice-checkbox input {
+  width: 18px;
+  height: 18px;
+  accent-color: #111;
+}
+
 .invoice-hint {
   color: #888;
   font-size: 12px;

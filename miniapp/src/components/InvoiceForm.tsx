@@ -31,7 +31,7 @@ function todayISO(): string {
 }
 
 function emptyParty(): PartyDraft {
-  return { id: null, name: "", inn: "", kpp: "", addressText: "" };
+  return { id: null, name: "", inn: "", kpp: "", addressText: "", email: "" };
 }
 
 function emptyBank(): BankDraft {
@@ -204,6 +204,7 @@ export default function InvoiceForm() {
   const [basis, setBasis] = useState("");
   const [lines, setLines] = useState<LineDraft[]>([newLine()]);
   const [photos, setPhotos] = useState<File[]>([]);
+  const [sendToEmail, setSendToEmail] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -257,6 +258,7 @@ export default function InvoiceForm() {
       inn: item.inn,
       kpp: item.kpp,
       addressText: item.addressText,
+      email: item.email ?? "",
     });
   }
 
@@ -296,6 +298,10 @@ export default function InvoiceForm() {
       setError("Проверьте позиции счёта");
       return;
     }
+    if (sendToEmail && !buyer.email.trim()) {
+      setError("Укажите email для отправки");
+      return;
+    }
 
     setSaving(true);
     try {
@@ -308,6 +314,7 @@ export default function InvoiceForm() {
           buyer,
           bank,
           items: totals.items,
+          sendToEmail,
         },
         photos,
       );
@@ -405,9 +412,11 @@ export default function InvoiceForm() {
           disabled={saving}
           onChange={(name) => setBuyer((prev) => ({ ...prev, id: null, name }))}
           onPick={(item) => pickBuyer(item as InvoiceParty)}
-          renderItem={(item) =>
-            `${(item as InvoiceParty).name} · ИНН ${(item as InvoiceParty).inn}`
-          }
+          renderItem={(item) => {
+            const buyerItem = item as InvoiceParty;
+            const emailHint = buyerItem.email ? ` · ${buyerItem.email}` : "";
+            return `${buyerItem.name} · ИНН ${buyerItem.inn}${emailHint}`;
+          }}
         />
         <div className="invoice-grid-2">
           <label className="invoice-field">
@@ -445,6 +454,29 @@ export default function InvoiceForm() {
             }
           />
         </label>
+        <label className="invoice-checkbox">
+          <input
+            type="checkbox"
+            checked={sendToEmail}
+            disabled={saving}
+            onChange={(event) => setSendToEmail(event.target.checked)}
+          />
+          <span>Отправить на почту</span>
+        </label>
+        {sendToEmail && (
+          <label className="invoice-field">
+            <span>Email</span>
+            <input
+              type="email"
+              value={buyer.email ?? ""}
+              disabled={saving}
+              placeholder="email@example.com"
+              onChange={(event) =>
+                setBuyer((prev) => ({ ...prev, email: event.target.value }))
+              }
+            />
+          </label>
+        )}
       </section>
 
       <section className="invoice-section">

@@ -5,6 +5,7 @@ import (
 	"PaymentsBot/internal/config"
 	"PaymentsBot/internal/db"
 	max2 "PaymentsBot/internal/max"
+	mailpkg "PaymentsBot/internal/mail"
 	multi "PaymentsBot/internal/multiMessenger"
 	"PaymentsBot/internal/payments"
 	"PaymentsBot/internal/rncard"
@@ -48,7 +49,11 @@ func main() {
 	banksHandler := handlers.NewBanksHandler(banksService)
 	telegramHandler := handlers.NewTelegramHandler(tgBotService)
 	maxHandler := handlers.NewMaxHandler(maxBotService)
-	miniAppHandler := handlers.NewMiniAppHandler(dbInstance, maxBotService)
+	miniAppHandler := handlers.NewMiniAppHandler(
+		dbInstance,
+		maxBotService,
+		mailpkg.NewService(cf.SMTPHost, cf.SMTPPort, cf.SMTPUser, cf.SMTPPass, cf.SMTPFrom),
+	)
 
 	router := transport.NewRouter(
 		banksHandler,

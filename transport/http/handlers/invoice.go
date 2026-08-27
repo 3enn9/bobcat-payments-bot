@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"math"
@@ -14,6 +15,7 @@ import (
 
 	"PaymentsBot/internal/db"
 	"PaymentsBot/internal/invoice"
+	mailpkg "PaymentsBot/internal/mail"
 	max2 "PaymentsBot/internal/max"
 )
 
@@ -23,6 +25,7 @@ type partyPayload struct {
 	INN         string `json:"inn"`
 	KPP         string `json:"kpp"`
 	AddressText string `json:"addressText"`
+	Email       string `json:"email"`
 }
 
 type bankPayload struct {
@@ -50,6 +53,7 @@ type createInvoiceRequest struct {
 	Buyer       partyPayload  `json:"buyer"`
 	Bank        bankPayload   `json:"bank"`
 	Items       []itemPayload `json:"items"`
+	SendToEmail bool          `json:"sendToEmail"`
 }
 
 func (h *MiniAppHandler) SearchInvoiceSuppliers(w http.ResponseWriter, r *http.Request) {
@@ -174,6 +178,7 @@ func (h *MiniAppHandler) CreateInvoice(w http.ResponseWriter, r *http.Request) {
 	input.Buyer.INN = strings.TrimSpace(input.Buyer.INN)
 	input.Buyer.KPP = strings.TrimSpace(input.Buyer.KPP)
 	input.Buyer.AddressText = strings.TrimSpace(input.Buyer.AddressText)
+	input.Buyer.Email = strings.TrimSpace(input.Buyer.Email)
 	input.Bank.Name = strings.TrimSpace(input.Bank.Name)
 	input.Bank.BIK = strings.TrimSpace(input.Bank.BIK)
 	input.Bank.Account = strings.TrimSpace(input.Bank.Account)
@@ -198,6 +203,20 @@ func (h *MiniAppHandler) CreateInvoice(w http.ResponseWriter, r *http.Request) {
 	if input.Number <= 0 {
 		http.Error(w, `{"success":false,"error":"Укажите номер счёта"}`, http.StatusBadRequest)
 		return
+	}
+	if input.SendToEmail {
+		if input.Buyer.Email == "" {
+			http.Error(w, `{"success":false,"error":"Укажите email для отправки"}`, http.StatusBadRequest)
+			return
+		}
+		if !mailpkg.IsValidEmail(input.Buyer.Email) {
+			http.Error(w, `{"success":false,"error":"Некорректный email"}`, http.StatusBadRequest)
+			return
+		}
+		if h.mail == nil || !h.mail.Enabled() {
+			http.Error(w, `{"success":false,"error":"Отправка на почту не настроена"}`, http.StatusBadRequest)
+			return
+		}
 	}
 
 	invoiceDate, err := time.Parse("2006-01-02", strings.TrimSpace(input.InvoiceDate))
@@ -255,6 +274,7 @@ func (h *MiniAppHandler) CreateInvoice(w http.ResponseWriter, r *http.Request) {
 		BuyerINN:        input.Buyer.INN,
 		BuyerKPP:        input.Buyer.KPP,
 		BuyerAddress:    input.Buyer.AddressText,
+		BuyerEmail:      input.Buyer.Email,
 		Total:           total,
 		VatAmount:       vat,
 		Items:           items,
@@ -312,6 +332,15 @@ func (h *MiniAppHandler) CreateInvoice(w http.ResponseWriter, r *http.Request) {
 		log.Printf("invoice send to MAX failed: %v", err)
 		http.Error(w, `{"success":false,"error":"Ошибка отправки в группу"}`, http.StatusInternalServerError)
 		return
+	}
+
+	if input.SendToEmail {
+		subject := fmt.Sprintf("Счёт № %d", created.Number)
+		if err := h.mail.SendPDF(input.Buyer.Email, subject, fileName, pdfBytes); err != nil {
+			log.Printf("invoice send email failed: %v", err)
+			http.Error(w, `{"success":false,"error":"Счёт создан, но не удалось отправить на почту"}`, http.StatusInternalServerError)
+			return
+		}
 	}
 
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{

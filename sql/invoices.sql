@@ -35,6 +35,7 @@ CREATE TABLE invoice_buyers (
   inn VARCHAR(20) NOT NULL,
   kpp VARCHAR(20) NOT NULL DEFAULT '',
   address_text VARCHAR(1000) NOT NULL,
+  email VARCHAR(255) NOT NULL DEFAULT '',
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   KEY idx_invoice_buyers_name (name)

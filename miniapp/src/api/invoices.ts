@@ -4,6 +4,7 @@ export type InvoiceParty = {
   inn: string;
   kpp: string;
   addressText: string;
+  email?: string;
 };
 
 export type InvoiceBank = {
@@ -91,6 +92,7 @@ export async function createInvoice(
     buyer: InvoiceParty;
     bank: InvoiceBank;
     items: InvoiceItem[];
+    sendToEmail: boolean;
   },
   photos: File[] = [],
 ): Promise<{ id: number; number: number }> {
