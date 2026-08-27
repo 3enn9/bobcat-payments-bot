@@ -68,6 +68,10 @@ func (m *MaxService) SendMessageWithPhotos(groupName, text string, photos []Phot
 }
 
 func (m *MaxService) SendFileToGroup(groupName, fileName string, reader io.Reader) error {
+	return m.SendFileAndPhotosToGroup(groupName, fileName, reader, nil)
+}
+
+func (m *MaxService) SendFileAndPhotosToGroup(groupName, fileName string, reader io.Reader, photos []PhotoUpload) error {
 	chatID, ok := m.Chats[groupName]
 	if !ok {
 		return fmt.Errorf("group name does not exist: %s", groupName)
@@ -80,6 +84,14 @@ func (m *MaxService) SendFileToGroup(groupName, fileName string, reader io.Reade
 	}
 
 	msg := maxbot.NewMessage().SetChat(chatID).AddFile(info)
+	for _, photo := range photos {
+		tokens, err := m.Bot.Uploads.UploadPhotoFromReaderWithName(ctx, photo.Reader, photo.Name)
+		if err != nil {
+			return fmt.Errorf("upload photo %s: %w", photo.Name, err)
+		}
+		msg.AddPhoto(tokens)
+	}
+
 	if err := m.Bot.Messages.Send(ctx, msg); err != nil {
 		return fmt.Errorf("send file message: %w", err)
 	}

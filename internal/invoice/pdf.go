@@ -303,6 +303,32 @@ func isEntrepreneurName(name string) bool {
 	return strings.HasPrefix(n, "ип ") || strings.HasPrefix(n, "ип\"") || n == "ип"
 }
 
+// SupplierFileCode — короткий код поставщика для имени PDF-файла.
+func SupplierFileCode(name, inn string) string {
+	n := strings.ToLower(strings.TrimSpace(strings.ReplaceAll(name, "\u00a0", " ")))
+	inn = strings.TrimSpace(inn)
+
+	switch {
+	case inn == "6454116198" || strings.Contains(n, "сарстройтех"):
+		return "сст"
+	case strings.Contains(n, "архипов") && (strings.Contains(n, "данила") || strings.Contains(n, "даниил")):
+		return "адн"
+	case strings.Contains(n, "архипов") && strings.Contains(n, "николай") && strings.Contains(n, "николаевич"):
+		return "анн"
+	case strings.Contains(n, "архипов") && strings.Contains(n, "николай") && strings.Contains(n, "владимирович"):
+		return "анв"
+	case strings.Contains(n, "скрипниченко"):
+		return "сан"
+	default:
+		return "проч"
+	}
+}
+
+// PDFFileName: "сч 536 сст.pdf"
+func PDFFileName(number int, supplierName, supplierINN string) string {
+	return fmt.Sprintf("сч %d %s.pdf", number, SupplierFileCode(supplierName, supplierINN))
+}
+
 // entrepreneurShortName: "ИП Архипов Николай Николаевич" → "Архипов Н.Н."
 func entrepreneurShortName(full string) string {
 	s := strings.TrimSpace(strings.ReplaceAll(full, "\u00a0", " "))

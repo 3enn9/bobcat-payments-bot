@@ -433,6 +433,40 @@
   letter-spacing: 0.02em;
 }
 
+.invoice-photo-btn {
+  padding: 8px 12px;
+  font-size: 13px;
+  width: auto;
+}
+
+.invoice-photo-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.invoice-photo-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid #ececec;
+  border-radius: 10px;
+  background: #fff;
+  font-size: 13px;
+  color: #555;
+  min-width: 0;
+}
+
+.invoice-photo-list li span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .invoice-hint {
   color: #888;
   font-size: 12px;

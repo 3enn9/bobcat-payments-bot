@@ -3,16 +3,18 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
+	"io"
 	"log"
 	"math"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
 	"PaymentsBot/internal/db"
 	"PaymentsBot/internal/invoice"
+	max2 "PaymentsBot/internal/max"
 )
 
 type partyPayload struct {
@@ -110,7 +112,55 @@ func (h *MiniAppHandler) CreateInvoice(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var input createInvoiceRequest
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+	photos := make([]max2.PhotoUpload, 0)
+	closers := make([]io.Closer, 0)
+	defer func() {
+		for _, closer := range closers {
+			_ = closer.Close()
+		}
+	}()
+
+	contentType := r.Header.Get("Content-Type")
+	if strings.HasPrefix(contentType, "multipart/form-data") {
+		if err := r.ParseMultipartForm(32 << 20); err != nil {
+			http.Error(w, `{"success":false,"error":"Некорректная форма"}`, http.StatusBadRequest)
+			return
+		}
+		raw := strings.TrimSpace(r.FormValue("payload"))
+		if raw == "" {
+			http.Error(w, `{"success":false,"error":"Некорректный JSON"}`, http.StatusBadRequest)
+			return
+		}
+		if err := json.Unmarshal([]byte(raw), &input); err != nil {
+			http.Error(w, `{"success":false,"error":"Некорректный JSON"}`, http.StatusBadRequest)
+			return
+		}
+
+		files := r.MultipartForm.File["photos"]
+		if len(files) > 10 {
+			http.Error(w, `{"success":false,"error":"Можно прикрепить не больше 10 фото"}`, http.StatusBadRequest)
+			return
+		}
+		for _, header := range files {
+			ext := strings.ToLower(filepath.Ext(header.Filename))
+			switch ext {
+			case ".jpg", ".jpeg", ".png", ".webp", ".heic", ".gif":
+			default:
+				http.Error(w, `{"success":false,"error":"Допустимы только фото"}`, http.StatusBadRequest)
+				return
+			}
+			file, err := header.Open()
+			if err != nil {
+				http.Error(w, `{"success":false,"error":"Ошибка чтения фото"}`, http.StatusBadRequest)
+				return
+			}
+			closers = append(closers, file)
+			photos = append(photos, max2.PhotoUpload{
+				Name:   header.Filename,
+				Reader: file,
+			})
+		}
+	} else if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		http.Error(w, `{"success":false,"error":"Некорректный JSON"}`, http.StatusBadRequest)
 		return
 	}
@@ -257,10 +307,10 @@ func (h *MiniAppHandler) CreateInvoice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fileName := fmt.Sprintf("schet_%d.pdf", created.Number)
-	if err := h.max.SendFileToGroup("Invoices", fileName, bytes.NewReader(pdfBytes)); err != nil {
-		log.Printf("invoice send PDF to MAX failed: %v", err)
-		http.Error(w, `{"success":false,"error":"Ошибка отправки PDF в группу"}`, http.StatusInternalServerError)
+	fileName := invoice.PDFFileName(created.Number, input.Supplier.Name, input.Supplier.INN)
+	if err := h.max.SendFileAndPhotosToGroup("Invoices", fileName, bytes.NewReader(pdfBytes), photos); err != nil {
+		log.Printf("invoice send to MAX failed: %v", err)
+		http.Error(w, `{"success":false,"error":"Ошибка отправки в группу"}`, http.StatusInternalServerError)
 		return
 	}
 

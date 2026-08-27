@@ -203,9 +203,11 @@ export default function InvoiceForm() {
   const [invoiceDate, setInvoiceDate] = useState(todayISO);
   const [basis, setBasis] = useState("");
   const [lines, setLines] = useState<LineDraft[]>([newLine()]);
+  const [photos, setPhotos] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const photoInputRef = useRef<HTMLInputElement | null>(null);
 
   const hasVAT = supplier.inn.trim() === "6454116198"; // ООО "СарСтройТех"
 
@@ -297,19 +299,23 @@ export default function InvoiceForm() {
 
     setSaving(true);
     try {
-      const result = await createInvoice({
-        number,
-        invoiceDate,
-        basis: basis.trim(),
-        supplier,
-        buyer,
-        bank,
-        items: totals.items,
-      });
+      const result = await createInvoice(
+        {
+          number,
+          invoiceDate,
+          basis: basis.trim(),
+          supplier,
+          buyer,
+          bank,
+          items: totals.items,
+        },
+        photos,
+      );
       setSuccess(`Счёт № ${result.number} создан и отправлен`);
       setInvoiceNumber(String(result.number + 1));
       setLines([newLine()]);
       setBasis("");
+      setPhotos([]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Ошибка создания счёта");
     } finally {
@@ -619,6 +625,54 @@ export default function InvoiceForm() {
             <strong>{money(totals.total)}</strong>
           </div>
         </div>
+      </section>
+
+      <section className="invoice-section">
+        <div className="invoice-section-head">
+          <h2>Фото</h2>
+          <button
+            type="button"
+            className="secondary-button invoice-photo-btn"
+            disabled={saving || photos.length >= 10}
+            onClick={() => photoInputRef.current?.click()}
+          >
+            Прикрепить
+          </button>
+        </div>
+        <input
+          ref={photoInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          hidden
+          onChange={(event) => {
+            const files = Array.from(event.target.files ?? []);
+            setPhotos((prev) => [...prev, ...files].slice(0, 10));
+            event.target.value = "";
+          }}
+        />
+        {photos.length === 0 ? (
+          <small className="invoice-hint">Необязательно, до 10 фото</small>
+        ) : (
+          <ul className="photo-names invoice-photo-list">
+            {photos.map((file, index) => (
+              <li key={`${file.name}-${file.size}-${file.lastModified}-${index}`}>
+                <span>{file.name}</span>
+                <button
+                  type="button"
+                  className="icon-action icon-action-minus"
+                  disabled={saving}
+                  aria-label="Удалить фото"
+                  onClick={() =>
+                    setPhotos((prev) => prev.filter((_, i) => i !== index))
+                  }
+                >
+                  −
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       {error && <div className="error">{error}</div>}

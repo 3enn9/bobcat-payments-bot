@@ -82,19 +82,27 @@ export function searchBanks(q: string, supplierId?: number | null) {
   });
 }
 
-export async function createInvoice(payload: {
-  number: number;
-  invoiceDate: string;
-  basis: string;
-  supplier: InvoiceParty;
-  buyer: InvoiceParty;
-  bank: InvoiceBank;
-  items: InvoiceItem[];
-}): Promise<{ id: number; number: number }> {
+export async function createInvoice(
+  payload: {
+    number: number;
+    invoiceDate: string;
+    basis: string;
+    supplier: InvoiceParty;
+    buyer: InvoiceParty;
+    bank: InvoiceBank;
+    items: InvoiceItem[];
+  },
+  photos: File[] = [],
+): Promise<{ id: number; number: number }> {
+  const formData = new FormData();
+  formData.append("payload", JSON.stringify(payload));
+  for (const photo of photos) {
+    formData.append("photos", photo);
+  }
+
   const response = await fetch("/api/miniapp/invoices", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    body: formData,
   });
   const data = (await response.json()) as CreateInvoiceResponse;
   if (!response.ok || !data.success || !data.id || !data.number) {
