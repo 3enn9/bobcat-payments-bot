@@ -41,6 +41,7 @@ type itemPayload struct {
 }
 
 type createInvoiceRequest struct {
+	Number      int           `json:"number"`
 	InvoiceDate string        `json:"invoiceDate"`
 	Basis       string        `json:"basis"`
 	Supplier    partyPayload  `json:"supplier"`
@@ -144,6 +145,10 @@ func (h *MiniAppHandler) CreateInvoice(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"success":false,"error":"Добавьте хотя бы одну позицию"}`, http.StatusBadRequest)
 		return
 	}
+	if input.Number <= 0 {
+		http.Error(w, `{"success":false,"error":"Укажите номер счёта"}`, http.StatusBadRequest)
+		return
+	}
 
 	invoiceDate, err := time.Parse("2006-01-02", strings.TrimSpace(input.InvoiceDate))
 	if err != nil {
@@ -179,12 +184,13 @@ func (h *MiniAppHandler) CreateInvoice(w http.ResponseWriter, r *http.Request) {
 		total += amount
 	}
 	total = roundMoney(total)
-	vat := roundMoney(total * 22 / 122)
+	vat := invoice.CalcVAT(total, input.Supplier.INN)
 
 	created, err := h.db.CreateInvoice(db.CreateInvoiceInput{
 		SupplierID:      input.Supplier.ID,
 		BuyerID:         input.Buyer.ID,
 		BankID:          input.Bank.ID,
+		Number:          input.Number,
 		InvoiceDate:     invoiceDate,
 		Basis:           input.Basis,
 		SupplierName:    input.Supplier.Name,
@@ -205,6 +211,10 @@ func (h *MiniAppHandler) CreateInvoice(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		log.Printf("create invoice error: %v", err)
+		if strings.Contains(err.Error(), "Duplicate") || strings.Contains(err.Error(), "uq_invoices_supplier_number") {
+			http.Error(w, `{"success":false,"error":"Счёт с таким номером уже существует"}`, http.StatusBadRequest)
+			return
+		}
 		http.Error(w, `{"success":false,"error":"Ошибка сохранения счёта"}`, http.StatusInternalServerError)
 		return
 	}

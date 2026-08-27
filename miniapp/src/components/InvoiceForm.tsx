@@ -196,6 +196,7 @@ function AutocompleteField({
 }
 
 export default function InvoiceForm() {
+  const [invoiceNumber, setInvoiceNumber] = useState("");
   const [supplier, setSupplier] = useState<PartyDraft>(emptyParty);
   const [buyer, setBuyer] = useState<PartyDraft>(emptyParty);
   const [bank, setBank] = useState<BankDraft>(emptyBank);
@@ -205,6 +206,8 @@ export default function InvoiceForm() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  const hasVAT = supplier.inn.trim() === "6454116198"; // ООО "СарСтройТех"
 
   const totals = useMemo(() => {
     const items = lines.map((line, index) => {
@@ -221,9 +224,11 @@ export default function InvoiceForm() {
       } satisfies InvoiceItem;
     });
     const total = Math.round(items.reduce((sum, item) => sum + item.amount, 0) * 100) / 100;
-    const vat = Math.round(((total * 22) / 122) * 100) / 100;
+    const vat = hasVAT
+      ? Math.round(((total * 22) / 122) * 100) / 100
+      : 0;
     return { items, total, vat };
-  }, [lines]);
+  }, [lines, hasVAT]);
 
   function updateLine(key: string, patch: Partial<LineDraft>) {
     setLines((prev) =>
@@ -239,6 +244,7 @@ export default function InvoiceForm() {
       kpp: item.kpp,
       addressText: item.addressText,
     });
+    setInvoiceNumber(String((item.lastInvoiceNumber ?? 0) + 1));
     setBank(emptyBank());
   }
 
@@ -267,6 +273,11 @@ export default function InvoiceForm() {
     setError("");
     setSuccess("");
 
+    const number = Math.trunc(parseNum(invoiceNumber));
+    if (!Number.isFinite(number) || number <= 0) {
+      setError("Укажите номер счёта");
+      return;
+    }
     if (!supplier.name.trim() || !supplier.inn.trim() || !supplier.addressText.trim()) {
       setError("Заполните поставщика");
       return;
@@ -287,6 +298,7 @@ export default function InvoiceForm() {
     setSaving(true);
     try {
       const result = await createInvoice({
+        number,
         invoiceDate,
         basis: basis.trim(),
         supplier,
@@ -295,6 +307,7 @@ export default function InvoiceForm() {
         items: totals.items,
       });
       setSuccess(`Счёт № ${result.number} создан и отправлен`);
+      setInvoiceNumber(String(result.number + 1));
       setLines([newLine()]);
       setBasis("");
     } catch (err) {
@@ -307,6 +320,22 @@ export default function InvoiceForm() {
   return (
     <form className="invoice-form" onSubmit={submit}>
       <section className="invoice-section">
+        <label className="invoice-field invoice-number-field">
+          <span>Номер счёта</span>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={invoiceNumber}
+            disabled={saving}
+            placeholder="Выберите поставщика"
+            onChange={(event) =>
+              setInvoiceNumber(event.target.value.replace(/[^\d]/g, ""))
+            }
+          />
+        </label>
+      </section>
+
+      <section className="invoice-section">
         <h2>Поставщик</h2>
         <AutocompleteField
           label="Наименование"
@@ -315,6 +344,7 @@ export default function InvoiceForm() {
           disabled={saving}
           onChange={(name) => {
             setSupplier((prev) => ({ ...prev, id: null, name }));
+            setInvoiceNumber("");
             setBank(emptyBank());
           }}
           onPick={(item) => pickSupplier(item as InvoiceSupplier)}
@@ -581,7 +611,7 @@ export default function InvoiceForm() {
             <strong>{money(totals.total)}</strong>
           </div>
           <div>
-            <span>НДС 22%</span>
+            <span>{hasVAT ? "НДС 22%" : "Без НДС"}</span>
             <strong>{money(totals.vat)}</strong>
           </div>
           <div>

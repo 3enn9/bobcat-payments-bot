@@ -46,6 +46,7 @@ type CreateInvoiceInput struct {
 	SupplierID      *int64
 	BuyerID         *int64
 	BankID          *int64
+	Number          int // 0 = next after last_invoice_number
 	InvoiceDate     time.Time
 	Basis           string
 	SupplierName    string
@@ -266,7 +267,10 @@ func (d *Database) CreateInvoice(input CreateInvoiceInput) (*CreatedInvoice, err
 	`, *supplierID).Scan(&lastNumber); err != nil {
 		return nil, err
 	}
-	nextNumber := lastNumber + 1
+	invoiceNumber := input.Number
+	if invoiceNumber <= 0 {
+		invoiceNumber = lastNumber + 1
+	}
 
 	result, err := tx.Exec(`
 		INSERT INTO invoices (
@@ -277,7 +281,7 @@ func (d *Database) CreateInvoice(input CreateInvoiceInput) (*CreatedInvoice, err
 			total, vat_amount
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`,
-		nextNumber,
+		invoiceNumber,
 		input.InvoiceDate.Format("2006-01-02"),
 		input.Basis,
 		supplierID,
@@ -320,11 +324,15 @@ func (d *Database) CreateInvoice(input CreateInvoiceInput) (*CreatedInvoice, err
 		}
 	}
 
+	newLast := lastNumber
+	if invoiceNumber > newLast {
+		newLast = invoiceNumber
+	}
 	_, err = tx.Exec(`
 		UPDATE invoice_suppliers
 		SET last_invoice_number = ?
 		WHERE id = ?
-	`, nextNumber, *supplierID)
+	`, newLast, *supplierID)
 	if err != nil {
 		return nil, err
 	}
@@ -333,7 +341,7 @@ func (d *Database) CreateInvoice(input CreateInvoiceInput) (*CreatedInvoice, err
 		return nil, err
 	}
 
-	return &CreatedInvoice{ID: invoiceID, Number: nextNumber}, nil
+	return &CreatedInvoice{ID: invoiceID, Number: invoiceNumber}, nil
 }
 
 func FormatMoney(value float64) string {

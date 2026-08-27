@@ -4,6 +4,7 @@ import (
 	"bytes"
 	_ "embed"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -94,28 +95,39 @@ func GeneratePDF(data PDFData) ([]byte, error) {
 	pdf.Rect(left+col1, y, col2+col3, rowH, "D")
 
 	y += rowH
-	midH := rowH * 2
-	pdf.Rect(left, y, 40, midH, "D")
+	// Classic 1C layout: INN | KPP on top; name + "Получатель" below; account on the right.
+	blockH := rowH * 3
+	innW := col1 / 2
+	kppW := col1 - innW
+
+	pdf.Rect(left, y, innW, rowH, "D")
 	pdf.SetXY(left+1, y+0.8)
-	pdf.MultiCell(38, 3.5, fmt.Sprintf("ИНН %s", data.SupplierINN), "", "L", false)
+	pdf.CellFormat(innW-2, 3.5, fmt.Sprintf("ИНН %s", data.SupplierINN), "", 0, "L", false, 0, "")
 
-	pdf.Rect(left+40, y, 40, midH, "D")
-	pdf.SetXY(left+41, y+0.8)
-	pdf.MultiCell(38, 3.5, fmt.Sprintf("КПП %s", data.SupplierKPP), "", "L", false)
+	pdf.Rect(left+innW, y, kppW, rowH, "D")
+	pdf.SetXY(left+innW+1, y+0.8)
+	kppLabel := "КПП"
+	if strings.TrimSpace(data.SupplierKPP) != "" {
+		kppLabel = fmt.Sprintf("КПП %s", data.SupplierKPP)
+	}
+	pdf.CellFormat(kppW-2, 3.5, kppLabel, "", 0, "L", false, 0, "")
 
-	pdf.Rect(left+80, y, col1-80, midH, "D")
-	pdf.SetXY(left+81, y+0.8)
-	pdf.MultiCell(col1-82, 3.5, data.SupplierName+"\nПолучатель", "", "L", false)
+	pdf.Rect(left, y+rowH, col1, rowH*2, "D")
+	pdf.SetXY(left+1, y+rowH+1)
+	pdf.SetFont("arial", "", 8)
+	pdf.MultiCell(col1-2, 3.5, data.SupplierName, "", "L", false)
+	pdf.SetXY(left+1, y+rowH*2+0.8)
+	pdf.CellFormat(col1-2, 3.5, "Получатель", "", 0, "L", false, 0, "")
 
-	pdf.Rect(left+col1, y, col2, midH, "D")
+	pdf.Rect(left+col1, y, col2, blockH, "D")
 	pdf.SetXY(left+col1+1, y+0.8)
 	pdf.CellFormat(col2-2, 3.5, "Сч. №", "", 0, "L", false, 0, "")
 
-	pdf.Rect(left+col1+col2, y, col3, midH, "D")
+	pdf.Rect(left+col1+col2, y, col3, blockH, "D")
 	pdf.SetXY(left+col1+col2+1, y+0.8)
 	pdf.CellFormat(col3-2, 3.5, data.BankAccount, "", 0, "L", false, 0, "")
 
-	y += midH + 8
+	y += blockH + 8
 	pdf.SetFont("arial", "B", 13)
 	pdf.SetXY(left, y)
 	pdf.CellFormat(pageW, 7, fmt.Sprintf("Счет на оплату № %d от %s", data.Number, formatRuDate(data.Date)), "", 1, "L", false, 0, "")
@@ -136,9 +148,9 @@ func GeneratePDF(data PDFData) ([]byte, error) {
 		y = pdf.GetY() + 2
 	}
 
-	writeLabeledBlock("Поставщик\n(Исполнитель):", fmt.Sprintf("%s, ИНН %s, КПП %s, %s",
+	writeLabeledBlock("Поставщик\n(Исполнитель):", formatPartyLine(
 		data.SupplierName, data.SupplierINN, data.SupplierKPP, data.SupplierAddress))
-	writeLabeledBlock("Покупатель\n(Заказчик):", fmt.Sprintf("%s, ИНН %s, КПП %s, %s",
+	writeLabeledBlock("Покупатель\n(Заказчик):", formatPartyLine(
 		data.BuyerName, data.BuyerINN, data.BuyerKPP, data.BuyerAddress))
 
 	pdf.SetXY(left, y)
@@ -215,7 +227,11 @@ func GeneratePDF(data PDFData) ([]byte, error) {
 		y += 6
 	}
 	writeTotal("Итого:", formatPDFMoney(data.Total), true)
-	writeTotal("В том числе НДС 22%:", formatPDFMoney(data.VatAmount), false)
+	if SupplierHasVAT(data.SupplierINN) {
+		writeTotal("В том числе НДС 22%:", formatPDFMoney(data.VatAmount), false)
+	} else {
+		writeTotal("Без НДС:", formatPDFMoney(0), false)
+	}
 	writeTotal("Всего к оплате:", formatPDFMoney(data.Total), true)
 
 	y += 2
@@ -248,6 +264,29 @@ func GeneratePDF(data PDFData) ([]byte, error) {
 		return nil, pdf.Error()
 	}
 	return buf.Bytes(), nil
+}
+
+// SupplierHasVAT — НДС 22% только у ООО "СарСтройТех" (ИНН 6454116198).
+func SupplierHasVAT(inn string) bool {
+	return strings.TrimSpace(inn) == "6454116198"
+}
+
+func CalcVAT(total float64, supplierINN string) float64 {
+	if !SupplierHasVAT(supplierINN) {
+		return 0
+	}
+	return math.Round(total*22/122*100) / 100
+}
+
+func formatPartyLine(name, inn, kpp, address string) string {
+	parts := []string{name, "ИНН " + inn}
+	if strings.TrimSpace(kpp) != "" {
+		parts = append(parts, "КПП "+kpp)
+	}
+	if strings.TrimSpace(address) != "" {
+		parts = append(parts, address)
+	}
+	return strings.Join(parts, ", ")
 }
 
 func formatRuDate(t time.Time) string {

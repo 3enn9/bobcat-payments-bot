@@ -83,6 +83,7 @@ export function searchBanks(q: string, supplierId?: number | null) {
 }
 
 export async function createInvoice(payload: {
+  number: number;
   invoiceDate: string;
   basis: string;
   supplier: InvoiceParty;
