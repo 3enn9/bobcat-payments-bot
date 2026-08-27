@@ -3,6 +3,8 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"log"
 	"math"
@@ -52,7 +54,8 @@ type createInvoiceRequest struct {
 	Buyer       partyPayload  `json:"buyer"`
 	Bank        bankPayload   `json:"bank"`
 	Items       []itemPayload `json:"items"`
-	SendToEmail bool          `json:"sendToEmail"`
+	SendToEmail      bool          `json:"sendToEmail"`
+	ReplaceExisting  bool          `json:"replaceExisting"`
 }
 
 func (h *MiniAppHandler) SearchInvoiceSuppliers(w http.ResponseWriter, r *http.Request) {
@@ -255,6 +258,7 @@ func (h *MiniAppHandler) CreateInvoice(w http.ResponseWriter, r *http.Request) {
 		BuyerID:         input.Buyer.ID,
 		BankID:          input.Bank.ID,
 		Number:          input.Number,
+		ReplaceExisting: input.ReplaceExisting,
 		InvoiceDate:     invoiceDate,
 		Basis:           input.Basis,
 		SupplierName:    input.Supplier.Name,
@@ -276,8 +280,13 @@ func (h *MiniAppHandler) CreateInvoice(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		log.Printf("create invoice error: %v", err)
-		if strings.Contains(err.Error(), "Duplicate") || strings.Contains(err.Error(), "uq_invoices_supplier_number") {
-			http.Error(w, `{"success":false,"error":"Счёт с таким номером уже существует"}`, http.StatusBadRequest)
+		if errors.Is(err, db.ErrInvoiceExists) {
+			w.WriteHeader(http.StatusConflict)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"success": false,
+				"code":    "invoice_exists",
+				"error":   fmt.Sprintf("Счёт № %d уже существует. Заменить его новым?", input.Number),
+			})
 			return
 		}
 		http.Error(w, `{"success":false,"error":"Ошибка сохранения счёта"}`, http.StatusInternalServerError)
@@ -322,7 +331,7 @@ func (h *MiniAppHandler) CreateInvoice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fileName := invoice.PDFFileName(created.Number, input.Supplier.Name, input.Supplier.INN)
+	fileName := invoice.PDFFileName(created.Number, input.Supplier.Name, input.Supplier.INN, created.Replaced)
 	if err := h.max.SendFileAndPhotosToGroup("Invoices", fileName, bytes.NewReader(pdfBytes), photos); err != nil {
 		log.Printf("invoice send to MAX failed: %v", err)
 		http.Error(w, `{"success":false,"error":"Ошибка отправки в группу"}`, http.StatusInternalServerError)
@@ -334,9 +343,10 @@ func (h *MiniAppHandler) CreateInvoice(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"success": true,
-		"id":      created.ID,
-		"number":  created.Number,
+		"success":  true,
+		"id":       created.ID,
+		"number":   created.Number,
+		"replaced": created.Replaced,
 	})
 }
 

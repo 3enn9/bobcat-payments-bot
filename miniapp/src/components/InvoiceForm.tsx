@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import {
   createInvoice,
+  InvoiceApiError,
   searchBanks,
   searchBuyers,
   searchSuppliers,
@@ -304,26 +305,54 @@ export default function InvoiceForm() {
       return;
     }
 
+    const payload = {
+      number,
+      invoiceDate,
+      basis: basis.trim(),
+      supplier,
+      buyer,
+      bank,
+      items: totals.items,
+      sendToEmail,
+    };
+
     setSaving(true);
     try {
-      const result = await createInvoice(
-        {
-          number,
-          invoiceDate,
-          basis: basis.trim(),
-          supplier,
-          buyer,
-          bank,
-          items: totals.items,
-          sendToEmail,
-        },
-        photos,
-      );
-      setSuccess(`Счёт № ${result.number} создан и отправлен`);
-      setInvoiceNumber(String(result.number + 1));
-      setLines([newLine()]);
-      setBasis("");
-      setPhotos([]);
+      let replaceExisting = false;
+      while (true) {
+        try {
+          const result = await createInvoice({ ...payload, replaceExisting }, photos);
+          setSuccess(
+            result.replaced
+              ? `Счёт № ${result.number} заменён и отправлен`
+              : `Счёт № ${result.number} создан и отправлен`,
+          );
+          if (!result.replaced) {
+            setInvoiceNumber(String(result.number + 1));
+          }
+          setLines([newLine()]);
+          setBasis("");
+          setPhotos([]);
+          break;
+        } catch (err) {
+          if (
+            err instanceof InvoiceApiError &&
+            err.code === "invoice_exists" &&
+            !replaceExisting
+          ) {
+            const ok = window.confirm(
+              err.message ||
+                `Счёт № ${number} уже существует. Заменить его новым?`,
+            );
+            if (!ok) {
+              break;
+            }
+            replaceExisting = true;
+            continue;
+          }
+          throw err;
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Ошибка создания счёта");
     } finally {

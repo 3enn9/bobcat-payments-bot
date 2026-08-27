@@ -2,10 +2,13 @@ package db
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 )
+
+var ErrInvoiceExists = errors.New("invoice_exists")
 
 type InvoiceBank struct {
 	ID          int64  `json:"id"`
@@ -47,8 +50,9 @@ type CreateInvoiceInput struct {
 	SupplierID      *int64
 	BuyerID         *int64
 	BankID          *int64
-	Number          int // 0 = next after last_invoice_number
-	InvoiceDate     time.Time
+	Number           int // 0 = next after last_invoice_number
+	ReplaceExisting  bool
+	InvoiceDate      time.Time
 	Basis           string
 	SupplierName    string
 	SupplierINN     string
@@ -69,8 +73,9 @@ type CreateInvoiceInput struct {
 }
 
 type CreatedInvoice struct {
-	ID     int64
-	Number int
+	ID      int64
+	Number  int
+	Replaced bool
 }
 
 func (d *Database) SearchInvoiceBanks(q string, supplierID int64, limit int) ([]InvoiceBank, error) {
@@ -274,6 +279,25 @@ func (d *Database) CreateInvoice(input CreateInvoiceInput) (*CreatedInvoice, err
 		invoiceNumber = lastNumber + 1
 	}
 
+	var existingID int64
+	err = tx.QueryRow(`
+		SELECT id
+		FROM invoices
+		WHERE supplier_id = ? AND number = ?
+	`, *supplierID, invoiceNumber).Scan(&existingID)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, err
+	}
+	replaced := err == nil
+	if replaced && !input.ReplaceExisting {
+		return nil, ErrInvoiceExists
+	}
+	if replaced {
+		if _, err := tx.Exec(`DELETE FROM invoices WHERE id = ?`, existingID); err != nil {
+			return nil, err
+		}
+	}
+
 	result, err := tx.Exec(`
 		INSERT INTO invoices (
 			number, invoice_date, basis, supplier_id, buyer_id,
@@ -343,7 +367,7 @@ func (d *Database) CreateInvoice(input CreateInvoiceInput) (*CreatedInvoice, err
 		return nil, err
 	}
 
-	return &CreatedInvoice{ID: invoiceID, Number: invoiceNumber}, nil
+	return &CreatedInvoice{ID: invoiceID, Number: invoiceNumber, Replaced: replaced}, nil
 }
 
 func FormatMoney(value float64) string {

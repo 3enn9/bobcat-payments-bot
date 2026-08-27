@@ -39,7 +39,31 @@ type CreateInvoiceResponse = {
   success: boolean;
   id?: number;
   number?: number;
+  replaced?: boolean;
+  code?: string;
   error?: string;
+};
+
+export class InvoiceApiError extends Error {
+  code?: string;
+
+  constructor(message: string, code?: string) {
+    super(message);
+    this.name = "InvoiceApiError";
+    this.code = code;
+  }
+}
+
+export type CreateInvoicePayload = {
+  number: number;
+  invoiceDate: string;
+  basis: string;
+  supplier: InvoiceParty;
+  buyer: InvoiceParty;
+  bank: InvoiceBank;
+  items: InvoiceItem[];
+  sendToEmail: boolean;
+  replaceExisting?: boolean;
 };
 
 async function search<T>(
@@ -84,18 +108,9 @@ export function searchBanks(q: string, supplierId?: number | null) {
 }
 
 export async function createInvoice(
-  payload: {
-    number: number;
-    invoiceDate: string;
-    basis: string;
-    supplier: InvoiceParty;
-    buyer: InvoiceParty;
-    bank: InvoiceBank;
-    items: InvoiceItem[];
-    sendToEmail: boolean;
-  },
+  payload: CreateInvoicePayload,
   photos: File[] = [],
-): Promise<{ id: number; number: number }> {
+): Promise<{ id: number; number: number; replaced: boolean }> {
   const formData = new FormData();
   formData.append("payload", JSON.stringify(payload));
   for (const photo of photos) {
@@ -108,7 +123,10 @@ export async function createInvoice(
   });
   const data = (await response.json()) as CreateInvoiceResponse;
   if (!response.ok || !data.success || !data.id || !data.number) {
-    throw new Error(data.error || "Не удалось создать счёт");
+    throw new InvoiceApiError(
+      data.error || "Не удалось создать счёт",
+      data.code,
+    );
   }
-  return { id: data.id, number: data.number };
+  return { id: data.id, number: data.number, replaced: data.replaced ?? false };
 }

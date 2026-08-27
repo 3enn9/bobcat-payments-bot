@@ -325,8 +325,12 @@ func SupplierFileCode(name, inn string) string {
 }
 
 // PDFFileName: "сч 536 сст.pdf"
-func PDFFileName(number int, supplierName, supplierINN string) string {
-	return fmt.Sprintf("сч %d %s.pdf", number, SupplierFileCode(supplierName, supplierINN))
+func PDFFileName(number int, supplierName, supplierINN string, revised bool) string {
+	code := SupplierFileCode(supplierName, supplierINN)
+	if revised {
+		return fmt.Sprintf("сч %d %s изм.pdf", number, code)
+	}
+	return fmt.Sprintf("сч %d %s.pdf", number, code)
 }
 
 // entrepreneurShortName: "ИП Архипов Николай Николаевич" → "Архипов Н.Н."
