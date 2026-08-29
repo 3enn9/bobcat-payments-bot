@@ -3,8 +3,9 @@ import RequestForm from "./components/RequestForm";
 import WorkerCabinet from "./components/WorkerCabinet";
 import WorkerRequests from "./components/WorkerRequests";
 import InvoiceForm from "./components/InvoiceForm";
+import DaysOffForm from "./components/DaysOffForm";
 
-type Screen = "home" | "client" | "worker" | "kosenko" | "invoices";
+type Screen = "home" | "client" | "worker" | "kosenko" | "invoices" | "daysoff";
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>("home");
@@ -104,6 +105,29 @@ export default function App() {
     );
   }
 
+  if (screen === "daysoff") {
+    return (
+      <div className="page page-worker">
+        <div className="card card-worker">
+          <div className="worker-header">
+            <button
+              type="button"
+              className="back-button"
+              onClick={() => setScreen("home")}
+            >
+              ← Назад
+            </button>
+            <h1>Выходные</h1>
+          </div>
+
+          <div className="requests-scroll">
+            <DaysOffForm />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <main className="home-screen">
       <div className="logo">Bobcatsar64</div>
@@ -164,6 +188,19 @@ export default function App() {
           <span>
             <strong>Счета</strong>
             <small>Конструктор счетов</small>
+          </span>
+        </button>
+
+        <button
+          type="button"
+          className="role-button"
+          onClick={() => setScreen("daysoff")}
+        >
+          <span className="role-icon">🏖️</span>
+
+          <span>
+            <strong>Выходные</strong>
+            <small>График отдыха</small>
           </span>
         </button>
       </div>

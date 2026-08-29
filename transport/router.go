@@ -85,5 +85,15 @@ func NewRouter(
 		miniApp.CreateInvoice,
 	).Methods(http.MethodPost, http.MethodOptions)
 
+	router.HandleFunc(
+		"/api/miniapp/days-off",
+		miniApp.CreateDaysOff,
+	).Methods(http.MethodPost, http.MethodOptions)
+
+	router.HandleFunc(
+		"/api/miniapp/days-off",
+		miniApp.ListDaysOff,
+	).Methods(http.MethodGet, http.MethodOptions)
+
 	return router
 }

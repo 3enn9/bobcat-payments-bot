@@ -34,6 +34,7 @@ func NewMaxService(token string, payments *payments.PaymentsService, database *d
 		"DriverRequest": -78173743561440,
 		"WorkerDone":    -78179579607776,
 		"Invoices":      -78218659838688,
+		"DaysOff":       -78302034737888,
 	}
 	return &MaxService{Bot: api, Chats: chats, payments: payments, db: database}, nil
 }
@@ -126,6 +127,9 @@ func (m *MaxService) Updates(update schemes.UpdateInterface) error {
 
 	case *schemes.MessageCreatedUpdate:
 		m.handleMessage(upd)
+
+	case *schemes.MessageCallbackUpdate:
+		m.handleDaysOffCallback(upd)
 
 	default:
 		log.Printf("unknown update %T", upd)

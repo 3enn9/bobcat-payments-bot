@@ -662,6 +662,69 @@
   width: 100%;
 }
 
+.days-off-form {
+  display: grid;
+  gap: 14px;
+}
+
+.days-off-worker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid #ececec;
+  font-weight: 650;
+}
+
+.days-off-change-worker {
+  width: auto;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.days-off-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.days-off-item {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid #ececec;
+  background: #fff;
+}
+
+.days-off-item-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.days-off-item p {
+  margin: 8px 0 0;
+  color: #666;
+  font-size: 13px;
+}
+
+.days-off-pending span:last-child {
+  color: #9a6700;
+}
+
+.days-off-approved span:last-child {
+  color: #1b5e20;
+}
+
+.days-off-rejected span:last-child {
+  color: #b42318;
+}
+
 @media (max-width: 520px) {
   .invoice-line-meta {
     grid-template-columns: 1fr 1fr;
