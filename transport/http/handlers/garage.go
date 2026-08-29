@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"PaymentsBot/internal/db"
 )
 
 type createGarageWorkRequest struct {
@@ -83,6 +85,21 @@ func (h *MiniAppHandler) CreateGarageWork(w http.ResponseWriter, r *http.Request
 	if err != nil {
 		log.Printf("create garage work error: %v", err)
 		http.Error(w, `{"success":false,"error":"Ошибка сохранения"}`, http.StatusInternalServerError)
+		return
+	}
+
+	item := db.GarageWorkLog{
+		ID:            id,
+		WorkerName:    input.WorkerName,
+		WorkDate:      input.WorkDate,
+		TimeFrom:      timeFrom,
+		TimeTo:        timeTo,
+		WorkedMinutes: workedMinutes,
+		Description:   input.Description,
+	}
+	if err := h.max.SendGarageWorkReport(item); err != nil {
+		log.Printf("send garage work to MAX error id=%d: %v", id, err)
+		http.Error(w, `{"success":false,"error":"Запись сохранена, но не удалось отправить в группу"}`, http.StatusInternalServerError)
 		return
 	}
 

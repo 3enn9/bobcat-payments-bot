@@ -35,6 +35,7 @@ func NewMaxService(token string, payments *payments.PaymentsService, database *d
 		"WorkerDone":    -78179579607776,
 		"Invoices":      -78218659838688,
 		"DaysOff":       -78302034737888,
+		"Garage":        -78319159032544,
 	}
 	return &MaxService{Bot: api, Chats: chats, payments: payments, db: database}, nil
 }
