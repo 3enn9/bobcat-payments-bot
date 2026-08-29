@@ -42,6 +42,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("error create maxbot %v", err)
 	}
+	if err := maxBotService.RegisterBotCommands(); err != nil {
+		log.Printf("register max bot commands: %v", err)
+	}
 
 	multiMessengers := multi.NewMultiMessenger([]usecase.SendMessanger{tgBotService, maxBotService})
 	rnCardService := rncard.NewRnCardService(multiMessengers)

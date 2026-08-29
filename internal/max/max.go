@@ -151,21 +151,8 @@ func (m *MaxService) handleMessage(upd *schemes.MessageCreatedUpdate) {
 	case "/group":
 		m.handleGroupCommand(upd)
 		return
-	case "/setup":
-		if upd.GetChatID() == m.Chats["DaysOff"] && !upd.Message.Sender.IsBot {
-			if err := m.SetupDaysOffReplyKeyboard(); err != nil {
-				log.Printf("days off setup keyboard: %v", err)
-				_ = m.SendMessageInGroupID(upd.GetChatID(), "Не удалось добавить кнопку.")
-			}
-		}
-		return
-	}
-
-	if upd.GetChatID() == m.Chats["DaysOff"] {
-		if upd.Message.Sender.IsBot {
-			return
-		}
-		if strings.EqualFold(text, daysOffTomorrowButton) {
+	case "/zavtra":
+		if !upd.Message.Sender.IsBot {
 			m.handleDaysOffTomorrow(upd.GetChatID())
 		}
 		return

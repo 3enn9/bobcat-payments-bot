@@ -121,6 +121,80 @@ func (m *MaxService) handleDaysOffCallback(upd *schemes.MessageCallbackUpdate) {
 	m.answerCallback(upd, decisionLine)
 }
 
+func (m *MaxService) RegisterBotCommands() error {
+	ctx := context.Background()
+
+	bot, err := m.Bot.Bots.GetBot(ctx)
+	if err != nil {
+		return fmt.Errorf("get bot info: %w", err)
+	}
+
+	commands := bot.Commands
+	for _, c := range commands {
+		if c.Name == "zavtra" {
+			return nil
+		}
+	}
+
+	commands = append(commands, schemes.BotCommand{
+		Name:        "zavtra",
+		Description: "Завтра",
+	})
+
+	_, err = m.Bot.Bots.PatchBot(ctx, &schemes.BotPatch{Commands: commands})
+	if err != nil {
+		return fmt.Errorf("patch bot commands: %w", err)
+	}
+
+	return nil
+}
+
+func (m *MaxService) handleDaysOffTomorrow(chatID int64) {
+	tomorrow := time.Now().AddDate(0, 0, 1).Format("2006-01-02")
+	items, err := m.db.ListApprovedWorkerDaysOffOnDate(tomorrow)
+	if err != nil {
+		log.Printf("days off tomorrow: load date=%s: %v", tomorrow, err)
+		_ = m.SendMessageInGroupID(chatID, "Не удалось загрузить список выходных.")
+		return
+	}
+
+	text := formatTomorrowDaysOffMessage(tomorrow, items)
+	if err := m.SendMessageInGroupID(chatID, text); err != nil {
+		log.Printf("days off tomorrow: send chatID=%d: %v", chatID, err)
+	}
+}
+
+func formatTomorrowDaysOffMessage(dateISO string, items []db.WorkerDaysOff) string {
+	dateLabel := db.FormatDaysOffPeriod(dateISO, dateISO)
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("Выходные на %s\n\n", dateLabel))
+
+	if len(items) == 0 {
+		b.WriteString("Никого нет.")
+		return b.String()
+	}
+
+	for _, item := range items {
+		line := item.WorkerName
+		if item.DateFrom != dateISO || item.DateTo != dateISO {
+			line += " (" + db.FormatDaysOffPeriod(item.DateFrom, item.DateTo) + ")"
+		}
+		b.WriteString("• " + line + "\n")
+	}
+
+	return strings.TrimSpace(b.String())
+}
+
+func formatDaysOffDecision(status, name string, at time.Time) string {
+	when := at.Format("02.01.2006 15:04")
+	switch status {
+	case "approved":
+		return fmt.Sprintf("✅ Подтверждено: %s · %s", name, when)
+	default:
+		return fmt.Sprintf("❌ Отклонено: %s · %s", name, when)
+	}
+}
+
 func (m *MaxService) answerCallback(upd *schemes.MessageCallbackUpdate, notification string) {
 	ctx := context.Background()
 	_, err := m.Bot.Messages.AnswerOnCallback(ctx, upd.Callback.CallbackID, &schemes.CallbackAnswer{
