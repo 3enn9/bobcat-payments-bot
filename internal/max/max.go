@@ -152,10 +152,13 @@ func (m *MaxService) handleMessage(upd *schemes.MessageCreatedUpdate) {
 	case "/group":
 		m.handleGroupCommand(upd)
 		return
-	}
-
-	if strings.HasPrefix(cmd, "/") {
-		log.Printf("max: unknown command=%q chatID=%d", cmd, upd.GetChatID())
+	case "/setup":
+		if upd.GetChatID() == m.Chats["DaysOff"] && !upd.Message.Sender.IsBot {
+			if err := m.SetupDaysOffReplyKeyboard(); err != nil {
+				log.Printf("days off setup keyboard: %v", err)
+				_ = m.SendMessageInGroupID(upd.GetChatID(), "Не удалось добавить кнопку.")
+			}
+		}
 		return
 	}
 
@@ -163,15 +166,14 @@ func (m *MaxService) handleMessage(upd *schemes.MessageCreatedUpdate) {
 		if upd.Message.Sender.IsBot {
 			return
 		}
-		switch {
-		case strings.EqualFold(text, daysOffTomorrowButton):
+		if strings.EqualFold(text, daysOffTomorrowButton) {
 			m.handleDaysOffTomorrow(upd.GetChatID())
-		case text == "/setup":
-			if err := m.SetupDaysOffReplyKeyboard(); err != nil {
-				log.Printf("days off setup keyboard: %v", err)
-				_ = m.SendMessageInGroupID(upd.GetChatID(), "Не удалось добавить кнопку.")
-			}
 		}
+		return
+	}
+
+	if strings.HasPrefix(cmd, "/") {
+		log.Printf("max: unknown command=%q chatID=%d", cmd, upd.GetChatID())
 		return
 	}
 
