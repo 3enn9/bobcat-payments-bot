@@ -16,7 +16,6 @@ import (
 
 type MaxService struct {
 	Bot      *maxbot.Api
-	token    string
 	Chats    map[string]int64
 	payments *payments.PaymentsService
 	db       *db.Database
@@ -37,7 +36,7 @@ func NewMaxService(token string, payments *payments.PaymentsService, database *d
 		"Invoices":      -78218659838688,
 		"DaysOff":       -78302034737888,
 	}
-	return &MaxService{Bot: api, token: token, Chats: chats, payments: payments, db: database}, nil
+	return &MaxService{Bot: api, Chats: chats, payments: payments, db: database}, nil
 }
 
 type PhotoUpload struct {
