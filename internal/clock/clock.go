@@ -9,13 +9,15 @@ var location *time.Location
 
 func Init(tz string) {
 	if tz == "" {
-		tz = "Europe/Samara"
+		location = time.Local
+		log.Printf("clock: using system timezone (%s)", time.Now().Format("-07:00"))
+		return
 	}
 
 	loc, err := time.LoadLocation(tz)
 	if err != nil {
-		log.Printf("clock: timezone %q invalid, using UTC: %v", tz, err)
-		location = time.UTC
+		log.Printf("clock: timezone %q invalid, using system timezone: %v", tz, err)
+		location = time.Local
 		return
 	}
 

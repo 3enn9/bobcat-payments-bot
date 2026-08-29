@@ -11,7 +11,9 @@ RUN CGO_ENABLED=0 go build -o app ./cmd
 
 FROM alpine:latest
 
-RUN apk add --no-cache ca-certificates
+RUN apk add --no-cache ca-certificates tzdata
+
+ENV TZ=Europe/Samara
 
 COPY certs/russian-trusted-root-ca.crt /usr/local/share/ca-certificates/
 
@@ -20,7 +22,5 @@ RUN update-ca-certificates
 WORKDIR /app
 
 COPY --from=builder /app/app .
-
-ENV TZ=Europe/Moscow
 
 CMD ["./app"]

@@ -4,7 +4,7 @@ services:
 
   app:
     environment:
-      - TZ=Europe/Moscow
+      - TZ=Europe/Samara
 
     build: .
 
