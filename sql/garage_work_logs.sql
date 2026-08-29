@@ -7,6 +7,7 @@ CREATE TABLE garage_work_logs (
   work_date DATE NOT NULL COMMENT 'Дата работы',
   time_from TIME NOT NULL COMMENT 'Время начала работы',
   time_to TIME NOT NULL COMMENT 'Время окончания работы',
+  worked_minutes INT UNSIGNED NOT NULL COMMENT 'Отработано минут (time_to - time_from)',
   description TEXT NOT NULL COMMENT 'Что сделал за время работы',
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),

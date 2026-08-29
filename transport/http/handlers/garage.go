@@ -64,11 +64,20 @@ func (h *MiniAppHandler) CreateGarageWork(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	timeFrom := normalizeTimeHHMM(input.TimeFrom)
+	timeTo := normalizeTimeHHMM(input.TimeTo)
+	workedMinutes, err := calcWorkedMinutes(input.TimeFrom, input.TimeTo)
+	if err != nil || workedMinutes <= 0 {
+		http.Error(w, `{"success":false,"error":"Не удалось посчитать отработанное время"}`, http.StatusBadRequest)
+		return
+	}
+
 	id, err := h.db.CreateGarageWorkLog(
 		input.WorkerName,
 		input.WorkDate,
-		normalizeTimeHHMM(input.TimeFrom),
-		normalizeTimeHHMM(input.TimeTo),
+		timeFrom,
+		timeTo,
+		workedMinutes,
 		input.Description,
 	)
 	if err != nil {
@@ -93,4 +102,27 @@ func normalizeTimeHHMM(value string) string {
 		return t.Format("15:04:05")
 	}
 	return value
+}
+
+func calcWorkedMinutes(timeFrom, timeTo string) (int, error) {
+	from, err := parseClockTime(timeFrom)
+	if err != nil {
+		return 0, err
+	}
+	to, err := parseClockTime(timeTo)
+	if err != nil {
+		return 0, err
+	}
+	minutes := int(to.Sub(from).Minutes())
+	if minutes <= 0 {
+		return 0, err
+	}
+	return minutes, nil
+}
+
+func parseClockTime(value string) (time.Time, error) {
+	if t, err := time.Parse("15:04", value); err == nil {
+		return t, nil
+	}
+	return time.Parse("15:04:05", value)
 }
