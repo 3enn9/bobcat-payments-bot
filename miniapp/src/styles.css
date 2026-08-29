@@ -679,6 +679,25 @@
   min-width: 0;
 }
 
+.days-off-dates {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  min-width: 0;
+}
+
+.days-off-date-input {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.days-off-form .invoice-section {
+  overflow: hidden;
+}
+
 .days-off-worker {
   display: flex;
   align-items: center;

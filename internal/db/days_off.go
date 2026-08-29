@@ -78,7 +78,8 @@ func (d *Database) ListWorkerDaysOff(workerName string, limit int) ([]WorkerDays
 		       decided_by_name, decided_at, created_at
 		FROM worker_days_off
 		WHERE worker_name = ?
-		ORDER BY date_from DESC, id DESC
+		  AND date_to >= CURDATE()
+		ORDER BY date_from ASC, id DESC
 		LIMIT ?
 	`, workerName, limit)
 	if err != nil {

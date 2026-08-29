@@ -40,8 +40,9 @@ export default function DaysOffForm() {
       setError("");
       try {
         const list = await fetchDaysOff(workerName);
+        const today = todayISO();
         if (!cancelled) {
-          setItems(list);
+          setItems(list.filter((item) => item.dateTo >= today));
         }
       } catch (err) {
         if (!cancelled) {
@@ -141,11 +142,12 @@ export default function DaysOffForm() {
 
           <form className="invoice-section" onSubmit={submit}>
             <h2>Новая заявка</h2>
-            <div className="invoice-grid-2">
+            <div className="days-off-dates">
               <label className="invoice-field">
                 <span>С</span>
                 <input
                   type="date"
+                  className="days-off-date-input"
                   min={todayISO()}
                   value={dateFrom}
                   disabled={saving}
@@ -161,6 +163,7 @@ export default function DaysOffForm() {
                 <span>По</span>
                 <input
                   type="date"
+                  className="days-off-date-input"
                   min={dateFrom}
                   value={dateTo}
                   disabled={saving}
