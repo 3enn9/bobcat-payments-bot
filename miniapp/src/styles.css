@@ -698,6 +698,20 @@
   overflow: hidden;
 }
 
+.days-off-upcoming {
+  margin-top: 4px;
+}
+
+.days-off-upcoming h2 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.worker-name-form {
+  display: grid;
+  gap: 14px;
+}
+
 .days-off-worker {
   display: flex;
   align-items: center;

@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import {
   createDaysOff,
   fetchDaysOff,
+  fetchUpcomingDaysOff,
   formatPeriod,
   statusLabel,
   type DaysOffItem,
@@ -23,10 +24,42 @@ export default function DaysOffForm() {
   const [dateTo, setDateTo] = useState(todayISO());
   const [comment, setComment] = useState("");
   const [items, setItems] = useState<DaysOffItem[]>([]);
+  const [upcoming, setUpcoming] = useState<DaysOffItem[]>([]);
+  const [upcomingLoading, setUpcomingLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  useEffect(() => {
+    if (workerName) {
+      return;
+    }
+
+    let cancelled = false;
+    async function loadUpcoming() {
+      setUpcomingLoading(true);
+      try {
+        const list = await fetchUpcomingDaysOff();
+        if (!cancelled) {
+          setUpcoming(list);
+        }
+      } catch {
+        if (!cancelled) {
+          setUpcoming([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setUpcomingLoading(false);
+        }
+      }
+    }
+
+    void loadUpcoming();
+    return () => {
+      cancelled = true;
+    };
+  }, [workerName, success]);
 
   useEffect(() => {
     if (!workerName) {
@@ -121,6 +154,25 @@ export default function DaysOffForm() {
           </label>
           {error && <div className="error">{error}</div>}
           <button type="submit">Продолжить</button>
+
+          <section className="invoice-section days-off-upcoming">
+            <h2>Актуальные выходные</h2>
+            {upcomingLoading && <p className="invoice-hint">Загрузка...</p>}
+            {!upcomingLoading && upcoming.length === 0 && (
+              <p className="invoice-hint">Пока нет подтверждённых выходных</p>
+            )}
+            <ul className="days-off-list">
+              {upcoming.map((item) => (
+                <li key={item.id} className="days-off-item days-off-approved">
+                  <div className="days-off-item-top">
+                    <strong>{item.workerName}</strong>
+                    <span>{formatPeriod(item.dateFrom, item.dateTo)}</span>
+                  </div>
+                  {item.comment && <p>{item.comment}</p>}
+                </li>
+              ))}
+            </ul>
+          </section>
         </form>
       ) : (
         <>

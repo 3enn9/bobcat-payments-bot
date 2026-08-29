@@ -121,3 +121,23 @@ func (h *MiniAppHandler) ListDaysOff(w http.ResponseWriter, r *http.Request) {
 		"items":   items,
 	})
 }
+
+func (h *MiniAppHandler) ListUpcomingDaysOff(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	items, err := h.db.ListUpcomingApprovedDaysOff(clock.Today(), 50)
+	if err != nil {
+		log.Printf("list upcoming days off error: %v", err)
+		http.Error(w, `{"success":false,"error":"Ошибка загрузки"}`, http.StatusInternalServerError)
+		return
+	}
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"items":   items,
+	})
+}

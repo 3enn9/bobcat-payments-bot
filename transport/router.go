@@ -86,6 +86,11 @@ func NewRouter(
 	).Methods(http.MethodPost, http.MethodOptions)
 
 	router.HandleFunc(
+		"/api/miniapp/days-off/upcoming",
+		miniApp.ListUpcomingDaysOff,
+	).Methods(http.MethodGet, http.MethodOptions)
+
+	router.HandleFunc(
 		"/api/miniapp/days-off",
 		miniApp.CreateDaysOff,
 	).Methods(http.MethodPost, http.MethodOptions)

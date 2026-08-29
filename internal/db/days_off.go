@@ -101,6 +101,38 @@ func (d *Database) ListWorkerDaysOff(workerName, today string, limit int) ([]Wor
 	return result, rows.Err()
 }
 
+func (d *Database) ListUpcomingApprovedDaysOff(today string, limit int) ([]WorkerDaysOff, error) {
+	if today == "" {
+		today = time.Now().Format("2006-01-02")
+	}
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+	rows, err := d.DB.Query(`
+		SELECT id, worker_name, date_from, date_to, comment, status,
+		       decided_by_name, decided_at, created_at
+		FROM worker_days_off
+		WHERE status = 'approved'
+		  AND date_to >= ?
+		ORDER BY date_from ASC, worker_name ASC
+		LIMIT ?
+	`, today, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make([]WorkerDaysOff, 0)
+	for rows.Next() {
+		item, err := scanWorkerDaysOff(rows)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, item)
+	}
+	return result, rows.Err()
+}
+
 func (d *Database) GetWorkerDaysOff(id int64) (*WorkerDaysOff, error) {
 	row := d.DB.QueryRow(`
 		SELECT id, worker_name, date_from, date_to, comment, status,

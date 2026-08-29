@@ -22,6 +22,15 @@ type CreateResponse = {
   error?: string;
 };
 
+export async function fetchUpcomingDaysOff(): Promise<DaysOffItem[]> {
+  const response = await fetch("/api/miniapp/days-off/upcoming");
+  const data = (await response.json()) as ListResponse;
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || "Не удалось загрузить график");
+  }
+  return data.items ?? [];
+}
+
 export async function fetchDaysOff(workerName: string): Promise<DaysOffItem[]> {
   const params = new URLSearchParams({ worker: workerName });
   const response = await fetch(`/api/miniapp/days-off?${params.toString()}`);
