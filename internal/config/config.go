@@ -19,6 +19,7 @@ type Config struct {
 	SMTPUser string
 	SMTPPass string
 	SMTPFrom string
+	Timezone string
 }
 
 func NewConfig() *Config {
@@ -40,5 +41,6 @@ func NewConfig() *Config {
 		SMTPUser: os.Getenv("SMTP_USER"),
 		SMTPPass: os.Getenv("SMTP_PASS"),
 		SMTPFrom: os.Getenv("SMTP_FROM"),
+		Timezone: os.Getenv("APP_TIMEZONE"),
 	}
 }

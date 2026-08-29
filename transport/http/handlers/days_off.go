@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"PaymentsBot/internal/clock"
 	"PaymentsBot/internal/db"
 )
 
@@ -56,7 +57,7 @@ func (h *MiniAppHandler) CreateDaysOff(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	today := time.Now().Format("2006-01-02")
+	today := clock.Today()
 	if input.DateFrom < today {
 		http.Error(w, `{"success":false,"error":"Нельзя выбрать прошедшие даты"}`, http.StatusBadRequest)
 		return
@@ -108,7 +109,7 @@ func (h *MiniAppHandler) ListDaysOff(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	items, err := h.db.ListWorkerDaysOff(workerName, 30)
+	items, err := h.db.ListWorkerDaysOff(workerName, clock.Today(), 30)
 	if err != nil {
 		log.Printf("list days off error: %v", err)
 		http.Error(w, `{"success":false,"error":"Ошибка загрузки"}`, http.StatusInternalServerError)

@@ -2,6 +2,7 @@ package main
 
 import (
 	"PaymentsBot/internal/banks"
+	"PaymentsBot/internal/clock"
 	"PaymentsBot/internal/config"
 	"PaymentsBot/internal/db"
 	max2 "PaymentsBot/internal/max"
@@ -26,6 +27,7 @@ import (
 
 func main() {
 	cf := config.NewConfig()
+	clock.Init(cf.Timezone)
 
 	dbInstance, err := db.NewConnectionDB(cf)
 	if err != nil {

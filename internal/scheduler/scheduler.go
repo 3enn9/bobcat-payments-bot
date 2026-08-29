@@ -1,13 +1,14 @@
 package scheduler
 
 import (
+	"PaymentsBot/internal/clock"
 	"log"
 	"time"
 )
 
 func SendDailyScheduler(task func() error) {
 	go func() {
-		now := time.Now()
+		now := clock.Now()
 
 		nextRun := time.Date(now.Year(), now.Month(), now.Day(), 4, 0, 0, 0, now.Location())
 

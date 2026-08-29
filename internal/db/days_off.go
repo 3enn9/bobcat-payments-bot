@@ -69,7 +69,10 @@ func (d *Database) ListApprovedWorkerDaysOffOnDate(date string) ([]WorkerDaysOff
 	return result, rows.Err()
 }
 
-func (d *Database) ListWorkerDaysOff(workerName string, limit int) ([]WorkerDaysOff, error) {
+func (d *Database) ListWorkerDaysOff(workerName, today string, limit int) ([]WorkerDaysOff, error) {
+	if today == "" {
+		today = time.Now().Format("2006-01-02")
+	}
 	if limit <= 0 || limit > 100 {
 		limit = 30
 	}
@@ -78,10 +81,10 @@ func (d *Database) ListWorkerDaysOff(workerName string, limit int) ([]WorkerDays
 		       decided_by_name, decided_at, created_at
 		FROM worker_days_off
 		WHERE worker_name = ?
-		  AND date_to >= CURDATE()
+		  AND date_to >= ?
 		ORDER BY date_from ASC, id DESC
 		LIMIT ?
-	`, workerName, limit)
+	`, workerName, today, limit)
 	if err != nil {
 		return nil, err
 	}

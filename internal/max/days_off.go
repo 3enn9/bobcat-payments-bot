@@ -1,6 +1,7 @@
 package max
 
 import (
+	"PaymentsBot/internal/clock"
 	"PaymentsBot/internal/db"
 	"context"
 	"errors"
@@ -102,7 +103,7 @@ func (m *MaxService) handleDaysOffCallback(upd *schemes.MessageCallbackUpdate) {
 		}
 	}
 
-	decisionLine := formatDaysOffDecision(status, deciderName, time.Now())
+	decisionLine := formatDaysOffDecision(status, deciderName, clock.Now())
 	newText := original + "\n---\n" + decisionLine
 
 	messageID := record.MaxMessageID
@@ -150,7 +151,7 @@ func (m *MaxService) RegisterBotCommands() error {
 }
 
 func (m *MaxService) handleDaysOffTomorrow(chatID int64) {
-	tomorrow := time.Now().AddDate(0, 0, 1).Format("2006-01-02")
+	tomorrow := clock.Tomorrow()
 	items, err := m.db.ListApprovedWorkerDaysOffOnDate(tomorrow)
 	if err != nil {
 		log.Printf("days off tomorrow: load date=%s: %v", tomorrow, err)
