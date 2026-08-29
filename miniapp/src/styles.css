@@ -792,6 +792,64 @@
   color: #b42318;
 }
 
+.kopytenkov-form {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.kopytenkov-table-wrap {
+  min-width: 0;
+  overflow-x: auto;
+  border: 1px solid #ececec;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.kopytenkov-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 520px;
+}
+
+.kopytenkov-table th,
+.kopytenkov-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #f0f0f0;
+  vertical-align: middle;
+  text-align: left;
+}
+
+.kopytenkov-table th {
+  font-size: 12px;
+  font-weight: 700;
+  color: #666;
+  background: #fafafa;
+}
+
+.kopytenkov-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.kopytenkov-number {
+  width: 72px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.kopytenkov-table input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #dedede;
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: #fff;
+}
+
+.kopytenkov-form > button {
+  margin-top: 4px;
+}
+
 @media (max-width: 520px) {
   .invoice-line-meta {
     grid-template-columns: 1fr 1fr;

@@ -4,8 +4,9 @@ import WorkerCabinet from "./components/WorkerCabinet";
 import WorkerRequests from "./components/WorkerRequests";
 import InvoiceForm from "./components/InvoiceForm";
 import DaysOffForm from "./components/DaysOffForm";
+import KopytenkovForm from "./components/KopytenkovForm";
 
-type Screen = "home" | "client" | "worker" | "kosenko" | "invoices" | "daysoff";
+type Screen = "home" | "client" | "worker" | "kopytenkov" | "kosenko" | "invoices" | "daysoff";
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>("home");
@@ -56,6 +57,29 @@ export default function App() {
           </div>
 
           <WorkerCabinet />
+        </div>
+      </div>
+    );
+  }
+
+  if (screen === "kopytenkov") {
+    return (
+      <div className="page page-worker">
+        <div className="card card-worker">
+          <div className="worker-header">
+            <button
+              type="button"
+              className="back-button"
+              onClick={() => setScreen("home")}
+            >
+              ← Назад
+            </button>
+            <h1>Копытенков</h1>
+          </div>
+
+          <div className="requests-scroll">
+            <KopytenkovForm />
+          </div>
         </div>
       </div>
     );
@@ -132,8 +156,6 @@ export default function App() {
     <main className="home-screen">
       <div className="logo">Bobcatsar64</div>
 
-      <h1>Добро пожаловать!</h1>
-
       <p className="subtitle">
         Выберите, как продолжить
       </p>
@@ -162,6 +184,19 @@ export default function App() {
           <span>
             <strong>Работник</strong>
             <small>Перейти в кабинет</small>
+          </span>
+        </button>
+
+        <button
+          type="button"
+          className="role-button"
+          onClick={() => setScreen("kopytenkov")}
+        >
+          <span className="role-icon">🚜</span>
+
+          <span>
+            <strong>Копытенков</strong>
+            <small>Техника и водители</small>
           </span>
         </button>
 
