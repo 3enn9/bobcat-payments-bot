@@ -3,7 +3,8 @@ import type { FormEvent } from "react";
 import { fetchEquipment, type EquipmentItem } from "../api/equipment";
 
 type RowValues = {
-  driver: string;
+  surname: string;
+  company: string;
   description: string;
 };
 
@@ -29,7 +30,7 @@ export default function KopytenkovForm() {
         setEquipment(items);
         const initial: Record<number, RowValues> = {};
         for (const item of items) {
-          initial[item.id] = { driver: "", description: "" };
+          initial[item.id] = { surname: "", company: "", description: "" };
         }
         setRows(initial);
       } catch (err) {
@@ -68,7 +69,8 @@ export default function KopytenkovForm() {
     const payload = equipment.map((item) => ({
       equipmentId: item.id,
       number: item.number,
-      driver: rows[item.id]?.driver.trim() ?? "",
+      surname: rows[item.id]?.surname.trim() ?? "",
+      company: rows[item.id]?.company.trim() ?? "",
       description: rows[item.id]?.description.trim() ?? "",
     }));
 
@@ -83,44 +85,46 @@ export default function KopytenkovForm() {
       {error && <div className="error">{error}</div>}
 
       {!loading && !error && (
-        <div className="kopytenkov-table-wrap">
-          <table className="kopytenkov-table">
-            <thead>
-              <tr>
-                <th>№ техники</th>
-                <th>Водитель</th>
-                <th>Описание</th>
-              </tr>
-            </thead>
-            <tbody>
-              {equipment.map((item) => (
-                <tr key={item.id}>
-                  <td className="kopytenkov-number">{item.number}</td>
-                  <td>
-                    <input
-                      value={rows[item.id]?.driver ?? ""}
-                      disabled={saving}
-                      placeholder="ФИО"
-                      onChange={(event) =>
-                        updateRow(item.id, "driver", event.target.value)
-                      }
-                    />
-                  </td>
-                  <td>
-                    <input
-                      value={rows[item.id]?.description ?? ""}
-                      disabled={saving}
-                      placeholder="Комментарий"
-                      onChange={(event) =>
-                        updateRow(item.id, "description", event.target.value)
-                      }
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ul className="kopytenkov-list">
+          {equipment.map((item) => (
+            <li key={item.id} className="kopytenkov-row">
+              <div className="kopytenkov-row-number">№ {item.number}</div>
+              <label className="kopytenkov-field">
+                <span>Фамилия</span>
+                <input
+                  value={rows[item.id]?.surname ?? ""}
+                  disabled={saving}
+                  placeholder="Иванов"
+                  onChange={(event) =>
+                    updateRow(item.id, "surname", event.target.value)
+                  }
+                />
+              </label>
+              <label className="kopytenkov-field">
+                <span>Фирма</span>
+                <input
+                  value={rows[item.id]?.company ?? ""}
+                  disabled={saving}
+                  placeholder="ООО ..."
+                  onChange={(event) =>
+                    updateRow(item.id, "company", event.target.value)
+                  }
+                />
+              </label>
+              <label className="kopytenkov-field">
+                <span>Описание</span>
+                <input
+                  value={rows[item.id]?.description ?? ""}
+                  disabled={saving}
+                  placeholder="Комментарий"
+                  onChange={(event) =>
+                    updateRow(item.id, "description", event.target.value)
+                  }
+                />
+              </label>
+            </li>
+          ))}
+        </ul>
       )}
 
       {success && <div className="invoice-success">{success}</div>}
