@@ -86,6 +86,11 @@ func NewRouter(
 	).Methods(http.MethodPost, http.MethodOptions)
 
 	router.HandleFunc(
+		"/api/miniapp/garage-work",
+		miniApp.CreateGarageWork,
+	).Methods(http.MethodPost, http.MethodOptions)
+
+	router.HandleFunc(
 		"/api/miniapp/equipment",
 		miniApp.ListEquipment,
 	).Methods(http.MethodGet, http.MethodOptions)

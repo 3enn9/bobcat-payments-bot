@@ -1,41 +1,34 @@
 import { useState } from "react";
-import RequestForm from "./components/RequestForm";
+import GarageForm from "./components/GarageForm";
 import WorkerCabinet from "./components/WorkerCabinet";
 import WorkerRequests from "./components/WorkerRequests";
 import InvoiceForm from "./components/InvoiceForm";
 import DaysOffForm from "./components/DaysOffForm";
 import KopytenkovForm from "./components/KopytenkovForm";
 
-type Screen = "home" | "client" | "worker" | "kopytenkov" | "kosenko" | "invoices" | "daysoff";
+type Screen = "home" | "garage" | "worker" | "kopytenkov" | "kosenko" | "invoices" | "daysoff";
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>("home");
 
-  if (screen === "client") {
+  if (screen === "garage") {
     return (
-      <div className="page">
-        <div className="card">
-          <button
-            type="button"
-            className="back-button"
-            onClick={() => setScreen("home")}
-          >
-            ← Назад
-          </button>
+      <div className="page page-worker">
+        <div className="card card-worker">
+          <div className="worker-header">
+            <button
+              type="button"
+              className="back-button"
+              onClick={() => setScreen("home")}
+            >
+              ← Назад
+            </button>
+            <h1>Гараж</h1>
+          </div>
 
-          <div className="eyebrow">Bobcatsar64</div>
-
-          <h1>Оставить заявку</h1>
-
-          <p className="subtitle">
-            Заполните форму, и мы свяжемся с вами.
-          </p>
-
-          <RequestForm
-            onSuccess={(id) => {
-              console.log("Заявка создана:", id);
-            }}
-          />
+          <div className="requests-scroll">
+            <GarageForm />
+          </div>
         </div>
       </div>
     );
@@ -164,13 +157,13 @@ export default function App() {
         <button
           type="button"
           className="role-button"
-          onClick={() => setScreen("client")}
+          onClick={() => setScreen("garage")}
         >
-          <span className="role-icon">👤</span>
+          <span className="role-icon">🔧</span>
 
           <span>
-            <strong>Клиент</strong>
-            <small>Оставить заявку</small>
+            <strong>Гараж</strong>
+            <small>Учёт работ</small>
           </span>
         </button>
 

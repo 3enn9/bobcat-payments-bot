@@ -792,6 +792,11 @@
   color: #b42318;
 }
 
+.garage-form textarea {
+  resize: vertical;
+  min-height: 96px;
+}
+
 .kopytenkov-form {
   display: grid;
   gap: 12px;
