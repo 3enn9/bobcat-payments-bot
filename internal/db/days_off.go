@@ -43,6 +43,32 @@ func (d *Database) SetWorkerDaysOffMessage(id int64, messageID string, chatID in
 	return err
 }
 
+func (d *Database) ListApprovedWorkerDaysOffOnDate(date string) ([]WorkerDaysOff, error) {
+	rows, err := d.DB.Query(`
+		SELECT id, worker_name, date_from, date_to, comment, status,
+		       decided_by_name, decided_at, created_at
+		FROM worker_days_off
+		WHERE status = 'approved'
+		  AND date_from <= ?
+		  AND date_to >= ?
+		ORDER BY worker_name ASC, date_from ASC
+	`, date, date)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make([]WorkerDaysOff, 0)
+	for rows.Next() {
+		item, err := scanWorkerDaysOff(rows)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, item)
+	}
+	return result, rows.Err()
+}
+
 func (d *Database) ListWorkerDaysOff(workerName string, limit int) ([]WorkerDaysOff, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 30

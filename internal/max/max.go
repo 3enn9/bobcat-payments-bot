@@ -16,6 +16,7 @@ import (
 
 type MaxService struct {
 	Bot      *maxbot.Api
+	token    string
 	Chats    map[string]int64
 	payments *payments.PaymentsService
 	db       *db.Database
@@ -36,7 +37,7 @@ func NewMaxService(token string, payments *payments.PaymentsService, database *d
 		"Invoices":      -78218659838688,
 		"DaysOff":       -78302034737888,
 	}
-	return &MaxService{Bot: api, Chats: chats, payments: payments, db: database}, nil
+	return &MaxService{Bot: api, token: token, Chats: chats, payments: payments, db: database}, nil
 }
 
 type PhotoUpload struct {
@@ -155,6 +156,22 @@ func (m *MaxService) handleMessage(upd *schemes.MessageCreatedUpdate) {
 
 	if strings.HasPrefix(cmd, "/") {
 		log.Printf("max: unknown command=%q chatID=%d", cmd, upd.GetChatID())
+		return
+	}
+
+	if upd.GetChatID() == m.Chats["DaysOff"] {
+		if upd.Message.Sender.IsBot {
+			return
+		}
+		switch {
+		case strings.EqualFold(text, daysOffTomorrowButton):
+			m.handleDaysOffTomorrow(upd.GetChatID())
+		case text == "/setup":
+			if err := m.SetupDaysOffReplyKeyboard(); err != nil {
+				log.Printf("days off setup keyboard: %v", err)
+				_ = m.SendMessageInGroupID(upd.GetChatID(), "Не удалось добавить кнопку.")
+			}
+		}
 		return
 	}
 
