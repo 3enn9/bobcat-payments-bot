@@ -33,7 +33,8 @@ func (d *Database) ListWorkerCashEntries(workerName string, limit int) ([]Worker
 		limit = 10
 	}
 	rows, err := d.DB.Query(`
-		SELECT id, worker_name, entry_type, amount, description, entry_date, created_at
+		SELECT id, worker_name, entry_type, amount, description,
+		       DATE_FORMAT(entry_date, '%Y-%m-%d') AS entry_date, created_at
 		FROM worker_cash_entries
 		WHERE LOWER(worker_name) = LOWER(?)
 		ORDER BY entry_date DESC, id DESC
@@ -126,4 +127,32 @@ func scanWorkerCashEntry(scanner interface {
 		return WorkerCashEntry{}, err
 	}
 	return item, nil
+}
+
+func (d *Database) ListCashWorkerNames() ([]string, error) {
+	rows, err := d.DB.Query(`
+		SELECT name FROM (
+			SELECT worker_name AS name FROM worker_cash_entries
+			UNION
+			SELECT worker_name AS name FROM garage_work_logs
+			UNION
+			SELECT worker_name AS name FROM worker_days_off
+		) workers
+		WHERE name IS NOT NULL AND TRIM(name) <> ''
+		ORDER BY name ASC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	names := make([]string, 0)
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		names = append(names, name)
+	}
+	return names, rows.Err()
 }

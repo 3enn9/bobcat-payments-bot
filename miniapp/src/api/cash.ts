@@ -28,6 +28,19 @@ type MutateCashResponse = {
 
 export const CASH_HISTORY_LIMIT = 10;
 
+export async function fetchCashWorkers(): Promise<string[]> {
+  const response = await fetch("/api/miniapp/cash/workers");
+  const data = (await response.json()) as {
+    success: boolean;
+    workers?: string[];
+    error?: string;
+  };
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || "Не удалось загрузить список работников");
+  }
+  return data.workers ?? [];
+}
+
 export async function fetchWorkerCash(workerName: string): Promise<{
   balance: number;
   entries: CashEntry[];

@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import {
   CASH_HISTORY_LIMIT,
   createCashEntry,
+  fetchCashWorkers,
   fetchWorkerCash,
   updateCashEntry,
   type CashEntry,
@@ -35,6 +36,28 @@ function formatDate(value: string): string {
     month: "2-digit",
     year: "numeric",
   });
+}
+
+function toDateInputValue(value: string): string {
+  const trimmed = value.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  const isoPrefix = trimmed.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (isoPrefix) {
+    return isoPrefix[1];
+  }
+
+  const date = new Date(trimmed.includes("T") ? trimmed : `${trimmed}T12:00:00`);
+  if (Number.isNaN(date.getTime())) {
+    return trimmed;
+  }
+
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 function formatAmountInput(value: number): string {
@@ -75,6 +98,39 @@ export default function CashForm() {
   const [editDraft, setEditDraft] = useState<EditDraft | null>(null);
   const [editError, setEditError] = useState("");
   const [editSaving, setEditSaving] = useState(false);
+  const [workers, setWorkers] = useState<string[]>([]);
+  const [workersLoading, setWorkersLoading] = useState(false);
+
+  useEffect(() => {
+    if (workerName) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadWorkers() {
+      setWorkersLoading(true);
+      try {
+        const list = await fetchCashWorkers();
+        if (!cancelled) {
+          setWorkers(list);
+        }
+      } catch {
+        if (!cancelled) {
+          setWorkers([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setWorkersLoading(false);
+        }
+      }
+    }
+
+    void loadWorkers();
+    return () => {
+      cancelled = true;
+    };
+  }, [workerName]);
 
   useEffect(() => {
     if (!workerName) {
@@ -115,6 +171,16 @@ export default function CashForm() {
     };
   }, [workerName]);
 
+  function selectWorker(name: string) {
+    setWorkerName(name);
+    setWorkerInput(name);
+    setEditingId(null);
+    setEditDraft(null);
+    setError("");
+    setFormError("");
+    setSuccess("");
+  }
+
   function confirmWorker(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const name = workerInput.trim();
@@ -122,13 +188,13 @@ export default function CashForm() {
       setError("Введите фамилию");
       return;
     }
-    setWorkerName(name);
-    setEditingId(null);
-    setEditDraft(null);
-    setError("");
-    setFormError("");
-    setSuccess("");
+    selectWorker(name);
   }
+
+  const searchQuery = workerInput.trim().toLowerCase();
+  const filteredWorkers = workers.filter((name) =>
+    searchQuery === "" ? true : name.toLowerCase().includes(searchQuery),
+  );
 
   function parseAmount(raw: string): number | null {
     const parsed = Number(raw.replace(",", "."));
@@ -183,7 +249,7 @@ export default function CashForm() {
     setEditDraft({
       entryType: item.entryType,
       amount: formatAmountInput(item.amount),
-      entryDate: item.entryDate,
+      entryDate: toDateInputValue(item.entryDate),
       description: item.description,
     });
     setEditError("");
@@ -240,34 +306,75 @@ export default function CashForm() {
 
   return (
     <div className="cash-form">
-      <form className="driver-lookup" onSubmit={confirmWorker}>
-        <label>
-          <span>Фамилия работника</span>
-          <input
-            value={workerInput}
-            onChange={(event) => setWorkerInput(event.target.value)}
-            placeholder="Иванов"
-            maxLength={100}
-            disabled={busy || loading}
-          />
-        </label>
-        <button type="submit" disabled={busy || loading}>
-          Подтвердить
-        </button>
-      </form>
+      {!workerName ? (
+        <form className="driver-lookup" onSubmit={confirmWorker}>
+          <label>
+            <span>Фамилия работника</span>
+            <input
+              value={workerInput}
+              onChange={(event) => setWorkerInput(event.target.value)}
+              placeholder="Иванов"
+              maxLength={100}
+            />
+          </label>
+          {error && <div className="error">{error}</div>}
+          <button type="submit">Подтвердить</button>
 
-      {!workerName && (
-        <p className="placeholder">Введите фамилию, чтобы открыть кассу.</p>
-      )}
-
-      {workerName && loading && (
-        <p className="placeholder">Загрузка кассы...</p>
-      )}
-
-      {workerName && !loading && error && <div className="error">{error}</div>}
-
-      {workerName && !loading && !error && (
+          <section className="cash-workers-section">
+            <h2>Работники</h2>
+            {workersLoading && <p className="placeholder">Загрузка списка...</p>}
+            {!workersLoading && filteredWorkers.length === 0 && (
+              <p className="placeholder">
+                {workers.length === 0
+                  ? "Список пока пуст"
+                  : "Никого не найдено по запросу"}
+              </p>
+            )}
+            {!workersLoading && filteredWorkers.length > 0 && (
+              <ul className="cash-workers-list">
+                {filteredWorkers.map((name) => (
+                  <li key={name}>
+                    <button
+                      type="button"
+                      className="cash-worker-button"
+                      onClick={() => selectWorker(name)}
+                    >
+                      {name}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </form>
+      ) : (
         <>
+          <div className="days-off-worker">
+            <span>{workerName}</span>
+            <button
+              type="button"
+              className="secondary-button days-off-change-worker"
+              disabled={busy}
+              onClick={() => {
+                setWorkerName("");
+                setWorkerInput("");
+                setEditingId(null);
+                setEditDraft(null);
+                setError("");
+                setFormError("");
+                setSuccess("");
+              }}
+            >
+              Сменить
+            </button>
+          </div>
+
+          {loading && <p className="placeholder">Загрузка кассы...</p>}
+
+          {!loading && error && <div className="error">{error}</div>}
+
+          {!loading && !error && (
+            <>
           <div className="cash-balance">
             <span>Баланс кассы</span>
             <strong>{formatMoney(balance)}</strong>
@@ -504,6 +611,8 @@ export default function CashForm() {
               </ul>
             )}
           </section>
+            </>
+          )}
         </>
       )}
     </div>

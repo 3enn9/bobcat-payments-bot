@@ -34,7 +34,7 @@ func parseCashEntryLimit(raw string) int {
 	return limit
 }
 
-func normalizeCashEntryInput(input *cashEntryRequest) (amount float64, errMsg string) {
+func normalizeCashEntryInput(input *cashEntryRequest, defaultDate bool) (amount float64, errMsg string) {
 	input.WorkerName = strings.TrimSpace(input.WorkerName)
 	input.EntryType = strings.TrimSpace(input.EntryType)
 	input.Description = strings.TrimSpace(input.Description)
@@ -58,7 +58,11 @@ func normalizeCashEntryInput(input *cashEntryRequest) (amount float64, errMsg st
 		return 0, "Слишком большая сумма"
 	}
 	if input.EntryDate == "" {
-		input.EntryDate = time.Now().Format("2006-01-02")
+		if defaultDate {
+			input.EntryDate = time.Now().Format("2006-01-02")
+		} else {
+			return 0, "Укажите дату"
+		}
 	}
 	if _, err := time.Parse("2006-01-02", input.EntryDate); err != nil {
 		return 0, "Некорректная дата"
@@ -68,6 +72,26 @@ func normalizeCashEntryInput(input *cashEntryRequest) (amount float64, errMsg st
 	}
 
 	return math.Round(input.Amount*100) / 100, ""
+}
+
+func (h *MiniAppHandler) ListCashWorkers(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	names, err := h.db.ListCashWorkerNames()
+	if err != nil {
+		log.Printf("list cash workers error: %v", err)
+		http.Error(w, `{"success":false,"error":"Ошибка загрузки"}`, http.StatusInternalServerError)
+		return
+	}
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"workers": names,
+	})
 }
 
 func (h *MiniAppHandler) ListWorkerCash(w http.ResponseWriter, r *http.Request) {
@@ -128,7 +152,7 @@ func (h *MiniAppHandler) CreateWorkerCashEntry(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	amount, errMsg := normalizeCashEntryInput(&input)
+	amount, errMsg := normalizeCashEntryInput(&input, true)
 	if errMsg != "" {
 		http.Error(w, `{"success":false,"error":"`+errMsg+`"}`, http.StatusBadRequest)
 		return
@@ -178,7 +202,7 @@ func (h *MiniAppHandler) UpdateWorkerCashEntry(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	amount, errMsg := normalizeCashEntryInput(&input)
+	amount, errMsg := normalizeCashEntryInput(&input, false)
 	if errMsg != "" {
 		http.Error(w, `{"success":false,"error":"`+errMsg+`"}`, http.StatusBadRequest)
 		return

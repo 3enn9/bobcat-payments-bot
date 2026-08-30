@@ -111,6 +111,11 @@ func NewRouter(
 	).Methods(http.MethodGet, http.MethodOptions)
 
 	router.HandleFunc(
+		"/api/miniapp/cash/workers",
+		miniApp.ListCashWorkers,
+	).Methods(http.MethodGet, http.MethodOptions)
+
+	router.HandleFunc(
 		"/api/miniapp/cash",
 		miniApp.ListWorkerCash,
 	).Methods(http.MethodGet, http.MethodOptions)
