@@ -110,5 +110,15 @@ func NewRouter(
 		miniApp.ListDaysOff,
 	).Methods(http.MethodGet, http.MethodOptions)
 
+	router.HandleFunc(
+		"/api/miniapp/cash",
+		miniApp.ListWorkerCash,
+	).Methods(http.MethodGet, http.MethodOptions)
+
+	router.HandleFunc(
+		"/api/miniapp/cash",
+		miniApp.CreateWorkerCashEntry,
+	).Methods(http.MethodPost, http.MethodOptions)
+
 	return router
 }

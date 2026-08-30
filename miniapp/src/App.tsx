@@ -5,8 +5,9 @@ import WorkerRequests from "./components/WorkerRequests";
 import InvoiceForm from "./components/InvoiceForm";
 import DaysOffForm from "./components/DaysOffForm";
 import KopytenkovForm from "./components/KopytenkovForm";
+import CashForm from "./components/CashForm";
 
-type Screen = "home" | "garage" | "worker" | "kopytenkov" | "kosenko" | "invoices" | "daysoff";
+type Screen = "home" | "garage" | "worker" | "kopytenkov" | "kosenko" | "invoices" | "daysoff" | "cash";
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>("home");
@@ -145,15 +146,35 @@ export default function App() {
     );
   }
 
+  if (screen === "cash") {
+    return (
+      <div className="page page-worker">
+        <div className="card card-worker">
+          <div className="worker-header">
+            <button
+              type="button"
+              className="back-button"
+              onClick={() => setScreen("home")}
+            >
+              ← Назад
+            </button>
+            <h1>Касса</h1>
+          </div>
+
+          <div className="requests-scroll">
+            <CashForm />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <main className="home-screen">
-      <div className="logo">Bobcatsar64</div>
+      <div className="home-screen-main">
+        <div className="logo">Bobcatsar64</div>
 
-      <p className="subtitle">
-        Выберите, как продолжить
-      </p>
-
-      <div className="role-buttons">
+        <div className="role-buttons">
         <button
           type="button"
           className="role-button"
@@ -231,7 +252,21 @@ export default function App() {
             <small>График отдыха</small>
           </span>
         </button>
+        </div>
       </div>
+
+      <button
+        type="button"
+        className="role-button home-cash-button"
+        onClick={() => setScreen("cash")}
+      >
+        <span className="role-icon">💵</span>
+
+        <span>
+          <strong>Касса</strong>
+          <small>Личные приходы и расходы</small>
+        </span>
+      </button>
     </main>
   );
 }
