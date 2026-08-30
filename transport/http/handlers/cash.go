@@ -81,6 +81,10 @@ func (h *MiniAppHandler) ListCashWorkers(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	h.listCashWorkersJSON(w)
+}
+
+func (h *MiniAppHandler) listCashWorkersJSON(w http.ResponseWriter) {
 	names, err := h.db.ListCashWorkerNames()
 	if err != nil {
 		log.Printf("list cash workers error: %v", err)
@@ -98,6 +102,11 @@ func (h *MiniAppHandler) ListWorkerCash(w http.ResponseWriter, r *http.Request) 
 	w.Header().Set("Content-Type", "application/json")
 	if r.Method == http.MethodOptions {
 		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.URL.Query().Get("workers") == "1" {
+		h.listCashWorkersJSON(w)
 		return
 	}
 

@@ -28,8 +28,9 @@ type MutateCashResponse = {
 
 export const CASH_HISTORY_LIMIT = 10;
 
-export async function fetchCashWorkers(): Promise<string[]> {
-  const response = await fetch("/api/miniapp/cash/workers");
+async function loadWorkersResponse(
+  response: Response,
+): Promise<string[]> {
   const data = (await response.json()) as {
     success: boolean;
     workers?: string[];
@@ -39,6 +40,16 @@ export async function fetchCashWorkers(): Promise<string[]> {
     throw new Error(data.error || "Не удалось загрузить список работников");
   }
   return data.workers ?? [];
+}
+
+export async function fetchCashWorkers(): Promise<string[]> {
+  let response = await fetch("/api/miniapp/cash/workers");
+  if (response.ok) {
+    return loadWorkersResponse(response);
+  }
+
+  response = await fetch("/api/miniapp/cash?workers=1");
+  return loadWorkersResponse(response);
 }
 
 export async function fetchWorkerCash(workerName: string): Promise<{

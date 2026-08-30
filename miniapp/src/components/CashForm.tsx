@@ -100,6 +100,7 @@ export default function CashForm() {
   const [editSaving, setEditSaving] = useState(false);
   const [workers, setWorkers] = useState<string[]>([]);
   const [workersLoading, setWorkersLoading] = useState(false);
+  const [workersError, setWorkersError] = useState("");
 
   useEffect(() => {
     if (workerName) {
@@ -110,14 +111,20 @@ export default function CashForm() {
 
     async function loadWorkers() {
       setWorkersLoading(true);
+      setWorkersError("");
       try {
         const list = await fetchCashWorkers();
         if (!cancelled) {
           setWorkers(list);
         }
-      } catch {
+      } catch (err) {
         if (!cancelled) {
           setWorkers([]);
+          setWorkersError(
+            err instanceof Error
+              ? err.message
+              : "Не удалось загрузить список работников",
+          );
         }
       } finally {
         if (!cancelled) {
@@ -322,15 +329,16 @@ export default function CashForm() {
 
           <section className="cash-workers-section">
             <h2>Работники</h2>
+            {workersError && <div className="error">{workersError}</div>}
             {workersLoading && <p className="placeholder">Загрузка списка...</p>}
-            {!workersLoading && filteredWorkers.length === 0 && (
+            {!workersLoading && !workersError && filteredWorkers.length === 0 && (
               <p className="placeholder">
                 {workers.length === 0
                   ? "Список пока пуст"
                   : "Никого не найдено по запросу"}
               </p>
             )}
-            {!workersLoading && filteredWorkers.length > 0 && (
+            {!workersLoading && !workersError && filteredWorkers.length > 0 && (
               <ul className="cash-workers-list">
                 {filteredWorkers.map((name) => (
                   <li key={name}>

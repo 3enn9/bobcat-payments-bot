@@ -2,6 +2,8 @@ package db
 
 import (
 	"database/sql"
+	"log"
+	"sort"
 	"strings"
 	"time"
 )
@@ -130,29 +132,53 @@ func scanWorkerCashEntry(scanner interface {
 }
 
 func (d *Database) ListCashWorkerNames() ([]string, error) {
-	rows, err := d.DB.Query(`
-		SELECT name FROM (
-			SELECT worker_name AS name FROM worker_cash_entries
-			UNION
-			SELECT worker_name AS name FROM garage_work_logs
-			UNION
-			SELECT worker_name AS name FROM worker_days_off
-		) workers
-		WHERE name IS NOT NULL AND TRIM(name) <> ''
-		ORDER BY name ASC
-	`)
-	if err != nil {
+	seen := make(map[string]string)
+
+	addFromQuery := func(query string) error {
+		rows, err := d.DB.Query(query)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var name string
+			if err := rows.Scan(&name); err != nil {
+				return err
+			}
+			name = strings.TrimSpace(name)
+			if name == "" {
+				continue
+			}
+			key := strings.ToLower(name)
+			if _, ok := seen[key]; !ok {
+				seen[key] = name
+			}
+		}
+		return rows.Err()
+	}
+
+	if err := addFromQuery(`
+		SELECT DISTINCT worker_name
+		FROM worker_cash_entries
+		WHERE worker_name IS NOT NULL AND TRIM(worker_name) <> ''
+	`); err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
-	names := make([]string, 0)
-	for rows.Next() {
-		var name string
-		if err := rows.Scan(&name); err != nil {
-			return nil, err
+	for _, query := range []string{
+		`SELECT DISTINCT worker_name FROM garage_work_logs WHERE worker_name IS NOT NULL AND TRIM(worker_name) <> ''`,
+		`SELECT DISTINCT worker_name FROM worker_days_off WHERE worker_name IS NOT NULL AND TRIM(worker_name) <> ''`,
+	} {
+		if err := addFromQuery(query); err != nil {
+			log.Printf("list cash workers: optional source skipped: %v", err)
 		}
+	}
+
+	names := make([]string, 0, len(seen))
+	for _, name := range seen {
 		names = append(names, name)
 	}
-	return names, rows.Err()
+	sort.Strings(names)
+	return names, nil
 }
