@@ -12,25 +12,7 @@
 
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-}
-
-.home-screen-main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
   justify-content: center;
-}
-
-.home-cash-button {
-  flex-shrink: 0;
-  margin-top: 16px;
-}
-
-.logo {
-  margin-bottom: 32px;
-  font-size: 28px;
-  font-weight: 800;
 }
 
 .home-screen h1 {
@@ -938,9 +920,21 @@
   margin-top: 28px;
 }
 
+.cash-history-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
 .cash-history h2 {
-  margin: 0 0 12px;
+  margin: 0;
   font-size: 18px;
+}
+
+.cash-history-note {
+  color: #777;
+  font-size: 13px;
 }
 
 .cash-list {
@@ -956,6 +950,44 @@
   border-radius: 14px;
   background: #fafafa;
   border: 1px solid #eee;
+}
+
+.cash-list-item-editing {
+  display: grid;
+  gap: 12px;
+}
+
+.cash-list-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.cash-sign {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.cash-sign-plus {
+  background: #e8f7ef;
+  color: #16794c;
+}
+
+.cash-sign-minus {
+  background: #fdeeee;
+  color: #a51d1d;
+}
+
+.cash-list-body {
+  flex: 1;
+  min-width: 0;
 }
 
 .cash-list-main {
@@ -986,4 +1018,22 @@
   color: #555;
   font-size: 14px;
   line-height: 1.4;
+}
+
+.cash-edit-button {
+  width: auto;
+  flex-shrink: 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #fff;
+  color: #171717;
+  border: 1px solid #dedede;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.cash-edit-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
 }

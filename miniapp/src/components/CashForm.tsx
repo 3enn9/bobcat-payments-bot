@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import {
+  CASH_HISTORY_LIMIT,
   createCashEntry,
   fetchWorkerCash,
+  updateCashEntry,
   type CashEntry,
   type CashEntryType,
 } from "../api/cash";
@@ -35,11 +37,31 @@ function formatDate(value: string): string {
   });
 }
 
+function formatAmountInput(value: number): string {
+  if (Number.isInteger(value)) {
+    return String(value);
+  }
+  return String(value).replace(".", ",");
+}
+
+type EditDraft = {
+  entryType: CashEntryType;
+  amount: string;
+  entryDate: string;
+  description: string;
+};
+
+async function reloadCash(workerName: string) {
+  const data = await fetchWorkerCash(workerName);
+  return data;
+}
+
 export default function CashForm() {
   const [workerInput, setWorkerInput] = useState("");
   const [workerName, setWorkerName] = useState("");
   const [balance, setBalance] = useState(0);
   const [entries, setEntries] = useState<CashEntry[]>([]);
+  const [totalEntries, setTotalEntries] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [entryType, setEntryType] = useState<CashEntryType>("income");
@@ -49,11 +71,16 @@ export default function CashForm() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
   const [success, setSuccess] = useState("");
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editDraft, setEditDraft] = useState<EditDraft | null>(null);
+  const [editError, setEditError] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
 
   useEffect(() => {
     if (!workerName) {
       setEntries([]);
       setBalance(0);
+      setTotalEntries(0);
       return;
     }
 
@@ -67,6 +94,7 @@ export default function CashForm() {
         if (!cancelled) {
           setBalance(data.balance);
           setEntries(data.entries);
+          setTotalEntries(data.total);
         }
       } catch (err) {
         if (!cancelled) {
@@ -95,9 +123,19 @@ export default function CashForm() {
       return;
     }
     setWorkerName(name);
+    setEditingId(null);
+    setEditDraft(null);
     setError("");
     setFormError("");
     setSuccess("");
+  }
+
+  function parseAmount(raw: string): number | null {
+    const parsed = Number(raw.replace(",", "."));
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return null;
+    }
+    return parsed;
   }
 
   async function submitEntry(event: FormEvent<HTMLFormElement>) {
@@ -105,8 +143,8 @@ export default function CashForm() {
     setFormError("");
     setSuccess("");
 
-    const parsedAmount = Number(amount.replace(",", "."));
-    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+    const parsedAmount = parseAmount(amount);
+    if (parsedAmount === null) {
       setFormError("Укажите сумму больше нуля");
       return;
     }
@@ -125,8 +163,9 @@ export default function CashForm() {
         entryDate,
       });
       setBalance(result.balance);
-      const data = await fetchWorkerCash(workerName);
+      const data = await reloadCash(workerName);
       setEntries(data.entries);
+      setTotalEntries(data.total);
       setAmount("");
       setDescription("");
       setSuccess(entryType === "income" ? "Приход добавлен" : "Расход добавлен");
@@ -139,6 +178,66 @@ export default function CashForm() {
     }
   }
 
+  function startEdit(item: CashEntry) {
+    setEditingId(item.id);
+    setEditDraft({
+      entryType: item.entryType,
+      amount: formatAmountInput(item.amount),
+      entryDate: item.entryDate,
+      description: item.description,
+    });
+    setEditError("");
+    setSuccess("");
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditDraft(null);
+    setEditError("");
+  }
+
+  async function saveEdit(id: number) {
+    if (!editDraft) {
+      return;
+    }
+
+    const parsedAmount = parseAmount(editDraft.amount);
+    if (parsedAmount === null) {
+      setEditError("Укажите сумму больше нуля");
+      return;
+    }
+    if (!editDraft.entryDate) {
+      setEditError("Укажите дату");
+      return;
+    }
+
+    setEditSaving(true);
+    setEditError("");
+    try {
+      const result = await updateCashEntry(id, {
+        workerName,
+        entryType: editDraft.entryType,
+        amount: parsedAmount,
+        description: editDraft.description.trim(),
+        entryDate: editDraft.entryDate,
+      });
+      setBalance(result.balance);
+      const data = await reloadCash(workerName);
+      setEntries(data.entries);
+      setTotalEntries(data.total);
+      cancelEdit();
+      setSuccess("Запись обновлена");
+    } catch (err) {
+      setEditError(
+        err instanceof Error ? err.message : "Не удалось обновить запись",
+      );
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
+  const busy = saving || editSaving;
+
   return (
     <div className="cash-form">
       <form className="driver-lookup" onSubmit={confirmWorker}>
@@ -149,10 +248,10 @@ export default function CashForm() {
             onChange={(event) => setWorkerInput(event.target.value)}
             placeholder="Иванов"
             maxLength={100}
-            disabled={loading || saving}
+            disabled={busy || loading}
           />
         </label>
-        <button type="submit" disabled={loading || saving}>
+        <button type="submit" disabled={busy || loading}>
           Подтвердить
         </button>
       </form>
@@ -179,7 +278,7 @@ export default function CashForm() {
               <button
                 type="button"
                 className={entryType === "income" ? "cash-type active" : "cash-type"}
-                disabled={saving}
+                disabled={busy}
                 onClick={() => setEntryType("income")}
               >
                 + Приход
@@ -187,7 +286,7 @@ export default function CashForm() {
               <button
                 type="button"
                 className={entryType === "expense" ? "cash-type active" : "cash-type"}
-                disabled={saving}
+                disabled={busy}
                 onClick={() => setEntryType("expense")}
               >
                 − Расход
@@ -200,7 +299,7 @@ export default function CashForm() {
                 type="text"
                 inputMode="decimal"
                 value={amount}
-                disabled={saving}
+                disabled={busy}
                 placeholder="1500"
                 onChange={(event) => setAmount(event.target.value)}
               />
@@ -212,7 +311,7 @@ export default function CashForm() {
                 type="date"
                 className="days-off-date-input"
                 value={entryDate}
-                disabled={saving}
+                disabled={busy}
                 onChange={(event) => setEntryDate(event.target.value)}
               />
             </label>
@@ -221,7 +320,7 @@ export default function CashForm() {
               <span>Комментарий</span>
               <textarea
                 value={description}
-                disabled={saving}
+                disabled={busy}
                 rows={2}
                 placeholder={
                   entryType === "income"
@@ -235,33 +334,170 @@ export default function CashForm() {
             {formError && <div className="error">{formError}</div>}
             {success && <div className="invoice-success">{success}</div>}
 
-            <button type="submit" disabled={saving}>
+            <button type="submit" disabled={busy}>
               {saving ? "Сохраняем..." : "Добавить запись"}
             </button>
           </form>
 
           <section className="cash-history">
-            <h2>История</h2>
+            <div className="cash-history-head">
+              <h2>Последние операции</h2>
+              {totalEntries > 0 && (
+                <span className="cash-history-note">
+                  {totalEntries > CASH_HISTORY_LIMIT
+                    ? `Показаны ${CASH_HISTORY_LIMIT} из ${totalEntries}`
+                    : `${totalEntries} ${totalEntries === 1 ? "запись" : totalEntries < 5 ? "записи" : "записей"}`}
+                </span>
+              )}
+            </div>
+
             {entries.length === 0 ? (
               <p className="placeholder">Записей пока нет.</p>
             ) : (
               <ul className="cash-list">
                 {entries.map((item) => {
                   const isIncome = item.entryType === "income";
+                  const isEditing = editingId === item.id;
+
+                  if (isEditing && editDraft) {
+                    return (
+                      <li key={item.id} className="cash-list-item cash-list-item-editing">
+                        <div className="cash-type-toggle">
+                          <button
+                            type="button"
+                            className={
+                              editDraft.entryType === "income"
+                                ? "cash-type active"
+                                : "cash-type"
+                            }
+                            disabled={editSaving}
+                            onClick={() =>
+                              setEditDraft({ ...editDraft, entryType: "income" })
+                            }
+                          >
+                            + Приход
+                          </button>
+                          <button
+                            type="button"
+                            className={
+                              editDraft.entryType === "expense"
+                                ? "cash-type active"
+                                : "cash-type"
+                            }
+                            disabled={editSaving}
+                            onClick={() =>
+                              setEditDraft({ ...editDraft, entryType: "expense" })
+                            }
+                          >
+                            − Расход
+                          </button>
+                        </div>
+
+                        <label className="invoice-field">
+                          <span>Сумма, ₽</span>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={editDraft.amount}
+                            disabled={editSaving}
+                            onChange={(event) =>
+                              setEditDraft({
+                                ...editDraft,
+                                amount: event.target.value,
+                              })
+                            }
+                          />
+                        </label>
+
+                        <label className="invoice-field">
+                          <span>Дата</span>
+                          <input
+                            type="date"
+                            className="days-off-date-input"
+                            value={editDraft.entryDate}
+                            disabled={editSaving}
+                            onChange={(event) =>
+                              setEditDraft({
+                                ...editDraft,
+                                entryDate: event.target.value,
+                              })
+                            }
+                          />
+                        </label>
+
+                        <label className="invoice-field">
+                          <span>Комментарий</span>
+                          <textarea
+                            value={editDraft.description}
+                            disabled={editSaving}
+                            rows={2}
+                            onChange={(event) =>
+                              setEditDraft({
+                                ...editDraft,
+                                description: event.target.value,
+                              })
+                            }
+                          />
+                        </label>
+
+                        {editError && <div className="error">{editError}</div>}
+
+                        <div className="cash-edit-actions">
+                          <button
+                            type="button"
+                            className="secondary-button"
+                            disabled={editSaving}
+                            onClick={cancelEdit}
+                          >
+                            Отмена
+                          </button>
+                          <button
+                            type="button"
+                            disabled={editSaving}
+                            onClick={() => void saveEdit(item.id)}
+                          >
+                            {editSaving ? "Сохраняем..." : "Сохранить"}
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  }
+
                   return (
                     <li key={item.id} className="cash-list-item">
-                      <div className="cash-list-main">
-                        <span className={isIncome ? "cash-plus" : "cash-minus"}>
+                      <div className="cash-list-row">
+                        <span
+                          className={
+                            isIncome ? "cash-sign cash-sign-plus" : "cash-sign cash-sign-minus"
+                          }
+                          aria-hidden="true"
+                        >
                           {isIncome ? "+" : "−"}
-                          {formatMoney(item.amount)}
                         </span>
-                        <time dateTime={item.entryDate}>
-                          {formatDate(item.entryDate)}
-                        </time>
+
+                        <div className="cash-list-body">
+                          <div className="cash-list-main">
+                            <span className={isIncome ? "cash-plus" : "cash-minus"}>
+                              {formatMoney(item.amount)}
+                            </span>
+                            <time dateTime={item.entryDate}>
+                              {formatDate(item.entryDate)}
+                            </time>
+                          </div>
+                          {item.description && (
+                            <p className="cash-list-desc">{item.description}</p>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          className="cash-edit-button"
+                          disabled={busy}
+                          onClick={() => startEdit(item)}
+                        >
+                          Изменить
+                        </button>
                       </div>
-                      {item.description && (
-                        <p className="cash-list-desc">{item.description}</p>
-                      )}
                     </li>
                   );
                 })}

@@ -120,5 +120,10 @@ func NewRouter(
 		miniApp.CreateWorkerCashEntry,
 	).Methods(http.MethodPost, http.MethodOptions)
 
+	router.HandleFunc(
+		"/api/miniapp/cash/{id}",
+		miniApp.UpdateWorkerCashEntry,
+	).Methods(http.MethodPut, http.MethodOptions)
+
 	return router
 }

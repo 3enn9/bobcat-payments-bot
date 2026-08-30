@@ -27,15 +27,18 @@ func (d *Database) CreateWorkerCashEntry(workerName, entryType string, amount fl
 	return result.LastInsertId()
 }
 
-func (d *Database) ListWorkerCashEntries(workerName string) ([]WorkerCashEntry, error) {
+func (d *Database) ListWorkerCashEntries(workerName string, limit int) ([]WorkerCashEntry, error) {
 	workerName = strings.TrimSpace(workerName)
+	if limit <= 0 {
+		limit = 10
+	}
 	rows, err := d.DB.Query(`
 		SELECT id, worker_name, entry_type, amount, description, entry_date, created_at
 		FROM worker_cash_entries
 		WHERE LOWER(worker_name) = LOWER(?)
 		ORDER BY entry_date DESC, id DESC
-		LIMIT 200
-	`, workerName)
+		LIMIT ?
+	`, workerName, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -50,6 +53,39 @@ func (d *Database) ListWorkerCashEntries(workerName string) ([]WorkerCashEntry, 
 		items = append(items, item)
 	}
 	return items, rows.Err()
+}
+
+func (d *Database) CountWorkerCashEntries(workerName string) (int, error) {
+	workerName = strings.TrimSpace(workerName)
+	var count int
+	err := d.DB.QueryRow(`
+		SELECT COUNT(*)
+		FROM worker_cash_entries
+		WHERE LOWER(worker_name) = LOWER(?)
+	`, workerName).Scan(&count)
+	return count, err
+}
+
+func (d *Database) UpdateWorkerCashEntry(
+	id int64,
+	workerName, entryType string,
+	amount float64,
+	description, entryDate string,
+) (bool, error) {
+	result, err := d.DB.Exec(`
+		UPDATE worker_cash_entries
+		SET entry_type = ?, amount = ?, description = ?, entry_date = ?
+		WHERE id = ?
+		  AND LOWER(worker_name) = LOWER(?)
+	`, entryType, amount, description, entryDate, id, workerName)
+	if err != nil {
+		return false, err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	return affected > 0, nil
 }
 
 func (d *Database) GetWorkerCashBalance(workerName string) (float64, error) {

@@ -171,10 +171,7 @@ export default function App() {
 
   return (
     <main className="home-screen">
-      <div className="home-screen-main">
-        <div className="logo">Bobcatsar64</div>
-
-        <div className="role-buttons">
+      <div className="role-buttons">
         <button
           type="button"
           className="role-button"
@@ -252,21 +249,20 @@ export default function App() {
             <small>График отдыха</small>
           </span>
         </button>
-        </div>
+
+        <button
+          type="button"
+          className="role-button"
+          onClick={() => setScreen("cash")}
+        >
+          <span className="role-icon">💵</span>
+
+          <span>
+            <strong>Касса</strong>
+            <small>Личные приходы и расходы</small>
+          </span>
+        </button>
       </div>
-
-      <button
-        type="button"
-        className="role-button home-cash-button"
-        onClick={() => setScreen("cash")}
-      >
-        <span className="role-icon">💵</span>
-
-        <span>
-          <strong>Касса</strong>
-          <small>Личные приходы и расходы</small>
-        </span>
-      </button>
     </main>
   );
 }
