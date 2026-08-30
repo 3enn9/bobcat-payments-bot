@@ -196,9 +196,11 @@ func (h *MiniAppHandler) AssignRogatkaDriver(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	notify := fmt.Sprintf("%s: %s", input.DriverName, message)
-	if err := h.max.SendMessageInGroupName("DriverRequest", notify); err != nil {
+	msgID, err := h.max.SendDriverRequestNotification(input.DriverName, message)
+	if err != nil {
 		log.Printf("miniapp assign: send to DriverRequest failed: %v", err)
+	} else if err := h.db.SetRogatkaDriverRequestMessageID(id, msgID); err != nil {
+		log.Printf("miniapp assign: save driver message id=%d: %v", id, err)
 	}
 
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -330,6 +332,12 @@ func (h *MiniAppHandler) CompleteRogatkaRequest(w http.ResponseWriter, r *http.R
 	if !ok {
 		http.Error(w, `{"success":false,"error":"Заявка уже выполнена"}`, http.StatusConflict)
 		return
+	}
+
+	if request.DriverRequestMessageID != nil && *request.DriverRequestMessageID != "" {
+		if err := h.max.MarkDriverRequestCompleted(*request.DriverRequestMessageID, driverName, request.Message); err != nil {
+			log.Printf("miniapp complete: edit driver request message id=%d: %v", id, err)
+		}
 	}
 
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{

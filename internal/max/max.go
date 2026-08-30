@@ -132,6 +132,9 @@ func (m *MaxService) Updates(update schemes.UpdateInterface) error {
 	case *schemes.MessageCallbackUpdate:
 		m.handleDaysOffCallback(upd)
 
+	case *schemes.MessageEditedUpdate:
+		m.handleRogatkaMessageEdited(upd)
+
 	default:
 		log.Printf("unknown update %T", upd)
 	}
@@ -167,27 +170,6 @@ func (m *MaxService) handleMessage(upd *schemes.MessageCreatedUpdate) {
 	if upd.GetChatID() == m.Chats["Rogatka"] {
 		m.saveRogatkaRequest(upd, text)
 	}
-}
-
-func (m *MaxService) saveRogatkaRequest(upd *schemes.MessageCreatedUpdate, text string) {
-	if upd.Message.Sender.IsBot {
-		return
-	}
-
-	id, err := m.db.CreateRogatkaRequest(
-		upd.GetChatID(),
-		upd.Message.Sender.UserId,
-		upd.Message.Sender.Username,
-		upd.Message.Sender.Name,
-		upd.Message.Body.Mid,
-		text,
-	)
-	if err != nil {
-		log.Printf("max rogatka: save error chatID=%d: %v", upd.GetChatID(), err)
-		return
-	}
-
-	log.Printf("max rogatka: saved id=%d chatID=%d message=%q", id, upd.GetChatID(), text)
 }
 
 func (m *MaxService) handleGroupCommand(upd *schemes.MessageCreatedUpdate) {

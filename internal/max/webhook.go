@@ -26,6 +26,12 @@ func ParseWebhookUpdate(data []byte) (schemes.UpdateInterface, error) {
 			return nil, err
 		}
 		return &upd, nil
+	case schemes.TypeMessageEdited:
+		var upd schemes.MessageEditedUpdate
+		if err := json.Unmarshal(data, &upd); err != nil {
+			return nil, err
+		}
+		return &upd, nil
 	default:
 		return nil, fmt.Errorf("unsupported update type: %s", base.UpdateType)
 	}
