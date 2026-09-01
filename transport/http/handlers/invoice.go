@@ -251,7 +251,7 @@ func (h *MiniAppHandler) CreateInvoice(w http.ResponseWriter, r *http.Request) {
 		total += amount
 	}
 	total = roundMoney(total)
-	vat := invoice.CalcVAT(total, input.Supplier.INN)
+	vat := invoice.CalcVAT(total, input.Supplier.Name, input.Supplier.INN)
 
 	created, err := h.db.CreateInvoice(db.CreateInvoiceInput{
 		SupplierID:      input.Supplier.ID,

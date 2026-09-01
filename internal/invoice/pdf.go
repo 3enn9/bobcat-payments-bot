@@ -227,8 +227,8 @@ func GeneratePDF(data PDFData) ([]byte, error) {
 		y += 6
 	}
 	writeTotal("Итого:", formatPDFMoney(data.Total), true)
-	if SupplierHasVAT(data.SupplierINN) {
-		writeTotal("В том числе НДС 22%:", formatPDFMoney(data.VatAmount), false)
+	if rate := SupplierVATRate(data.SupplierName, data.SupplierINN); rate > 0 {
+		writeTotal(fmt.Sprintf("В том числе НДС %d%%:", rate), formatPDFMoney(data.VatAmount), false)
 	} else {
 		writeTotal("Без НДС:", formatPDFMoney(0), false)
 	}
@@ -364,16 +364,27 @@ func entrepreneurShortName(full string) string {
 	return b.String()
 }
 
-// SupplierHasVAT — НДС 22% только у ООО "СарСтройТех" (ИНН 6454116198).
-func SupplierHasVAT(inn string) bool {
-	return strings.TrimSpace(inn) == "6454116198"
+// SupplierVATRate — ставка НДС, учтённого в сумме счёта (0 = без НДС).
+func SupplierVATRate(name, inn string) int {
+	inn = strings.TrimSpace(inn)
+	if inn == "6454116198" {
+		return 22
+	}
+
+	n := strings.ToLower(strings.TrimSpace(strings.ReplaceAll(name, "\u00a0", " ")))
+	if strings.Contains(n, "архипов") && (strings.Contains(n, "данила") || strings.Contains(n, "даниил")) {
+		return 5
+	}
+
+	return 0
 }
 
-func CalcVAT(total float64, supplierINN string) float64 {
-	if !SupplierHasVAT(supplierINN) {
+func CalcVAT(total float64, supplierName, supplierINN string) float64 {
+	rate := SupplierVATRate(supplierName, supplierINN)
+	if rate == 0 {
 		return 0
 	}
-	return math.Round(total*22/122*100) / 100
+	return math.Round(total*float64(rate)/float64(100+rate)*100) / 100
 }
 
 func formatPartyLine(name, inn, kpp, address string) string {

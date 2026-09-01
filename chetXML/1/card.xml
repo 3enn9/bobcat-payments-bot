@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="windows-1251"?>
+<Card xmlns="http://api-invoice.taxcom.ru/card" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+	<Identifiers ExternalIdentifier="02e156ae-a50b-11f1-a684-b7462e932d54"/>
+	<Type/>
+	<Description Title="Счет на оплату" Date="2026-08-31T00:00:00"/>
+	<Sender>
+		<Abonent Id="6454116198_645401001" Name="ООО &quot;СарСтройТех&quot;" Inn="6454116198" Kpp="645401001"/>
+	</Sender>
+	<Receiver/>
+</Card>

@@ -196,6 +196,28 @@ function AutocompleteField({
   );
 }
 
+function supplierVatRate(name: string, inn: string): number {
+  const n = name.trim().toLowerCase().replace(/\u00a0/g, " ");
+  if (inn.trim() === "6454116198") {
+    return 22;
+  }
+  if (
+    n.includes("архипов") &&
+    (n.includes("данила") || n.includes("даниил"))
+  ) {
+    return 5;
+  }
+  return 0;
+}
+
+function calcVat(total: number, name: string, inn: string): number {
+  const rate = supplierVatRate(name, inn);
+  if (rate === 0) {
+    return 0;
+  }
+  return Math.round(((total * rate) / (100 + rate)) * 100) / 100;
+}
+
 export default function InvoiceForm() {
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [supplier, setSupplier] = useState<PartyDraft>(emptyParty);
@@ -212,7 +234,7 @@ export default function InvoiceForm() {
   const [replacePrompt, setReplacePrompt] = useState<number | null>(null);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
 
-  const hasVAT = supplier.inn.trim() === "6454116198"; // ООО "СарСтройТех"
+  const vatRate = supplierVatRate(supplier.name, supplier.inn);
 
   const totals = useMemo(() => {
     const items = lines.map((line, index) => {
@@ -229,11 +251,9 @@ export default function InvoiceForm() {
       } satisfies InvoiceItem;
     });
     const total = Math.round(items.reduce((sum, item) => sum + item.amount, 0) * 100) / 100;
-    const vat = hasVAT
-      ? Math.round(((total * 22) / 122) * 100) / 100
-      : 0;
+    const vat = calcVat(total, supplier.name, supplier.inn);
     return { items, total, vat };
-  }, [lines, hasVAT]);
+  }, [lines, supplier.name, supplier.inn]);
 
   function updateLine(key: string, patch: Partial<LineDraft>) {
     setLines((prev) =>
@@ -686,7 +706,7 @@ export default function InvoiceForm() {
             <strong>{money(totals.total)}</strong>
           </div>
           <div>
-            <span>{hasVAT ? "НДС 22%" : "Без НДС"}</span>
+            <span>{vatRate > 0 ? `НДС ${vatRate}%` : "Без НДС"}</span>
             <strong>{money(totals.vat)}</strong>
           </div>
           <div>
