@@ -1,12 +1,13 @@
 package main
 
 import (
+	"PaymentsBot/internal/accountant"
 	"PaymentsBot/internal/banks"
 	"PaymentsBot/internal/clock"
 	"PaymentsBot/internal/config"
 	"PaymentsBot/internal/db"
-	max2 "PaymentsBot/internal/max"
 	mailpkg "PaymentsBot/internal/mail"
+	max2 "PaymentsBot/internal/max"
 	multi "PaymentsBot/internal/multiMessenger"
 	"PaymentsBot/internal/payments"
 	"PaymentsBot/internal/rncard"
@@ -69,6 +70,23 @@ func main() {
 
 	scheduler.SendDailyScheduler(rnCardService.FetchAndSendTransactions)
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go (&accountant.Importer{
+		DB: dbInstance,
+		IMAP: mailpkg.IMAPConfig{
+			Host:     cf.IMAPHost,
+			Port:     cf.IMAPPort,
+			User:     cf.IMAPUser,
+			Pass:     cf.IMAPPass,
+			Mailbox:  cf.IMAPMailbox,
+			From:     cf.IMAPFrom,
+			StartUID: cf.IMAPStartUID,
+		},
+		Max: maxBotService,
+	}).Run(ctx)
+
 	server := &http.Server{Handler: router, Addr: ":8080"}
 
 	go func() {
@@ -83,19 +101,19 @@ func main() {
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 
 	<-stop
+	cancel()
 
 	log.Println("Shutdown signal received")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-
-	defer cancel()
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer shutdownCancel()
 
 	err = tgBotService.SendMessageInGroupID(877804669, "Server stopped")
 	if err != nil {
 		log.Printf("error send server stopped message: %v", err)
 	}
 
-	if err := server.Shutdown(ctx); err != nil {
+	if err := server.Shutdown(shutdownCtx); err != nil {
 		log.Printf("shutdown error: %v", err)
 	}
 

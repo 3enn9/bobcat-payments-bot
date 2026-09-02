@@ -50,9 +50,9 @@ type CreateInvoiceInput struct {
 	SupplierID      *int64
 	BuyerID         *int64
 	BankID          *int64
-	Number           int // 0 = next after last_invoice_number
-	ReplaceExisting  bool
-	InvoiceDate      time.Time
+	Number          int // 0 = next after last_invoice_number
+	ReplaceExisting bool
+	InvoiceDate     time.Time
 	Basis           string
 	SupplierName    string
 	SupplierINN     string
@@ -73,8 +73,8 @@ type CreateInvoiceInput struct {
 }
 
 type CreatedInvoice struct {
-	ID      int64
-	Number  int
+	ID       int64
+	Number   int
 	Replaced bool
 }
 
@@ -235,6 +235,20 @@ func (d *Database) CreateInvoice(input CreateInvoiceInput) (*CreatedInvoice, err
 	}
 
 	if bankID == nil || *bankID == 0 {
+		var existingBank int64
+		lookupErr := tx.QueryRow(`
+			SELECT id FROM invoice_banks
+			WHERE supplier_id = ? AND account = ?
+			LIMIT 1
+		`, *supplierID, input.BankAccount).Scan(&existingBank)
+		if lookupErr == nil {
+			bankID = &existingBank
+		} else if lookupErr != sql.ErrNoRows {
+			return nil, lookupErr
+		}
+	}
+
+	if bankID == nil || *bankID == 0 {
 		result, err := tx.Exec(`
 			INSERT INTO invoice_banks (supplier_id, name, bik, account, corr_account)
 			VALUES (?, ?, ?, ?, ?)
@@ -260,6 +274,20 @@ func (d *Database) CreateInvoice(input CreateInvoiceInput) (*CreatedInvoice, err
 
 	buyerID := input.BuyerID
 	if buyerID == nil || *buyerID == 0 {
+		if strings.TrimSpace(input.BuyerINN) != "" {
+			var existingBuyer int64
+			lookupErr := tx.QueryRow(`
+				SELECT id FROM invoice_buyers WHERE inn = ? LIMIT 1
+			`, input.BuyerINN).Scan(&existingBuyer)
+			if lookupErr == nil {
+				buyerID = &existingBuyer
+			} else if lookupErr != sql.ErrNoRows {
+				return nil, lookupErr
+			}
+		}
+	}
+
+	if buyerID == nil || *buyerID == 0 {
 		result, err := tx.Exec(`
 			INSERT INTO invoice_buyers (name, inn, kpp, address_text, email)
 			VALUES (?, ?, ?, ?, ?)
@@ -275,9 +303,10 @@ func (d *Database) CreateInvoice(input CreateInvoiceInput) (*CreatedInvoice, err
 	} else {
 		_, err := tx.Exec(`
 			UPDATE invoice_buyers
-			SET name = ?, inn = ?, kpp = ?, address_text = ?, email = ?
+			SET name = ?, inn = ?, kpp = ?, address_text = ?,
+			    email = IF(? = '', email, ?)
 			WHERE id = ?
-		`, input.BuyerName, input.BuyerINN, input.BuyerKPP, input.BuyerAddress, input.BuyerEmail, *buyerID)
+		`, input.BuyerName, input.BuyerINN, input.BuyerKPP, input.BuyerAddress, input.BuyerEmail, input.BuyerEmail, *buyerID)
 		if err != nil {
 			return nil, err
 		}
