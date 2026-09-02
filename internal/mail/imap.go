@@ -92,8 +92,18 @@ func FetchNewPDF(cfg IMAPConfig, lastUID uint32) ([]Message, uint32, error) {
 		return nil, lastUID, nil
 	}
 
+	var newUIDs []uint32
+	for _, uid := range uids {
+		if uid > lastUID {
+			newUIDs = append(newUIDs, uid)
+		}
+	}
+	if len(newUIDs) == 0 {
+		return nil, lastUID, nil
+	}
+
 	fetchSet := new(imap.SeqSet)
-	fetchSet.AddNum(uids...)
+	fetchSet.AddNum(newUIDs...)
 	section := &imap.BodySectionName{Peek: true}
 	items := []imap.FetchItem{imap.FetchUid, imap.FetchEnvelope, section.FetchItem()}
 	ch := make(chan *imap.Message, 10)
@@ -106,7 +116,7 @@ func FetchNewPDF(cfg IMAPConfig, lastUID uint32) ([]Message, uint32, error) {
 	var result []Message
 	maxUID := lastUID
 	for msg := range ch {
-		if msg == nil {
+		if msg == nil || msg.Uid <= lastUID {
 			continue
 		}
 		if msg.Uid > maxUID {
