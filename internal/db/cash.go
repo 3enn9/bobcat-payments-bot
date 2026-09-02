@@ -91,6 +91,22 @@ func (d *Database) UpdateWorkerCashEntry(
 	return affected > 0, nil
 }
 
+func (d *Database) DeleteWorkerCashEntry(id int64, workerName string) (bool, error) {
+	result, err := d.DB.Exec(`
+		DELETE FROM worker_cash_entries
+		WHERE id = ?
+		  AND LOWER(worker_name) = LOWER(?)
+	`, id, workerName)
+	if err != nil {
+		return false, err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	return affected > 0, nil
+}
+
 func (d *Database) GetWorkerCashBalance(workerName string) (float64, error) {
 	workerName = strings.TrimSpace(workerName)
 	var balance sql.NullFloat64

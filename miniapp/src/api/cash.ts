@@ -118,3 +118,20 @@ export async function updateCashEntry(
     balance: data.balance ?? 0,
   };
 }
+
+export async function deleteCashEntry(
+  id: number,
+  workerName: string,
+): Promise<{ balance: number }> {
+  const params = new URLSearchParams({ worker: workerName });
+  const response = await fetch(`/api/miniapp/cash/${id}?${params.toString()}`, {
+    method: "DELETE",
+  });
+  const data = (await response.json()) as MutateCashResponse;
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || "Не удалось удалить запись");
+  }
+  return {
+    balance: data.balance ?? 0,
+  };
+}

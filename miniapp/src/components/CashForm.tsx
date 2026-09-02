@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import {
   CASH_HISTORY_LIMIT,
   createCashEntry,
+  deleteCashEntry,
   fetchCashWorkers,
   fetchWorkerCash,
   updateCashEntry,
@@ -98,6 +99,7 @@ export default function CashForm() {
   const [editDraft, setEditDraft] = useState<EditDraft | null>(null);
   const [editError, setEditError] = useState("");
   const [editSaving, setEditSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [workers, setWorkers] = useState<string[]>([]);
   const [workersLoading, setWorkersLoading] = useState(false);
   const [workersError, setWorkersError] = useState("");
@@ -309,23 +311,51 @@ export default function CashForm() {
     }
   }
 
-  const busy = saving || editSaving;
+  async function removeEntry(id: number) {
+    if (!window.confirm("Удалить эту операцию?")) {
+      return;
+    }
+
+    setDeletingId(id);
+    setSuccess("");
+    try {
+      const result = await deleteCashEntry(id, workerName);
+      setBalance(result.balance);
+      const data = await reloadCash(workerName);
+      setEntries(data.entries);
+      setTotalEntries(data.total);
+      if (editingId === id) {
+        cancelEdit();
+      }
+      setSuccess("Запись удалена");
+    } catch (err) {
+      setFormError(
+        err instanceof Error ? err.message : "Не удалось удалить запись",
+      );
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  const busy = saving || editSaving || deletingId !== null;
 
   return (
-    <div className="cash-form">
+    <div className={`cash-form${workerName ? "" : " cash-form-picker"}`}>
       {!workerName ? (
-        <form className="driver-lookup" onSubmit={confirmWorker}>
-          <label>
-            <span>Фамилия работника</span>
-            <input
-              value={workerInput}
-              onChange={(event) => setWorkerInput(event.target.value)}
-              placeholder="Иванов"
-              maxLength={100}
-            />
-          </label>
-          {error && <div className="error">{error}</div>}
-          <button type="submit">Подтвердить</button>
+        <form className="driver-lookup cash-picker-form" onSubmit={confirmWorker}>
+          <div className="cash-picker-top">
+            <label>
+              <span>Фамилия работника</span>
+              <input
+                value={workerInput}
+                onChange={(event) => setWorkerInput(event.target.value)}
+                placeholder="Иванов"
+                maxLength={100}
+              />
+            </label>
+            {error && <div className="error">{error}</div>}
+            <button type="submit">Подтвердить</button>
+          </div>
 
           <section className="cash-workers-section">
             <h2>Работники</h2>
@@ -433,13 +463,15 @@ export default function CashForm() {
 
             <label className="invoice-field">
               <span>Комментарий</span>
-              <textarea
+              <input
+                type="text"
+                className="cash-comment-input"
                 value={description}
                 disabled={busy}
-                rows={2}
+                maxLength={120}
                 placeholder={
                   entryType === "income"
-                    ? "Частный заказ, наличные"
+                    ? "Частный заказ"
                     : "На что потратили"
                 }
                 onChange={(event) => setDescription(event.target.value)}
@@ -542,10 +574,12 @@ export default function CashForm() {
 
                         <label className="invoice-field">
                           <span>Комментарий</span>
-                          <textarea
+                          <input
+                            type="text"
+                            className="cash-comment-input"
                             value={editDraft.description}
                             disabled={editSaving}
-                            rows={2}
+                            maxLength={120}
                             onChange={(event) =>
                               setEditDraft({
                                 ...editDraft,
@@ -604,14 +638,24 @@ export default function CashForm() {
                           )}
                         </div>
 
-                        <button
-                          type="button"
-                          className="cash-edit-button"
-                          disabled={busy}
-                          onClick={() => startEdit(item)}
-                        >
-                          Изменить
-                        </button>
+                        <div className="cash-item-actions">
+                          <button
+                            type="button"
+                            className="cash-edit-button"
+                            disabled={busy}
+                            onClick={() => startEdit(item)}
+                          >
+                            Изменить
+                          </button>
+                          <button
+                            type="button"
+                            className="cash-delete-button"
+                            disabled={busy}
+                            onClick={() => void removeEntry(item.id)}
+                          >
+                            {deletingId === item.id ? "..." : "Удалить"}
+                          </button>
+                        </div>
                       </div>
                     </li>
                   );

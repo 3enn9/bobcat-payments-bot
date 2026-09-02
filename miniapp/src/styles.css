@@ -194,6 +194,12 @@
   -webkit-overflow-scrolling: touch;
 }
 
+.requests-scroll:has(.cash-form-picker) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .requests-list {
   list-style: none;
   margin: 0;
@@ -1038,8 +1044,54 @@
   gap: 10px;
 }
 
+.cash-form-picker {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.cash-picker-form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  gap: 0;
+}
+
+.cash-picker-top {
+  flex-shrink: 0;
+}
+
+.cash-comment-input {
+  min-height: auto;
+}
+
+.cash-item-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.cash-delete-button {
+  width: auto;
+  flex-shrink: 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #fff;
+  color: #a51d1d;
+  border: 1px solid #f0c8c8;
+  font-size: 13px;
+  font-weight: 650;
+}
+
 .cash-workers-section {
-  margin-top: 24px;
+  margin-top: 16px;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .cash-workers-section h2 {
@@ -1051,10 +1103,13 @@
   list-style: none;
   margin: 0;
   padding: 0;
-  max-height: 280px;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   display: grid;
   gap: 8px;
+  align-content: start;
+  -webkit-overflow-scrolling: touch;
 }
 
 .cash-worker-button {

@@ -245,3 +245,44 @@ func (h *MiniAppHandler) UpdateWorkerCashEntry(w http.ResponseWriter, r *http.Re
 		"balance": balance,
 	})
 }
+
+func (h *MiniAppHandler) DeleteWorkerCashEntry(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	id, err := strconv.ParseInt(mux.Vars(r)["id"], 10, 64)
+	if err != nil || id <= 0 {
+		http.Error(w, `{"success":false,"error":"Некорректный ID"}`, http.StatusBadRequest)
+		return
+	}
+
+	workerName := strings.TrimSpace(r.URL.Query().Get("worker"))
+	if workerName == "" {
+		http.Error(w, `{"success":false,"error":"Укажите фамилию"}`, http.StatusBadRequest)
+		return
+	}
+
+	ok, err := h.db.DeleteWorkerCashEntry(id, workerName)
+	if err != nil {
+		log.Printf("delete worker cash entry error id=%d: %v", id, err)
+		http.Error(w, `{"success":false,"error":"Ошибка удаления"}`, http.StatusInternalServerError)
+		return
+	}
+	if !ok {
+		http.Error(w, `{"success":false,"error":"Запись не найдена"}`, http.StatusNotFound)
+		return
+	}
+
+	balance, err := h.db.GetWorkerCashBalance(workerName)
+	if err != nil {
+		log.Printf("worker cash balance after delete error: %v", err)
+	}
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"balance": balance,
+	})
+}
