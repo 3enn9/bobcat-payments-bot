@@ -1,10 +1,13 @@
 package banks
 
 import (
+	"PaymentsBot/internal/db"
 	domainPayment "PaymentsBot/internal/domain/payment"
+	"errors"
 	"fmt"
 	"github.com/patrickmn/go-cache"
 	"log"
+	"strconv"
 	"time"
 )
 
@@ -41,6 +44,30 @@ func (b *BankService) TBank(payment domainPayment.TBankPayment) error {
 		payment.OperationAmount,
 		"тбанк",
 	)
+
+	executedAt, _ := time.Parse(time.RFC3339, payment.DrawDate)
+	if executedAt.IsZero() {
+		executedAt, _ = time.Parse("2006-01-02", payment.DrawDate)
+	}
+	if executedAt.IsZero() {
+		executedAt = time.Now()
+	}
+	amount, _ := strconv.ParseFloat(payment.OperationAmount, 64)
+	_, saveErr := b.db.SaveIncomingPayment(db.SaveIncomingPaymentInput{
+		Source:        db.SourceTbank,
+		ExternalID:    payment.OperationID,
+		ExecutedAt:    executedAt,
+		Amount:        amount,
+		Account:       payment.AccountNumber,
+		RecipientName: payment.Receiver.Name,
+		PayerName:     payment.CounterParty.Name,
+		PayerINN:      payment.CounterParty.Inn,
+		Purpose:       payment.Description,
+		RawDocNumber:  payment.DocumentNumber,
+	})
+	if saveErr != nil && !errors.Is(saveErr, db.ErrIncomingPaymentExists) {
+		log.Printf("tbank save payment: %v", saveErr)
+	}
 
 	err := b.messenger.SendMessageInGroupName("Payments", message)
 	if err != nil {

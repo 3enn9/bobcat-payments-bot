@@ -1,16 +1,18 @@
 package banks
 
 import (
+	"PaymentsBot/internal/db"
 	multi "PaymentsBot/internal/multiMessenger"
 	"time"
 )
 
-func NewBankService(messenger *multi.MultiMessenger) *BankService {
-	return &BankService{messenger: messenger}
+func NewBankService(messenger *multi.MultiMessenger, database *db.Database) *BankService {
+	return &BankService{messenger: messenger, db: database}
 }
 
 type BankService struct {
 	messenger *multi.MultiMessenger
+	db        *db.Database
 }
 
 func formatRFC3339(date string) string {

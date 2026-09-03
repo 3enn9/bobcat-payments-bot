@@ -1,9 +1,12 @@
 package banks
 
 import (
+	"PaymentsBot/internal/db"
 	"PaymentsBot/internal/domain/payment"
+	"errors"
 	"fmt"
 	"log"
+	"strconv"
 	"time"
 )
 
@@ -35,6 +38,28 @@ func (b *BankService) TochkaBank(payment payment.TochkaPayment) error {
 		payment.SidePayer.Amount,
 		"точка",
 	)
+
+	executedAt, _ := time.Parse("2006-01-02", payment.Date)
+	if executedAt.IsZero() {
+		executedAt = time.Now()
+	}
+	amount, _ := strconv.ParseFloat(payment.SidePayer.Amount, 64)
+	_, saveErr := b.db.SaveIncomingPayment(db.SaveIncomingPaymentInput{
+		Source:        db.SourceTochka,
+		ExternalID:    payment.PaymentId,
+		ExecutedAt:    executedAt,
+		Amount:        amount,
+		Currency:      payment.SidePayer.Currency,
+		Account:       payment.SideRecipient.Account,
+		RecipientName: payment.SideRecipient.Name,
+		PayerName:     payment.SidePayer.Name,
+		PayerINN:      payment.SidePayer.Inn,
+		Purpose:       payment.Purpose,
+		RawDocNumber:  payment.DocumentNumber,
+	})
+	if saveErr != nil && !errors.Is(saveErr, db.ErrIncomingPaymentExists) {
+		log.Printf("tochka save payment: %v", saveErr)
+	}
 
 	err := b.messenger.SendMessageInGroupName("Payments", message)
 	if err != nil {

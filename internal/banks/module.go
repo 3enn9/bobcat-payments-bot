@@ -1,7 +1,9 @@
 package banks
 
 import (
+	"PaymentsBot/internal/db"
 	"PaymentsBot/internal/domain/payment"
+	"errors"
 	"fmt"
 	"log"
 	"time"
@@ -43,6 +45,27 @@ func (b *BankService) ModuleBank(payload payment.ModulbankPayment) error {
 		payload.Operation.Amount,
 		"модуль",
 	)
+
+	executedAt, _ := time.Parse("2006-01-02T15:04:05", payload.Operation.Executed)
+	if executedAt.IsZero() {
+		executedAt = time.Now()
+	}
+	_, saveErr := b.db.SaveIncomingPayment(db.SaveIncomingPaymentInput{
+		Source:        db.SourceModulbank,
+		ExternalID:    payload.Operation.ID,
+		ExecutedAt:    executedAt,
+		Amount:        payload.Operation.Amount,
+		Currency:      payload.Operation.Currency,
+		Account:       payload.Operation.BankAccountNumber,
+		RecipientName: recipientName,
+		PayerName:     payload.Operation.ContragentName,
+		PayerINN:      payload.Operation.ContragentInn,
+		Purpose:       payload.Operation.PaymentPurpose,
+		RawDocNumber:  payload.Operation.DocNumber,
+	})
+	if saveErr != nil && !errors.Is(saveErr, db.ErrIncomingPaymentExists) {
+		log.Printf("modulbank save payment: %v", saveErr)
+	}
 
 	err := b.messenger.SendMessageInGroupName("Payments", message)
 	if err != nil {

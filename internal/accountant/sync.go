@@ -13,10 +13,12 @@ import (
 	"PaymentsBot/internal/db"
 	"PaymentsBot/internal/invoice"
 	"PaymentsBot/internal/mail"
+	"PaymentsBot/internal/max"
 )
 
 type Notifier interface {
 	SendFileToGroup(groupName, fileName string, reader io.Reader) error
+	SendMessageWithPhotos(groupName, text string, photos []max.PhotoUpload) error
 	SendMessageInGroupName(nameGroup, message string) error
 }
 
@@ -113,16 +115,28 @@ func (im *Importer) importAttachment(att mail.Attachment) error {
 		return err
 	}
 
-	caption := fmt.Sprintf(
-		"%s\n%s\n%s",
-		name,
-		data.BuyerName,
-		formatAmount(data.Total),
-	)
-	im.notifyText(caption)
+	caption := formatInvoiceCaption(name, data)
+
 	if im.Max != nil {
-		if sendErr := im.Max.SendFileToGroup("Invoices", name, bytes.NewReader(att.Bytes)); sendErr != nil {
-			log.Printf("accountant max file: %v", sendErr)
+		pages, err := invoice.PDFToImages(att.Bytes, 150)
+		if err != nil {
+			log.Printf("accountant pdf->png: %v", err)
+			// фото не вышло — шлём PDF-файл как запасной вариант
+			if sendErr := im.Max.SendFileToGroup("Invoices", name, bytes.NewReader(att.Bytes)); sendErr != nil {
+				log.Printf("accountant max file fallback: %v", sendErr)
+			}
+			im.notifyText(caption)
+		} else {
+			photos := make([]max.PhotoUpload, 0, len(pages))
+			for i, p := range pages {
+				photos = append(photos, max.PhotoUpload{
+					Name:   fmt.Sprintf("page_%d.png", i+1),
+					Reader: bytes.NewReader(p),
+				})
+			}
+			if sendErr := im.Max.SendMessageWithPhotos("Invoices", caption, photos); sendErr != nil {
+				log.Printf("accountant max photos: %v", sendErr)
+			}
 		}
 	}
 	log.Printf("accountant imported %s №%d %s", data.SupplierName, data.Number, data.BuyerName)
@@ -173,7 +187,34 @@ func toInput(data *invoice.PDFData, replace bool) db.CreateInvoiceInput {
 	}
 }
 
+func formatInvoiceCaption(fileName string, data *invoice.PDFData) string {
+	var b strings.Builder
+	b.WriteString(fileName)
+	b.WriteByte('\n')
+	b.WriteString(data.BuyerName)
+	b.WriteByte('\n')
+	for _, item := range data.Items {
+		fmt.Fprintf(&b, "%s - %s * %s(%s) = %s\n",
+			item.Title,
+			formatAmount(item.Price),
+			formatQty(item.Quantity),
+			item.Unit,
+			formatAmount(item.Amount),
+		)
+	}
+	b.WriteString(formatAmount(data.Total))
+	return b.String()
+}
+
 func formatAmount(v float64) string {
 	s := fmt.Sprintf("%.2f", v)
+	return strings.Replace(s, ".", ",", 1)
+}
+
+func formatQty(q float64) string {
+	if q == float64(int64(q)) {
+		return fmt.Sprintf("%d", int64(q))
+	}
+	s := strings.TrimRight(strings.TrimRight(fmt.Sprintf("%.3f", q), "0"), ".")
 	return strings.Replace(s, ".", ",", 1)
 }
