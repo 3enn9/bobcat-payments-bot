@@ -229,7 +229,10 @@ func (d *Database) MatchPaymentToInvoices(paymentID int64, invoiceIDs []int64) e
 	}
 
 	rows, err := tx.Query(fmt.Sprintf(`
-		SELECT i.id, i.total, i.supplier_id, i.buyer_inn, i.buyer_name
+		SELECT i.id, i.total, i.supplier_id, i.buyer_inn, i.buyer_name,
+		       ROUND(IFNULL((
+		         SELECT SUM(a.amount) FROM invoice_payment_allocations a WHERE a.invoice_id = i.id
+		       ), 0), 2) AS paid
 		FROM invoices i
 		WHERE i.id IN (%s)
 		FOR UPDATE
@@ -248,38 +251,33 @@ func (d *Database) MatchPaymentToInvoices(paymentID int64, invoiceIDs []int64) e
 		var total float64
 		var invSupplier sql.NullInt64
 		var buyerINN, buyerName string
-		if err := rows.Scan(&id, &total, &invSupplier, &buyerINN, &buyerName); err != nil {
-			rows.Close()
+		var paid float64
+		if err := rows.Scan(&id, &total, &invSupplier, &buyerINN, &buyerName, &paid); err != nil {
+			_ = rows.Close()
 			return err
 		}
 		if !invSupplier.Valid || invSupplier.Int64 != supplierID {
-			rows.Close()
+			_ = rows.Close()
 			return ErrMatchForeignInvoice
 		}
 		if !payerMatches(payerINN, payerName, buyerINN, buyerName) {
-			rows.Close()
+			_ = rows.Close()
 			return ErrMatchWrongPayer
-		}
-		var paid float64
-		if err := tx.QueryRow(`
-			SELECT ROUND(IFNULL(SUM(amount), 0), 2)
-			FROM invoice_payment_allocations WHERE invoice_id = ?
-		`, id).Scan(&paid); err != nil {
-			rows.Close()
-			return err
 		}
 		rem := roundMoney(total - paid)
 		if rem <= 0 {
-			rows.Close()
+			_ = rows.Close()
 			return ErrInvoiceAlreadyPaid
 		}
 		byID[id] = invRow{id: id, remaining: rem}
 	}
 	if err := rows.Err(); err != nil {
-		rows.Close()
+		_ = rows.Close()
 		return err
 	}
-	rows.Close()
+	if err := rows.Close(); err != nil {
+		return err
+	}
 
 	if len(byID) != len(invoiceIDs) {
 		return fmt.Errorf("часть счетов не найдена")
