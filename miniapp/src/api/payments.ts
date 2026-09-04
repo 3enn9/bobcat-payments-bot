@@ -11,6 +11,7 @@ export type MatchPayment = {
   source: string;
   executedAt: string;
   amount: number;
+  remainingAmount: number;
   payerName: string;
   payerInn: string;
   purpose: string;
@@ -24,6 +25,8 @@ export type MatchInvoice = {
   buyerName: string;
   buyerInn: string;
   total: number;
+  paidAmount: number;
+  remainingAmount: number;
 };
 
 type FirmsResponse = {
@@ -53,11 +56,17 @@ export async function listMatchFirms(): Promise<MatchFirm[]> {
   return data.items ?? [];
 }
 
-export async function listMatchData(supplierId: number): Promise<{
+export async function listMatchData(
+  supplierId: number,
+  paymentId?: number | null,
+): Promise<{
   payments: MatchPayment[];
   invoices: MatchInvoice[];
 }> {
   const params = new URLSearchParams({ supplierId: String(supplierId) });
+  if (paymentId) {
+    params.set("paymentId", String(paymentId));
+  }
   const response = await fetch(`/api/miniapp/payments/match?${params}`);
   const data = (await response.json()) as MatchDataResponse;
   if (!response.ok || !data.success) {

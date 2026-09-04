@@ -46,10 +46,35 @@ func (h *MiniAppHandler) ListMatchData(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"success":false,"error":"Ошибка загрузки платежей"}`, http.StatusInternalServerError)
 		return
 	}
-	invoices, err := h.db.ListUnpaidInvoicesForSupplier(supplierID)
-	if err != nil {
-		http.Error(w, `{"success":false,"error":"Ошибка загрузки счетов"}`, http.StatusInternalServerError)
-		return
+
+	paymentID, _ := strconv.ParseInt(strings.TrimSpace(r.URL.Query().Get("paymentId")), 10, 64)
+	payerINN := ""
+	payerName := ""
+	if paymentID > 0 {
+		found := false
+		for _, p := range payments {
+			if p.ID == paymentID {
+				payerINN = p.PayerINN
+				payerName = p.PayerName
+				found = true
+				break
+			}
+		}
+		if !found {
+			http.Error(w, `{"success":false,"error":"Платёж не найден или уже распределён"}`, http.StatusBadRequest)
+			return
+		}
+	}
+
+	var invoices []db.MatchInvoiceItem
+	if paymentID > 0 {
+		invoices, err = h.db.ListOpenInvoicesForSupplier(supplierID, payerINN, payerName)
+		if err != nil {
+			http.Error(w, `{"success":false,"error":"Ошибка загрузки счетов"}`, http.StatusInternalServerError)
+			return
+		}
+	} else {
+		invoices = []db.MatchInvoiceItem{}
 	}
 
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -82,14 +107,14 @@ func (h *MiniAppHandler) MatchPayment(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case errors.Is(err, db.ErrMatchEmpty):
 			http.Error(w, `{"success":false,"error":"Выберите платёж и хотя бы один счёт"}`, http.StatusBadRequest)
-		case errors.Is(err, db.ErrMatchAmountMismatch):
-			http.Error(w, `{"success":false,"error":"Сумма счетов не совпадает с платежом"}`, http.StatusBadRequest)
-		case errors.Is(err, db.ErrPaymentAlreadyMatched):
-			http.Error(w, `{"success":false,"error":"Платёж уже сопоставлен"}`, http.StatusConflict)
+		case errors.Is(err, db.ErrPaymentFullyMatched):
+			http.Error(w, `{"success":false,"error":"Платёж уже полностью распределён"}`, http.StatusConflict)
 		case errors.Is(err, db.ErrInvoiceAlreadyPaid):
-			http.Error(w, `{"success":false,"error":"Один из счетов уже оплачен"}`, http.StatusConflict)
+			http.Error(w, `{"success":false,"error":"Один из счетов уже полностью оплачен"}`, http.StatusConflict)
 		case errors.Is(err, db.ErrMatchForeignInvoice):
 			http.Error(w, `{"success":false,"error":"Счёт принадлежит другой фирме"}`, http.StatusBadRequest)
+		case errors.Is(err, db.ErrMatchWrongPayer):
+			http.Error(w, `{"success":false,"error":"Счёт не относится к плательщику этого платежа"}`, http.StatusBadRequest)
 		default:
 			http.Error(w, `{"success":false,"error":"Не удалось сопоставить"}`, http.StatusInternalServerError)
 		}

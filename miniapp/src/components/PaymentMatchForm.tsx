@@ -26,15 +26,17 @@ function truncate(text: string, max = 90): string {
   return t.slice(0, max - 1) + "…";
 }
 
+function round2(v: number): number {
+  return Math.round(v * 100) / 100;
+}
+
 export default function PaymentMatchForm() {
   const [firms, setFirms] = useState<MatchFirm[]>([]);
   const [supplierId, setSupplierId] = useState<number | null>(null);
   const [payments, setPayments] = useState<MatchPayment[]>([]);
   const [invoices, setInvoices] = useState<MatchInvoice[]>([]);
   const [paymentId, setPaymentId] = useState<number | null>(null);
-  const [selectedInvoices, setSelectedInvoices] = useState<Set<number>>(
-    () => new Set(),
-  );
+  const [selectedInvoices, setSelectedInvoices] = useState<number[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -56,74 +58,102 @@ export default function PaymentMatchForm() {
       setPayments([]);
       setInvoices([]);
       setPaymentId(null);
-      setSelectedInvoices(new Set());
+      setSelectedInvoices([]);
       return;
     }
     setLoading(true);
     setError("");
     setSuccess("");
-    void listMatchData(supplierId)
+    void listMatchData(supplierId, paymentId)
       .then(({ payments: p, invoices: i }) => {
         setPayments(p);
         setInvoices(i);
-        setPaymentId(null);
-        setSelectedInvoices(new Set());
+        setSelectedInvoices((prev) =>
+          prev.filter((id) => i.some((inv) => inv.id === id)),
+        );
       })
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [supplierId]);
+  }, [supplierId, paymentId]);
 
   const selectedPayment = useMemo(
     () => payments.find((p) => p.id === paymentId) ?? null,
     [payments, paymentId],
   );
 
-  const selectedTotal = useMemo(() => {
-    let sum = 0;
-    for (const inv of invoices) {
-      if (selectedInvoices.has(inv.id)) {
-        sum += inv.total;
-      }
-    }
-    return Math.round(sum * 100) / 100;
-  }, [invoices, selectedInvoices]);
+  const selectedInvoiceRows = useMemo(
+    () =>
+      selectedInvoices
+        .map((id) => invoices.find((inv) => inv.id === id))
+        .filter((x): x is MatchInvoice => !!x),
+    [invoices, selectedInvoices],
+  );
 
-  const paymentAmount = selectedPayment?.amount ?? 0;
-  const amountsEqual =
+  const selectedRemaining = useMemo(() => {
+    let sum = 0;
+    for (const inv of selectedInvoiceRows) {
+      sum += inv.remainingAmount;
+    }
+    return round2(sum);
+  }, [selectedInvoiceRows]);
+
+  const paymentRemaining = selectedPayment?.remainingAmount ?? 0;
+
+  const preview = useMemo(() => {
+    let payLeft = paymentRemaining;
+    let covered = 0;
+    const leftovers: Array<{ id: number; leftover: number }> = [];
+    for (const inv of selectedInvoiceRows) {
+      const take = Math.min(inv.remainingAmount, payLeft);
+      covered = round2(covered + take);
+      payLeft = round2(payLeft - take);
+      leftovers.push({
+        id: inv.id,
+        leftover: round2(inv.remainingAmount - take),
+      });
+    }
+    return {
+      covered,
+      paymentLeftover: payLeft,
+      invoiceLeftovers: leftovers,
+    };
+  }, [selectedInvoiceRows, paymentRemaining]);
+
+  const canMatch =
     selectedPayment != null &&
-    selectedInvoices.size > 0 &&
-    selectedTotal === paymentAmount;
+    selectedInvoices.length > 0 &&
+    paymentRemaining > 0;
 
   function toggleInvoice(id: number) {
     setSelectedInvoices((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
+      if (prev.includes(id)) {
+        return prev.filter((x) => x !== id);
       }
-      return next;
+      return [...prev, id];
     });
   }
 
   async function onMatch() {
-    if (!selectedPayment || !amountsEqual) return;
+    if (!canMatch || !selectedPayment || !supplierId) return;
     setSaving(true);
     setError("");
     setSuccess("");
     try {
-      await matchPayment(selectedPayment.id, Array.from(selectedInvoices));
+      await matchPayment(selectedPayment.id, selectedInvoices);
       setSuccess("Сопоставлено");
-      const data = await listMatchData(supplierId!);
-      setPayments(data.payments);
-      setInvoices(data.invoices);
-      setPaymentId(null);
-      setSelectedInvoices(new Set());
-      const refreshed = await listMatchFirms();
-      setFirms(refreshed);
-      if (!refreshed.some((f) => f.id === supplierId)) {
-        setSupplierId(refreshed[0]?.id ?? null);
+      const refreshedFirms = await listMatchFirms();
+      setFirms(refreshedFirms);
+      const stillHere = refreshedFirms.some((f) => f.id === supplierId);
+      if (!stillHere) {
+        setSupplierId(refreshedFirms[0]?.id ?? null);
+        setPaymentId(null);
+        return;
       }
+      const data = await listMatchData(supplierId, null);
+      setPayments(data.payments);
+      setInvoices([]);
+      setPaymentId(null);
+      setSelectedInvoices([]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Ошибка");
     } finally {
@@ -140,6 +170,8 @@ export default function PaymentMatchForm() {
           onChange={(e) => {
             const v = e.target.value;
             setSupplierId(v ? Number(v) : null);
+            setPaymentId(null);
+            setSelectedInvoices([]);
           }}
         >
           <option value="">Выберите фирму</option>
@@ -166,85 +198,129 @@ export default function PaymentMatchForm() {
               <p className="invoice-hint">Нет нераспределённых платежей</p>
             ) : (
               <ul className="match-list">
-                {payments.map((p) => (
-                  <li key={p.id}>
-                    <label className="match-row">
-                      <input
-                        type="radio"
-                        name="payment"
-                        checked={paymentId === p.id}
-                        onChange={() => setPaymentId(p.id)}
-                      />
-                      <span className="match-row-body">
-                        <strong>
-                          {shortDate(String(p.executedAt))} · {money(p.amount)} ₽
-                        </strong>
-                        <small>{p.payerName || "—"}</small>
-                        <small className="match-purpose">
-                          {truncate(p.purpose || "—")}
-                        </small>
-                      </span>
-                    </label>
-                  </li>
-                ))}
+                {payments.map((p) => {
+                  const partial = p.remainingAmount < p.amount;
+                  return (
+                    <li key={p.id}>
+                      <label className="match-row">
+                        <input
+                          type="radio"
+                          name="payment"
+                          checked={paymentId === p.id}
+                          onChange={() => {
+                            setPaymentId(p.id);
+                            setSelectedInvoices([]);
+                          }}
+                        />
+                        <span className="match-row-body">
+                          <strong>
+                            {shortDate(String(p.executedAt))} · остаток{" "}
+                            {money(p.remainingAmount)} ₽
+                            {partial ? ` из ${money(p.amount)}` : ""}
+                          </strong>
+                          <small>{p.payerName || "—"}</small>
+                          <small className="match-purpose">
+                            {truncate(p.purpose || "—")}
+                          </small>
+                        </span>
+                      </label>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </section>
 
           <section className="match-section">
-            <h3>Неоплаченные счета</h3>
-            {invoices.length === 0 ? (
-              <p className="invoice-hint">Нет неоплаченных счетов</p>
+            <h3>Счета плательщика</h3>
+            {!paymentId ? (
+              <p className="invoice-hint">Сначала выберите платёж</p>
+            ) : invoices.length === 0 ? (
+              <p className="invoice-hint">
+                Нет открытых счетов для этого плательщика
+              </p>
             ) : (
               <ul className="match-list">
-                {invoices.map((inv) => (
-                  <li key={inv.id}>
-                    <label className="match-row">
-                      <input
-                        type="checkbox"
-                        checked={selectedInvoices.has(inv.id)}
-                        onChange={() => toggleInvoice(inv.id)}
-                        disabled={!paymentId}
-                      />
-                      <span className="match-row-body">
-                        <strong>
-                          №{inv.number} · {shortDate(String(inv.invoiceDate))} ·{" "}
-                          {money(inv.total)} ₽
-                        </strong>
-                        <small>{inv.buyerName}</small>
-                      </span>
-                    </label>
-                  </li>
-                ))}
+                {invoices.map((inv) => {
+                  const partial = inv.paidAmount > 0;
+                  const leftover = preview.invoiceLeftovers.find(
+                    (x) => x.id === inv.id,
+                  );
+                  return (
+                    <li key={inv.id}>
+                      <label className="match-row">
+                        <input
+                          type="checkbox"
+                          checked={selectedInvoices.includes(inv.id)}
+                          onChange={() => toggleInvoice(inv.id)}
+                        />
+                        <span className="match-row-body">
+                          <strong>
+                            №{inv.number} · {shortDate(String(inv.invoiceDate))}{" "}
+                            · к оплате {money(inv.remainingAmount)} ₽
+                          </strong>
+                          <small>{inv.buyerName}</small>
+                          {partial && (
+                            <small>
+                              Уже оплачено {money(inv.paidAmount)} из{" "}
+                              {money(inv.total)}
+                            </small>
+                          )}
+                          {leftover &&
+                            selectedInvoices.includes(inv.id) &&
+                            leftover.leftover > 0 && (
+                              <small className="match-leftover">
+                                После сопоставления останется доплатить{" "}
+                                {money(leftover.leftover)} ₽
+                              </small>
+                            )}
+                        </span>
+                      </label>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </section>
 
           <div
             className={`match-summary ${
-              amountsEqual ? "match-ok" : selectedPayment ? "match-bad" : ""
+              canMatch
+                ? preview.paymentLeftover === 0 &&
+                  preview.invoiceLeftovers.every((x) => x.leftover === 0)
+                  ? "match-ok"
+                  : "match-partial"
+                : ""
             }`}
           >
             <div>
-              Счета: <strong>{money(selectedTotal)}</strong>
+              К оплате по счетам: <strong>{money(selectedRemaining)}</strong>
             </div>
             <div>
-              Платёж:{" "}
+              Остаток платежа:{" "}
               <strong>
-                {selectedPayment ? money(paymentAmount) : "—"}
+                {selectedPayment ? money(paymentRemaining) : "—"}
               </strong>
             </div>
-            {selectedPayment && selectedInvoices.size > 0 && !amountsEqual && (
-              <small>
-                Разница: {money(Math.abs(selectedTotal - paymentAmount))}
-              </small>
+            {canMatch && (
+              <>
+                <div>
+                  Будет списано: <strong>{money(preview.covered)}</strong>
+                </div>
+                {preview.paymentLeftover > 0 && (
+                  <small>
+                    После сопоставления у платежа останется{" "}
+                    {money(preview.paymentLeftover)} ₽
+                  </small>
+                )}
+              </>
             )}
           </div>
 
           <button
             type="button"
             className="submit"
-            disabled={!amountsEqual || saving}
+            disabled={!canMatch || saving}
             onClick={() => void onMatch()}
           >
             {saving ? "Сохраняю…" : "Сопоставить"}

@@ -1224,3 +1224,13 @@
   background: #fdecea;
   color: #8a1f11;
 }
+
+.match-summary.match-partial {
+  background: #fff8e1;
+  color: #8a6d00;
+}
+
+.match-leftover {
+  color: #8a6d00 !important;
+  font-weight: 650;
+}

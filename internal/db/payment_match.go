@@ -10,11 +10,11 @@ import (
 )
 
 var (
-	ErrPaymentAlreadyMatched = errors.New("payment_already_matched")
-	ErrInvoiceAlreadyPaid    = errors.New("invoice_already_paid")
-	ErrMatchAmountMismatch   = errors.New("match_amount_mismatch")
-	ErrMatchEmpty            = errors.New("match_empty")
-	ErrMatchForeignInvoice   = errors.New("match_foreign_invoice")
+	ErrPaymentFullyMatched = errors.New("payment_fully_matched")
+	ErrInvoiceAlreadyPaid  = errors.New("invoice_already_paid")
+	ErrMatchEmpty          = errors.New("match_empty")
+	ErrMatchForeignInvoice = errors.New("match_foreign_invoice")
+	ErrMatchWrongPayer     = errors.New("match_wrong_payer")
 )
 
 type MatchFirm struct {
@@ -26,26 +26,33 @@ type MatchFirm struct {
 }
 
 type MatchPaymentItem struct {
-	ID         int64     `json:"id"`
-	Source     string    `json:"source"`
-	ExecutedAt time.Time `json:"executedAt"`
-	Amount     float64   `json:"amount"`
-	PayerName  string    `json:"payerName"`
-	PayerINN   string    `json:"payerInn"`
-	Purpose    string    `json:"purpose"`
-	Account    string    `json:"account"`
+	ID              int64     `json:"id"`
+	Source          string    `json:"source"`
+	ExecutedAt      time.Time `json:"executedAt"`
+	Amount          float64   `json:"amount"`
+	RemainingAmount float64   `json:"remainingAmount"`
+	PayerName       string    `json:"payerName"`
+	PayerINN        string    `json:"payerInn"`
+	Purpose         string    `json:"purpose"`
+	Account         string    `json:"account"`
 }
 
 type MatchInvoiceItem struct {
-	ID          int64     `json:"id"`
-	Number      int       `json:"number"`
-	InvoiceDate time.Time `json:"invoiceDate"`
-	BuyerName   string    `json:"buyerName"`
-	BuyerINN    string    `json:"buyerInn"`
-	Total       float64   `json:"total"`
+	ID              int64     `json:"id"`
+	Number          int       `json:"number"`
+	InvoiceDate     time.Time `json:"invoiceDate"`
+	BuyerName       string    `json:"buyerName"`
+	BuyerINN        string    `json:"buyerInn"`
+	Total           float64   `json:"total"`
+	PaidAmount      float64   `json:"paidAmount"`
+	RemainingAmount float64   `json:"remainingAmount"`
 }
 
-// ListMatchFirms — поставщики с нераспределёнными входящими платежами на их р/с.
+func roundMoney(v float64) float64 {
+	return math.Round(v*100) / 100
+}
+
+// ListMatchFirms — поставщики с платежами, у которых ещё есть нераспределённый остаток.
 func (d *Database) ListMatchFirms() ([]MatchFirm, error) {
 	rows, err := d.DB.Query(`
 		SELECT s.id, s.name, s.inn,
@@ -53,14 +60,17 @@ func (d *Database) ListMatchFirms() ([]MatchFirm, error) {
 		       (
 		         SELECT COUNT(*)
 		         FROM invoices i
-		         WHERE i.supplier_id = s.id AND i.incoming_payment_id IS NULL
+		         WHERE i.supplier_id = s.id
+		           AND ROUND(i.total - IFNULL((
+		             SELECT SUM(a.amount) FROM invoice_payment_allocations a WHERE a.invoice_id = i.id
+		           ), 0), 2) > 0
 		       ) AS unpaid_count
 		FROM invoice_suppliers s
 		INNER JOIN invoice_banks b ON b.supplier_id = s.id
 		INNER JOIN incoming_payments p ON p.account = b.account
-		WHERE NOT EXISTS (
-		  SELECT 1 FROM invoices i WHERE i.incoming_payment_id = p.id
-		)
+		WHERE ROUND(p.amount - IFNULL((
+		  SELECT SUM(a.amount) FROM invoice_payment_allocations a WHERE a.payment_id = p.id
+		), 0), 2) > 0
 		GROUP BY s.id, s.name, s.inn
 		HAVING unmatched_count > 0
 		ORDER BY s.name
@@ -81,16 +91,17 @@ func (d *Database) ListMatchFirms() ([]MatchFirm, error) {
 	return result, rows.Err()
 }
 
-// ListUnmatchedPaymentsForSupplier — входящие на р/с фирмы, ещё никуда не назначенные.
+// ListUnmatchedPaymentsForSupplier — платежи с остатком > 0 на р/с фирмы.
 func (d *Database) ListUnmatchedPaymentsForSupplier(supplierID int64) ([]MatchPaymentItem, error) {
 	rows, err := d.DB.Query(`
 		SELECT p.id, p.source, p.executed_at, p.amount,
+		       ROUND(p.amount - IFNULL(SUM(a.amount), 0), 2) AS remaining,
 		       p.payer_name, p.payer_inn, p.purpose, p.account
 		FROM incoming_payments p
 		INNER JOIN invoice_banks b ON b.account = p.account AND b.supplier_id = ?
-		WHERE NOT EXISTS (
-		  SELECT 1 FROM invoices i WHERE i.incoming_payment_id = p.id
-		)
+		LEFT JOIN invoice_payment_allocations a ON a.payment_id = p.id
+		GROUP BY p.id, p.source, p.executed_at, p.amount, p.payer_name, p.payer_inn, p.purpose, p.account
+		HAVING remaining > 0
 		ORDER BY p.executed_at DESC, p.id DESC
 	`, supplierID)
 	if err != nil {
@@ -102,7 +113,7 @@ func (d *Database) ListUnmatchedPaymentsForSupplier(supplierID int64) ([]MatchPa
 	for rows.Next() {
 		var item MatchPaymentItem
 		if err := rows.Scan(
-			&item.ID, &item.Source, &item.ExecutedAt, &item.Amount,
+			&item.ID, &item.Source, &item.ExecutedAt, &item.Amount, &item.RemainingAmount,
 			&item.PayerName, &item.PayerINN, &item.Purpose, &item.Account,
 		); err != nil {
 			return nil, err
@@ -112,14 +123,35 @@ func (d *Database) ListUnmatchedPaymentsForSupplier(supplierID int64) ([]MatchPa
 	return result, rows.Err()
 }
 
-// ListUnpaidInvoicesForSupplier — счета фирмы без привязанного платежа.
-func (d *Database) ListUnpaidInvoicesForSupplier(supplierID int64) ([]MatchInvoiceItem, error) {
-	rows, err := d.DB.Query(`
-		SELECT id, number, invoice_date, buyer_name, buyer_inn, total
-		FROM invoices
-		WHERE supplier_id = ? AND incoming_payment_id IS NULL
-		ORDER BY invoice_date DESC, number DESC
-	`, supplierID)
+// ListOpenInvoicesForSupplier — счета с остатком к оплате; если payerINN задан — только этого покупателя.
+func (d *Database) ListOpenInvoicesForSupplier(supplierID int64, payerINN, payerName string) ([]MatchInvoiceItem, error) {
+	query := `
+		SELECT i.id, i.number, i.invoice_date, i.buyer_name, i.buyer_inn, i.total,
+		       ROUND(IFNULL(SUM(a.amount), 0), 2) AS paid,
+		       ROUND(i.total - IFNULL(SUM(a.amount), 0), 2) AS remaining
+		FROM invoices i
+		LEFT JOIN invoice_payment_allocations a ON a.invoice_id = i.id
+		WHERE i.supplier_id = ?
+	`
+	args := []any{supplierID}
+
+	payerINN = strings.TrimSpace(payerINN)
+	payerName = strings.TrimSpace(payerName)
+	if payerINN != "" {
+		query += ` AND i.buyer_inn = ?`
+		args = append(args, payerINN)
+	} else if payerName != "" {
+		query += ` AND LOWER(REPLACE(i.buyer_name, 'ё', 'е')) = LOWER(REPLACE(?, 'ё', 'е'))`
+		args = append(args, payerName)
+	}
+
+	query += `
+		GROUP BY i.id, i.number, i.invoice_date, i.buyer_name, i.buyer_inn, i.total
+		HAVING remaining > 0
+		ORDER BY i.invoice_date ASC, i.number ASC
+	`
+
+	rows, err := d.DB.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -130,6 +162,7 @@ func (d *Database) ListUnpaidInvoicesForSupplier(supplierID int64) ([]MatchInvoi
 		var item MatchInvoiceItem
 		if err := rows.Scan(
 			&item.ID, &item.Number, &item.InvoiceDate, &item.BuyerName, &item.BuyerINN, &item.Total,
+			&item.PaidAmount, &item.RemainingAmount,
 		); err != nil {
 			return nil, err
 		}
@@ -138,8 +171,8 @@ func (d *Database) ListUnpaidInvoicesForSupplier(supplierID int64) ([]MatchInvoi
 	return result, rows.Err()
 }
 
-// MatchPaymentToInvoices привязывает один платёж к нескольким счетам.
-// Суммы должны совпасть до копейки.
+// MatchPaymentToInvoices распределяет остаток платежа по выбранным счетам по порядку.
+// Частичная оплата допускается: остаток платежа и остаток счёта сохраняются.
 func (d *Database) MatchPaymentToInvoices(paymentID int64, invoiceIDs []int64) error {
 	if paymentID <= 0 || len(invoiceIDs) == 0 {
 		return ErrMatchEmpty
@@ -152,13 +185,13 @@ func (d *Database) MatchPaymentToInvoices(paymentID int64, invoiceIDs []int64) e
 	defer func() { _ = tx.Rollback() }()
 
 	var paymentAmount float64
-	var paymentAccount string
+	var paymentAccount, payerINN, payerName string
 	err = tx.QueryRow(`
-		SELECT amount, account
+		SELECT amount, account, payer_inn, payer_name
 		FROM incoming_payments
 		WHERE id = ?
 		FOR UPDATE
-	`, paymentID).Scan(&paymentAmount, &paymentAccount)
+	`, paymentID).Scan(&paymentAmount, &paymentAccount, &payerINN, &payerName)
 	if errors.Is(err, sql.ErrNoRows) {
 		return fmt.Errorf("платёж не найден")
 	}
@@ -166,14 +199,15 @@ func (d *Database) MatchPaymentToInvoices(paymentID int64, invoiceIDs []int64) e
 		return err
 	}
 
-	var alreadyMatched int
+	var allocated float64
 	if err := tx.QueryRow(`
-		SELECT COUNT(*) FROM invoices WHERE incoming_payment_id = ?
-	`, paymentID).Scan(&alreadyMatched); err != nil {
+		SELECT ROUND(IFNULL(SUM(amount), 0), 2) FROM invoice_payment_allocations WHERE payment_id = ?
+	`, paymentID).Scan(&allocated); err != nil {
 		return err
 	}
-	if alreadyMatched > 0 {
-		return ErrPaymentAlreadyMatched
+	remainingPayment := roundMoney(paymentAmount - allocated)
+	if remainingPayment <= 0 {
+		return ErrPaymentFullyMatched
 	}
 
 	var supplierID int64
@@ -195,23 +229,26 @@ func (d *Database) MatchPaymentToInvoices(paymentID int64, invoiceIDs []int64) e
 	}
 
 	rows, err := tx.Query(fmt.Sprintf(`
-		SELECT id, total, incoming_payment_id, supplier_id
-		FROM invoices
-		WHERE id IN (%s)
+		SELECT i.id, i.total, i.supplier_id, i.buyer_inn, i.buyer_name
+		FROM invoices i
+		WHERE i.id IN (%s)
 		FOR UPDATE
 	`, strings.Join(placeholders, ",")), idArgs...)
 	if err != nil {
 		return err
 	}
 
-	found := make(map[int64]float64, len(invoiceIDs))
-	var sum float64
+	type invRow struct {
+		id        int64
+		remaining float64
+	}
+	byID := make(map[int64]invRow, len(invoiceIDs))
 	for rows.Next() {
 		var id int64
-		var invSupplier sql.NullInt64
 		var total float64
-		var payment sql.NullInt64
-		if err := rows.Scan(&id, &total, &payment, &invSupplier); err != nil {
+		var invSupplier sql.NullInt64
+		var buyerINN, buyerName string
+		if err := rows.Scan(&id, &total, &invSupplier, &buyerINN, &buyerName); err != nil {
 			rows.Close()
 			return err
 		}
@@ -219,12 +256,24 @@ func (d *Database) MatchPaymentToInvoices(paymentID int64, invoiceIDs []int64) e
 			rows.Close()
 			return ErrMatchForeignInvoice
 		}
-		if payment.Valid {
+		if !payerMatches(payerINN, payerName, buyerINN, buyerName) {
+			rows.Close()
+			return ErrMatchWrongPayer
+		}
+		var paid float64
+		if err := tx.QueryRow(`
+			SELECT ROUND(IFNULL(SUM(amount), 0), 2)
+			FROM invoice_payment_allocations WHERE invoice_id = ?
+		`, id).Scan(&paid); err != nil {
+			rows.Close()
+			return err
+		}
+		rem := roundMoney(total - paid)
+		if rem <= 0 {
 			rows.Close()
 			return ErrInvoiceAlreadyPaid
 		}
-		found[id] = total
-		sum += total
+		byID[id] = invRow{id: id, remaining: rem}
 	}
 	if err := rows.Err(); err != nil {
 		rows.Close()
@@ -232,28 +281,57 @@ func (d *Database) MatchPaymentToInvoices(paymentID int64, invoiceIDs []int64) e
 	}
 	rows.Close()
 
-	if len(found) != len(invoiceIDs) {
+	if len(byID) != len(invoiceIDs) {
 		return fmt.Errorf("часть счетов не найдена")
 	}
 
-	sum = math.Round(sum*100) / 100
-	paymentAmount = math.Round(paymentAmount*100) / 100
-	if sum != paymentAmount {
-		return ErrMatchAmountMismatch
-	}
-
 	for _, id := range invoiceIDs {
+		if remainingPayment <= 0 {
+			break
+		}
+		inv := byID[id]
+		alloc := inv.remaining
+		if alloc > remainingPayment {
+			alloc = remainingPayment
+		}
+		alloc = roundMoney(alloc)
+		if alloc <= 0 {
+			continue
+		}
+
+		// Upsert: если уже была частичная связь этого платежа с этим счётом — увеличиваем.
 		res, err := tx.Exec(`
-			UPDATE invoices SET incoming_payment_id = ? WHERE id = ? AND incoming_payment_id IS NULL
-		`, paymentID, id)
+			INSERT INTO invoice_payment_allocations (payment_id, invoice_id, amount)
+			VALUES (?, ?, ?)
+			ON DUPLICATE KEY UPDATE amount = ROUND(amount + VALUES(amount), 2)
+		`, paymentID, id, alloc)
 		if err != nil {
 			return err
 		}
-		n, _ := res.RowsAffected()
-		if n == 0 {
-			return ErrInvoiceAlreadyPaid
-		}
+		_ = res
+		remainingPayment = roundMoney(remainingPayment - alloc)
 	}
 
 	return tx.Commit()
+}
+
+func payerMatches(payerINN, payerName, buyerINN, buyerName string) bool {
+	payerINN = strings.TrimSpace(payerINN)
+	buyerINN = strings.TrimSpace(buyerINN)
+	if payerINN != "" && buyerINN != "" {
+		return payerINN == buyerINN
+	}
+	pn := normalizePartyName(payerName)
+	bn := normalizePartyName(buyerName)
+	if pn == "" || bn == "" {
+		return false
+	}
+	return pn == bn
+}
+
+func normalizePartyName(s string) string {
+	s = strings.ToLower(strings.TrimSpace(strings.ReplaceAll(s, "\u00a0", " ")))
+	s = strings.ReplaceAll(s, "ё", "е")
+	s = strings.Join(strings.Fields(s), " ")
+	return s
 }
