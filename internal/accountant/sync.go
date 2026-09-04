@@ -115,7 +115,7 @@ func (im *Importer) importAttachment(att mail.Attachment) error {
 		return err
 	}
 
-	caption := formatInvoiceCaption(name, data)
+	caption := fmt.Sprintf("%s\n%s", name, data.BuyerName)
 
 	if im.Max != nil {
 		pages, err := invoice.PDFToImages(att.Bytes, 150)
@@ -187,34 +187,3 @@ func toInput(data *invoice.PDFData, replace bool) db.CreateInvoiceInput {
 	}
 }
 
-func formatInvoiceCaption(fileName string, data *invoice.PDFData) string {
-	var b strings.Builder
-	b.WriteString(fileName)
-	b.WriteByte('\n')
-	b.WriteString(data.BuyerName)
-	b.WriteByte('\n')
-	for _, item := range data.Items {
-		fmt.Fprintf(&b, "%s - %s * %s(%s) = %s\n",
-			item.Title,
-			formatAmount(item.Price),
-			formatQty(item.Quantity),
-			item.Unit,
-			formatAmount(item.Amount),
-		)
-	}
-	b.WriteString(formatAmount(data.Total))
-	return b.String()
-}
-
-func formatAmount(v float64) string {
-	s := fmt.Sprintf("%.2f", v)
-	return strings.Replace(s, ".", ",", 1)
-}
-
-func formatQty(q float64) string {
-	if q == float64(int64(q)) {
-		return fmt.Sprintf("%d", int64(q))
-	}
-	s := strings.TrimRight(strings.TrimRight(fmt.Sprintf("%.3f", q), "0"), ".")
-	return strings.Replace(s, ".", ",", 1)
-}

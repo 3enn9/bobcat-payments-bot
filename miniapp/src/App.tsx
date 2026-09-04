@@ -3,14 +3,17 @@ import GarageForm from "./components/GarageForm";
 import WorkerCabinet from "./components/WorkerCabinet";
 import WorkerRequests from "./components/WorkerRequests";
 import InvoiceForm from "./components/InvoiceForm";
+import PaymentMatchForm from "./components/PaymentMatchForm";
 import DaysOffForm from "./components/DaysOffForm";
 import KopytenkovForm from "./components/KopytenkovForm";
 import CashForm from "./components/CashForm";
 
 type Screen = "home" | "garage" | "worker" | "kopytenkov" | "kosenko" | "invoices" | "daysoff" | "cash";
+type InvoiceTab = "create" | "match";
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>("home");
+  const [invoiceTab, setInvoiceTab] = useState<InvoiceTab>("create");
 
   if (screen === "garage") {
     return (
@@ -115,8 +118,25 @@ export default function App() {
             <h1>Счета</h1>
           </div>
 
+          <div className="invoice-tabs">
+            <button
+              type="button"
+              className={invoiceTab === "create" ? "tab active" : "tab"}
+              onClick={() => setInvoiceTab("create")}
+            >
+              Создать
+            </button>
+            <button
+              type="button"
+              className={invoiceTab === "match" ? "tab active" : "tab"}
+              onClick={() => setInvoiceTab("match")}
+            >
+              Сопоставить
+            </button>
+          </div>
+
           <div className="requests-scroll">
-            <InvoiceForm />
+            {invoiceTab === "create" ? <InvoiceForm /> : <PaymentMatchForm />}
           </div>
         </div>
       </div>
