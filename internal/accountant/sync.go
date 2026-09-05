@@ -23,9 +23,10 @@ type Notifier interface {
 }
 
 type Importer struct {
-	DB   *db.Database
-	IMAP mail.IMAPConfig
-	Max  Notifier
+	DB            *db.Database
+	IMAP          mail.IMAPConfig
+	Max           Notifier
+	BackfillSince time.Time // если задано — один тихий прогон с этой даты при старте
 }
 
 func (im *Importer) Run(ctx context.Context) {
@@ -34,6 +35,13 @@ func (im *Importer) Run(ctx context.Context) {
 	}
 
 	log.Println("accountant imap importer started")
+
+	if !im.BackfillSince.IsZero() {
+		if err := im.backfillQuiet(im.BackfillSince); err != nil {
+			log.Printf("accountant backfill: %v", err)
+		}
+	}
+
 	im.tick(ctx)
 	ticker := time.NewTicker(45 * time.Second)
 	defer ticker.Stop()
@@ -59,10 +67,7 @@ func (im *Importer) tick(ctx context.Context) {
 }
 
 func (im *Importer) poll() error {
-	mailbox := im.IMAP.Mailbox
-	if mailbox == "" {
-		mailbox = "INBOX"
-	}
+	mailbox := im.mailbox()
 
 	lastUID, err := im.DB.GetInvoiceMailUID(mailbox)
 	if err != nil {
@@ -76,7 +81,7 @@ func (im *Importer) poll() error {
 
 	for _, msg := range messages {
 		for _, att := range msg.Attachments {
-			if err := im.importAttachment(att); err != nil {
+			if err := im.importAttachment(att, true); err != nil {
 				log.Printf("accountant uid=%d file=%s: %v", msg.UID, att.Filename, err)
 			}
 		}
@@ -90,10 +95,70 @@ func (im *Importer) poll() error {
 	return nil
 }
 
-func (im *Importer) importAttachment(att mail.Attachment) error {
+// backfillQuiet тянет счета с почты с даты since без уведомлений в группу.
+// После прогона ставит курсор на конец ящика, чтобы обычный poll не повторил всё.
+func (im *Importer) backfillQuiet(since time.Time) error {
+	mailbox := im.mailbox()
+	log.Printf("accountant backfill quiet since %s ...", since.Format("2006-01-02"))
+
+	messages, maxUID, err := mail.FetchPDFSince(im.IMAP, since)
+	if err != nil {
+		return err
+	}
+
+	var imported, skipped, failed, acts int
+	for _, msg := range messages {
+		for _, att := range msg.Attachments {
+			name := strings.TrimSpace(att.Filename)
+			if invoice.IsReconciliationFilename(name) {
+				acts++
+				continue
+			}
+			if !invoice.IsInvoiceFilename(name) {
+				continue
+			}
+			err := im.importAttachment(att, false)
+			switch {
+			case err == nil:
+				imported++
+			case errors.Is(err, db.ErrInvoiceExists):
+				skipped++
+			default:
+				failed++
+				log.Printf("accountant backfill uid=%d file=%s: %v", msg.UID, name, err)
+			}
+		}
+	}
+
+	if maxUID > 0 {
+		if err := im.DB.SetInvoiceMailUID(mailbox, maxUID); err != nil {
+			return fmt.Errorf("save cursor %d: %w", maxUID, err)
+		}
+	}
+
+	log.Printf(
+		"accountant backfill done: messages=%d imported=%d skipped=%d failed=%d acts_skipped=%d cursor_uid=%d",
+		len(messages), imported, skipped, failed, acts, maxUID,
+	)
+	log.Println("accountant backfill: уберите IMAP_BACKFILL_SINCE из .env после успешного прогона")
+	return nil
+}
+
+func (im *Importer) mailbox() string {
+	if im.IMAP.Mailbox == "" {
+		return "INBOX"
+	}
+	return im.IMAP.Mailbox
+}
+
+// importAttachment: notify=true — шлёт в MAX; notify=false — только БД.
+// ErrInvoiceExists возвращается наружу (для статистики бэкофилла).
+func (im *Importer) importAttachment(att mail.Attachment, notify bool) error {
 	name := strings.TrimSpace(att.Filename)
 	if invoice.IsReconciliationFilename(name) {
-		im.notifyText("Акт сверки: " + name)
+		if notify {
+			im.notifyText("Акт сверки: " + name)
+		}
 		return nil
 	}
 	if !invoice.IsInvoiceFilename(name) {
@@ -102,26 +167,26 @@ func (im *Importer) importAttachment(att mail.Attachment) error {
 
 	data, err := invoice.ParsePDF(att.Bytes)
 	if err != nil {
-		im.notifyText(fmt.Sprintf("Не удалось разобрать %s: %v", name, err))
+		if notify {
+			im.notifyText(fmt.Sprintf("Не удалось разобрать %s: %v", name, err))
+		}
 		return err
 	}
 
 	_, err = im.DB.CreateInvoice(toInput(data, invoice.IsRevisedFilename(name)))
 	if errors.Is(err, db.ErrInvoiceExists) {
 		log.Printf("accountant skip existing invoice %s №%d", data.SupplierName, data.Number)
-		return nil
+		return db.ErrInvoiceExists
 	}
 	if err != nil {
 		return err
 	}
 
-	caption := fmt.Sprintf("%s\n%s", name, data.BuyerName)
-
-	if im.Max != nil {
+	if notify && im.Max != nil {
+		caption := fmt.Sprintf("%s\n%s", name, data.BuyerName)
 		pages, err := invoice.PDFToImages(att.Bytes, 150)
 		if err != nil {
 			log.Printf("accountant pdf->png: %v", err)
-			// фото не вышло — шлём PDF-файл как запасной вариант
 			if sendErr := im.Max.SendFileToGroup("Invoices", name, bytes.NewReader(att.Bytes)); sendErr != nil {
 				log.Printf("accountant max file fallback: %v", sendErr)
 			}
@@ -186,4 +251,3 @@ func toInput(data *invoice.PDFData, replace bool) db.CreateInvoiceInput {
 		Items:           items,
 	}
 }
-

@@ -84,7 +84,8 @@ func main() {
 			From:     cf.IMAPFrom,
 			StartUID: cf.IMAPStartUID,
 		},
-		Max: maxBotService,
+		Max:           maxBotService,
+		BackfillSince: cf.IMAPBackfillSince,
 	}).Run(ctx)
 
 	server := &http.Server{Handler: router, Addr: ":8080"}

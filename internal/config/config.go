@@ -6,29 +6,31 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Config struct {
-	Port         string
-	Root         string
-	Password     string
-	Dbname       string
-	Host         string
-	Token        string
-	MaxToken     string
-	SMTPHost     string
-	SMTPPort     string
-	SMTPUser     string
-	SMTPPass     string
-	SMTPFrom     string
-	IMAPHost     string
-	IMAPPort     string
-	IMAPUser     string
-	IMAPPass     string
-	IMAPFrom     string
-	IMAPMailbox  string
-	IMAPStartUID uint32
-	Timezone     string
+	Port              string
+	Root              string
+	Password          string
+	Dbname            string
+	Host              string
+	Token             string
+	MaxToken          string
+	SMTPHost          string
+	SMTPPort          string
+	SMTPUser          string
+	SMTPPass          string
+	SMTPFrom          string
+	IMAPHost          string
+	IMAPPort          string
+	IMAPUser          string
+	IMAPPass          string
+	IMAPFrom          string
+	IMAPMailbox       string
+	IMAPStartUID      uint32
+	IMAPBackfillSince time.Time
+	Timezone          string
 }
 
 func NewConfig() *Config {
@@ -49,26 +51,27 @@ func NewConfig() *Config {
 	}
 
 	return &Config{
-		Port:         os.Getenv("DB_PORT"),
-		Root:         os.Getenv("DB_USER"),
-		Password:     os.Getenv("DB_PASS"),
-		Dbname:       os.Getenv("DB_NAME"),
-		Host:         os.Getenv("DB_HOST"),
-		Token:        os.Getenv("BOT_TOKEN"),
-		MaxToken:     os.Getenv("MAX_TOKEN"),
-		SMTPHost:     os.Getenv("SMTP_HOST"),
-		SMTPPort:     os.Getenv("SMTP_PORT"),
-		SMTPUser:     os.Getenv("SMTP_USER"),
-		SMTPPass:     os.Getenv("SMTP_PASS"),
-		SMTPFrom:     os.Getenv("SMTP_FROM"),
-		IMAPHost:     imapHost,
-		IMAPPort:     firstNonEmpty(os.Getenv("IMAP_PORT"), "993"),
-		IMAPUser:     imapUser,
-		IMAPPass:     imapPass,
-		IMAPFrom:     imapFrom,
-		IMAPMailbox:  firstNonEmpty(os.Getenv("IMAP_MAILBOX"), "INBOX"),
-		IMAPStartUID: parseUID(os.Getenv("IMAP_START_UID")),
-		Timezone:     os.Getenv("APP_TIMEZONE"),
+		Port:              os.Getenv("DB_PORT"),
+		Root:              os.Getenv("DB_USER"),
+		Password:          os.Getenv("DB_PASS"),
+		Dbname:            os.Getenv("DB_NAME"),
+		Host:              os.Getenv("DB_HOST"),
+		Token:             os.Getenv("BOT_TOKEN"),
+		MaxToken:          os.Getenv("MAX_TOKEN"),
+		SMTPHost:          os.Getenv("SMTP_HOST"),
+		SMTPPort:          os.Getenv("SMTP_PORT"),
+		SMTPUser:          os.Getenv("SMTP_USER"),
+		SMTPPass:          os.Getenv("SMTP_PASS"),
+		SMTPFrom:          os.Getenv("SMTP_FROM"),
+		IMAPHost:          imapHost,
+		IMAPPort:          firstNonEmpty(os.Getenv("IMAP_PORT"), "993"),
+		IMAPUser:          imapUser,
+		IMAPPass:          imapPass,
+		IMAPFrom:          imapFrom,
+		IMAPMailbox:       firstNonEmpty(os.Getenv("IMAP_MAILBOX"), "INBOX"),
+		IMAPStartUID:      parseUID(os.Getenv("IMAP_START_UID")),
+		IMAPBackfillSince: parseDate(os.Getenv("IMAP_BACKFILL_SINCE")),
+		Timezone:          os.Getenv("APP_TIMEZONE"),
 	}
 }
 
@@ -91,4 +94,18 @@ func parseUID(s string) uint32 {
 		return 0
 	}
 	return uint32(n)
+}
+
+func parseDate(s string) time.Time {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return time.Time{}
+	}
+	for _, layout := range []string{"2006-01-02", "02.01.2006", "2006/01/02"} {
+		if t, err := time.ParseInLocation(layout, s, time.UTC); err == nil {
+			return t
+		}
+	}
+	log.Printf("IMAP_BACKFILL_SINCE: неверная дата %q, ожидается YYYY-MM-DD", s)
+	return time.Time{}
 }
