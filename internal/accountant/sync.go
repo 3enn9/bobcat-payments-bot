@@ -81,7 +81,7 @@ func (im *Importer) poll() error {
 
 	for _, msg := range messages {
 		for _, att := range msg.Attachments {
-			if err := im.importAttachment(att, true); err != nil {
+			if err := im.importAttachment(att, true, false); err != nil {
 				log.Printf("accountant uid=%d file=%s: %v", msg.UID, att.Filename, err)
 			}
 		}
@@ -106,7 +106,7 @@ func (im *Importer) backfillQuiet(since time.Time) error {
 		return err
 	}
 
-	var imported, skipped, failed, acts int
+	var imported, updated, skipped, failed, acts int
 	for _, msg := range messages {
 		for _, att := range msg.Attachments {
 			name := strings.TrimSpace(att.Filename)
@@ -117,10 +117,13 @@ func (im *Importer) backfillQuiet(since time.Time) error {
 			if !invoice.IsInvoiceFilename(name) {
 				continue
 			}
-			err := im.importAttachment(att, false)
+			// replace=true: последний файл по номеру счёта побеждает (в т.ч. без «изм» в имени)
+			err := im.importAttachment(att, false, true)
 			switch {
 			case err == nil:
 				imported++
+			case errors.Is(err, errInvoiceUpdated):
+				updated++
 			case errors.Is(err, db.ErrInvoiceExists):
 				skipped++
 			default:
@@ -137,8 +140,8 @@ func (im *Importer) backfillQuiet(since time.Time) error {
 	}
 
 	log.Printf(
-		"accountant backfill done: messages=%d imported=%d skipped=%d failed=%d acts_skipped=%d cursor_uid=%d",
-		len(messages), imported, skipped, failed, acts, maxUID,
+		"accountant backfill done: messages=%d imported=%d updated=%d skipped=%d failed=%d acts_skipped=%d cursor_uid=%d",
+		len(messages), imported, updated, skipped, failed, acts, maxUID,
 	)
 	log.Println("accountant backfill: уберите IMAP_BACKFILL_SINCE из .env после успешного прогона")
 	return nil
@@ -151,9 +154,10 @@ func (im *Importer) mailbox() string {
 	return im.IMAP.Mailbox
 }
 
-// importAttachment: notify=true — шлёт в MAX; notify=false — только БД.
-// ErrInvoiceExists возвращается наружу (для статистики бэкофилла).
-func (im *Importer) importAttachment(att mail.Attachment, notify bool) error {
+var errInvoiceUpdated = errors.New("invoice_updated")
+
+// importAttachment: notify — слать в MAX; replace — перезаписывать существующий счёт.
+func (im *Importer) importAttachment(att mail.Attachment, notify, replace bool) error {
 	name := strings.TrimSpace(att.Filename)
 	if invoice.IsReconciliationFilename(name) {
 		if notify {
@@ -173,7 +177,8 @@ func (im *Importer) importAttachment(att mail.Attachment, notify bool) error {
 		return err
 	}
 
-	_, err = im.DB.CreateInvoice(toInput(data, invoice.IsRevisedFilename(name)))
+	replace = replace || invoice.IsRevisedFilename(name)
+	created, err := im.DB.CreateInvoice(toInput(data, replace))
 	if errors.Is(err, db.ErrInvoiceExists) {
 		log.Printf("accountant skip existing invoice %s №%d", data.SupplierName, data.Number)
 		return db.ErrInvoiceExists
@@ -203,6 +208,10 @@ func (im *Importer) importAttachment(att mail.Attachment, notify bool) error {
 				log.Printf("accountant max photos: %v", sendErr)
 			}
 		}
+	}
+	if created != nil && created.Replaced {
+		log.Printf("accountant updated invoice %s №%d %s", data.SupplierName, data.Number, data.BuyerName)
+		return errInvoiceUpdated
 	}
 	log.Printf("accountant imported %s №%d %s", data.SupplierName, data.Number, data.BuyerName)
 	return nil

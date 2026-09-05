@@ -151,4 +151,7 @@ func TestInvoiceFilename(t *testing.T) {
 	if IsInvoiceFilename(`Акт сверки.pdf`) {
 		t.Fatal("act is not invoice")
 	}
+	if IsInvoiceFilename(`Сч-ф 466 сст .pdf`) || IsInvoiceFilename(`Сч-ф 466 сст изм.pdf`) {
+		t.Fatal("factura must not be payment invoice")
+	}
 }

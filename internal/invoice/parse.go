@@ -33,13 +33,26 @@ var ruMonths = map[string]time.Month{
 }
 
 // IsInvoiceFilename — вложение вида «сч 536 сст.pdf» / «Сч 649 анн изм.pdf».
+// Счета-фактуры (Сч-ф …) не считаем счетами на оплату.
 func IsInvoiceFilename(name string) bool {
 	n := strings.ToLower(strings.TrimSpace(strings.ReplaceAll(name, "\u00a0", " ")))
 	n = strings.Trim(n, `"'`)
 	if n == "" || !strings.HasSuffix(n, ".pdf") {
 		return false
 	}
-	return strings.Contains(n, "сч ") || strings.HasPrefix(n, "сч")
+	if isFacturaFilename(n) {
+		return false
+	}
+	return strings.Contains(n, "сч ") || strings.HasPrefix(n, "сч ")
+}
+
+func isFacturaFilename(n string) bool {
+	n = strings.ToLower(n)
+	return strings.Contains(n, "сч-ф") ||
+		strings.Contains(n, "счф") ||
+		strings.Contains(n, "счет-фактур") ||
+		strings.Contains(n, "счёт-фактур") ||
+		strings.Contains(n, "фактур")
 }
 
 func IsReconciliationFilename(name string) bool {
