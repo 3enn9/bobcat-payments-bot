@@ -351,8 +351,8 @@ func (d *Database) CreateInvoice(input CreateInvoiceInput) (*CreatedInvoice, err
 			supplier_name, supplier_inn, supplier_kpp, supplier_address,
 			bank_name, bank_bik, bank_account, bank_corr_account,
 			buyer_name, buyer_inn, buyer_kpp, buyer_address,
-			total, vat_amount
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			total, vat_amount, status
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open')
 	`,
 		invoiceNumber,
 		input.InvoiceDate.Format("2006-01-02"),

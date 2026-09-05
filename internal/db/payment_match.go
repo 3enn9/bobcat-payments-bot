@@ -61,6 +61,7 @@ func (d *Database) ListMatchFirms() ([]MatchFirm, error) {
 		         SELECT COUNT(*)
 		         FROM invoices i
 		         WHERE i.supplier_id = s.id
+		           AND i.status = 'open'
 		           AND ROUND(i.total - IFNULL((
 		             SELECT SUM(a.amount) FROM invoice_payment_allocations a WHERE a.invoice_id = i.id
 		           ), 0), 2) > 0
@@ -128,10 +129,12 @@ func (d *Database) ListOpenInvoicesForSupplier(supplierID int64, payerINN, payer
 	query := `
 		SELECT i.id, i.number, i.invoice_date, i.buyer_name, i.buyer_inn, i.total,
 		       ROUND(IFNULL(SUM(a.amount), 0), 2) AS paid,
-		       ROUND(i.total - IFNULL(SUM(a.amount), 0), 2) AS remaining
+		       ROUND(i.total - IFNULL(SUM(a.amount), 0), 2) AS remaining,
+		       i.status
 		FROM invoices i
 		LEFT JOIN invoice_payment_allocations a ON a.invoice_id = i.id
 		WHERE i.supplier_id = ?
+		  AND i.status = 'open'
 	`
 	args := []any{supplierID}
 
@@ -146,7 +149,7 @@ func (d *Database) ListOpenInvoicesForSupplier(supplierID int64, payerINN, payer
 	}
 
 	query += `
-		GROUP BY i.id, i.number, i.invoice_date, i.buyer_name, i.buyer_inn, i.total
+		GROUP BY i.id, i.number, i.invoice_date, i.buyer_name, i.buyer_inn, i.total, i.status
 		HAVING remaining > 0
 		ORDER BY i.invoice_date ASC, i.number ASC
 	`
@@ -160,11 +163,15 @@ func (d *Database) ListOpenInvoicesForSupplier(supplierID int64, payerINN, payer
 	result := make([]MatchInvoiceItem, 0)
 	for rows.Next() {
 		var item MatchInvoiceItem
+		var status string
 		if err := rows.Scan(
 			&item.ID, &item.Number, &item.InvoiceDate, &item.BuyerName, &item.BuyerINN, &item.Total,
-			&item.PaidAmount, &item.RemainingAmount,
+			&item.PaidAmount, &item.RemainingAmount, &status,
 		); err != nil {
 			return nil, err
+		}
+		if status != "open" {
+			continue
 		}
 		result = append(result, item)
 	}
@@ -229,7 +236,7 @@ func (d *Database) MatchPaymentToInvoices(paymentID int64, invoiceIDs []int64) e
 	}
 
 	rows, err := tx.Query(fmt.Sprintf(`
-		SELECT i.id, i.total, i.supplier_id, i.buyer_inn, i.buyer_name,
+		SELECT i.id, i.total, i.supplier_id, i.buyer_inn, i.buyer_name, i.status,
 		       ROUND(IFNULL((
 		         SELECT SUM(a.amount) FROM invoice_payment_allocations a WHERE a.invoice_id = i.id
 		       ), 0), 2) AS paid
@@ -250,11 +257,15 @@ func (d *Database) MatchPaymentToInvoices(paymentID int64, invoiceIDs []int64) e
 		var id int64
 		var total float64
 		var invSupplier sql.NullInt64
-		var buyerINN, buyerName string
+		var buyerINN, buyerName, status string
 		var paid float64
-		if err := rows.Scan(&id, &total, &invSupplier, &buyerINN, &buyerName, &paid); err != nil {
+		if err := rows.Scan(&id, &total, &invSupplier, &buyerINN, &buyerName, &status, &paid); err != nil {
 			_ = rows.Close()
 			return err
+		}
+		if status != "open" {
+			_ = rows.Close()
+			return ErrInvoiceAlreadyPaid
 		}
 		if !invSupplier.Valid || invSupplier.Int64 != supplierID {
 			_ = rows.Close()
@@ -297,17 +308,20 @@ func (d *Database) MatchPaymentToInvoices(paymentID int64, invoiceIDs []int64) e
 			continue
 		}
 
-		// Upsert: если уже была частичная связь этого платежа с этим счётом — увеличиваем.
-		res, err := tx.Exec(`
+		if _, err := tx.Exec(`
 			INSERT INTO invoice_payment_allocations (payment_id, invoice_id, amount)
 			VALUES (?, ?, ?)
 			ON DUPLICATE KEY UPDATE amount = ROUND(amount + VALUES(amount), 2)
-		`, paymentID, id, alloc)
-		if err != nil {
+		`, paymentID, id, alloc); err != nil {
 			return err
 		}
-		_ = res
 		remainingPayment = roundMoney(remainingPayment - alloc)
+
+		if roundMoney(inv.remaining-alloc) <= 0 {
+			if _, err := tx.Exec(`UPDATE invoices SET status = 'paid' WHERE id = ?`, id); err != nil {
+				return err
+			}
+		}
 	}
 
 	return tx.Commit()
