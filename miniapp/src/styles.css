@@ -1279,13 +1279,17 @@
 
 .unpaid-table th:nth-child(1),
 .unpaid-table td:nth-child(1) {
-  width: 2.4em;
+  width: 2.6em;
+  padding-right: 4px;
 }
 
-.unpaid-table th:nth-child(2),
-.unpaid-table td:nth-child(2) {
-  width: 3.8em;
+.unpaid-table th.date,
+.unpaid-table td.date {
+  width: 7.2em;
   white-space: nowrap;
+  overflow: hidden;
+  font-variant-numeric: tabular-nums;
+  padding-right: 12px;
 }
 
 .unpaid-table th:nth-child(4),
@@ -1294,7 +1298,7 @@
 .unpaid-table td:nth-child(5),
 .unpaid-table th:nth-child(6),
 .unpaid-table td:nth-child(6) {
-  width: 5.4em;
+  width: 5.2em;
 }
 
 .unpaid-table th.num {
@@ -1304,10 +1308,11 @@
 
 .unpaid-table td.buyer {
   white-space: normal;
-  overflow: visible;
+  overflow: hidden;
   word-break: break-word;
   overflow-wrap: anywhere;
   line-height: 1.35;
+  padding-left: 10px;
 }
 
 .unpaid-table .num {

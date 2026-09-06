@@ -129,7 +129,7 @@ export default function UnpaidInvoicesTable() {
             <thead>
               <tr>
                 <th>№</th>
-                <th>Дата</th>
+                <th className="date">Дата</th>
                 <th>Покупатель</th>
                 <th className="num">Сумма</th>
                 <th className="num">Опл.</th>
@@ -140,7 +140,7 @@ export default function UnpaidInvoicesTable() {
               {invoices.map((inv) => (
                 <tr key={inv.id}>
                   <td>{inv.number}</td>
-                  <td>{shortDate(String(inv.invoiceDate))}</td>
+                  <td className="date">{shortDate(String(inv.invoiceDate))}</td>
                   <td className="buyer" title={inv.buyerName}>
                     {shortBuyerName(inv.buyerName)}
                   </td>
