@@ -230,10 +230,23 @@ export default function UnpaidInvoicesTable() {
             </tbody>
             <tfoot>
               <tr>
-                <td colSpan={3}>Итого · {invoices.length} сч.</td>
-                <td className="num">{money(totals.total)}</td>
-                <td className="num">{money(totals.paid)}</td>
-                <td className="num">{money(totals.remaining)}</td>
+                <td colSpan={6}>
+                  <div className="unpaid-totals">
+                    <div>Итого · {invoices.length} сч.</div>
+                    <div>
+                      <span>Сумма</span>
+                      <strong>{money(totals.total)}</strong>
+                    </div>
+                    <div>
+                      <span>Опл.</span>
+                      <strong>{money(totals.paid)}</strong>
+                    </div>
+                    <div>
+                      <span>К оплате</span>
+                      <strong>{money(totals.remaining)}</strong>
+                    </div>
+                  </div>
+                </td>
               </tr>
             </tfoot>
           </table>

@@ -1322,9 +1322,36 @@
 }
 
 .unpaid-table tfoot td {
-  font-weight: 700;
+  font-weight: 400;
   border-bottom: 0;
-  padding-top: 10px;
+  padding: 12px 6px 4px;
+}
+
+.unpaid-totals {
+  display: grid;
+  gap: 6px;
+}
+
+.unpaid-totals > div:first-child {
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.unpaid-totals > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.unpaid-totals span {
+  color: #666;
+  font-size: 13px;
+}
+
+.unpaid-totals strong {
+  font-size: 14px;
 }
 
 .unpaid-row {
