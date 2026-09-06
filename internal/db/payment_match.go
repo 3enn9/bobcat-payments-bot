@@ -92,6 +92,38 @@ func (d *Database) ListMatchFirms() ([]MatchFirm, error) {
 	return result, rows.Err()
 }
 
+// ListUnpaidInvoiceFirms — все поставщики, у которых есть открытые счета с остатком.
+func (d *Database) ListUnpaidInvoiceFirms() ([]MatchFirm, error) {
+	rows, err := d.DB.Query(`
+		SELECT s.id, s.name, s.inn, 0 AS unmatched_count, unpaid.cnt AS unpaid_count
+		FROM invoice_suppliers s
+		INNER JOIN (
+		  SELECT i.supplier_id AS supplier_id, COUNT(*) AS cnt
+		  FROM invoices i
+		  WHERE i.status = 'open'
+		    AND ROUND(i.total - IFNULL((
+		      SELECT SUM(a.amount) FROM invoice_payment_allocations a WHERE a.invoice_id = i.id
+		    ), 0), 2) > 0
+		  GROUP BY i.supplier_id
+		) unpaid ON unpaid.supplier_id = s.id
+		ORDER BY s.name
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make([]MatchFirm, 0)
+	for rows.Next() {
+		var f MatchFirm
+		if err := rows.Scan(&f.ID, &f.Name, &f.INN, &f.UnmatchedCount, &f.UnpaidInvoiceCount); err != nil {
+			return nil, err
+		}
+		result = append(result, f)
+	}
+	return result, rows.Err()
+}
+
 // ListUnmatchedPaymentsForSupplier — платежи с остатком > 0 на р/с фирмы.
 func (d *Database) ListUnmatchedPaymentsForSupplier(supplierID int64) ([]MatchPaymentItem, error) {
 	rows, err := d.DB.Query(`

@@ -10,6 +10,48 @@ import (
 	"PaymentsBot/internal/db"
 )
 
+func (h *MiniAppHandler) ListUnpaidInvoiceFirms(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	items, err := h.db.ListUnpaidInvoiceFirms()
+	if err != nil {
+		http.Error(w, `{"success":false,"error":"Ошибка загрузки фирм"}`, http.StatusInternalServerError)
+		return
+	}
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"items":   items,
+	})
+}
+
+func (h *MiniAppHandler) ListUnpaidInvoices(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	supplierID, _ := strconv.ParseInt(strings.TrimSpace(r.URL.Query().Get("supplierId")), 10, 64)
+	if supplierID <= 0 {
+		http.Error(w, `{"success":false,"error":"Укажите фирму"}`, http.StatusBadRequest)
+		return
+	}
+
+	invoices, err := h.db.ListOpenInvoicesForSupplier(supplierID, "", "")
+	if err != nil {
+		http.Error(w, `{"success":false,"error":"Ошибка загрузки счетов"}`, http.StatusInternalServerError)
+		return
+	}
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":  true,
+		"invoices": invoices,
+	})
+}
+
 func (h *MiniAppHandler) ListMatchFirms(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if r.Method == http.MethodOptions {

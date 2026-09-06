@@ -4,12 +4,13 @@ import WorkerCabinet from "./components/WorkerCabinet";
 import WorkerRequests from "./components/WorkerRequests";
 import InvoiceForm from "./components/InvoiceForm";
 import PaymentMatchForm from "./components/PaymentMatchForm";
+import UnpaidInvoicesTable from "./components/UnpaidInvoicesTable";
 import DaysOffForm from "./components/DaysOffForm";
 import KopytenkovForm from "./components/KopytenkovForm";
 import CashForm from "./components/CashForm";
 
 type Screen = "home" | "garage" | "worker" | "kopytenkov" | "kosenko" | "invoices" | "daysoff" | "cash";
-type InvoiceTab = "create" | "match";
+type InvoiceTab = "create" | "match" | "table";
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>("home");
@@ -133,10 +134,23 @@ export default function App() {
             >
               Сопоставить
             </button>
+            <button
+              type="button"
+              className={invoiceTab === "table" ? "tab active" : "tab"}
+              onClick={() => setInvoiceTab("table")}
+            >
+              Таблица
+            </button>
           </div>
 
           <div className="requests-scroll">
-            {invoiceTab === "create" ? <InvoiceForm /> : <PaymentMatchForm />}
+            {invoiceTab === "create" ? (
+              <InvoiceForm />
+            ) : invoiceTab === "match" ? (
+              <PaymentMatchForm />
+            ) : (
+              <UnpaidInvoicesTable />
+            )}
           </div>
         </div>
       </div>

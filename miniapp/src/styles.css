@@ -194,6 +194,12 @@
   -webkit-overflow-scrolling: touch;
 }
 
+.requests-scroll:has(.unpaid-form) {
+  overflow-x: auto;
+  touch-action: pan-x pan-y;
+  overscroll-behavior-x: auto;
+}
+
 .requests-scroll:has(.cash-form-picker) {
   display: flex;
   flex-direction: column;
@@ -494,7 +500,8 @@
 }
 
 .invoice-field input,
-.invoice-field textarea {
+.invoice-field textarea,
+.invoice-field select {
   width: 100%;
   border: 1px solid #dedede;
   border-radius: 12px;
@@ -1130,7 +1137,7 @@
 
 .invoice-tabs {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 8px;
   margin-bottom: 14px;
 }
@@ -1233,4 +1240,58 @@
 .match-leftover {
   color: #8a6d00 !important;
   font-weight: 650;
+}
+
+.unpaid-form {
+  display: grid;
+  gap: 14px;
+}
+
+.unpaid-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 0 -4px;
+}
+
+.unpaid-table {
+  width: 100%;
+  min-width: 520px;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.unpaid-table th,
+.unpaid-table td {
+  padding: 8px 6px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+  vertical-align: top;
+}
+
+.unpaid-table th {
+  font-size: 12px;
+  font-weight: 650;
+  color: #666;
+  position: sticky;
+  top: 0;
+  background: #fff;
+}
+
+.unpaid-table td.buyer {
+  max-width: 160px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.unpaid-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.unpaid-table tfoot td {
+  font-weight: 700;
+  border-bottom: 0;
+  padding-top: 10px;
 }

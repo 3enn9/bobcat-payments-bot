@@ -107,6 +107,57 @@ export function searchBanks(q: string, supplierId?: number | null) {
   });
 }
 
+export type UnpaidFirm = {
+  id: number;
+  name: string;
+  inn: string;
+  unpaidInvoiceCount: number;
+};
+
+export type UnpaidInvoice = {
+  id: number;
+  number: number;
+  invoiceDate: string;
+  buyerName: string;
+  buyerInn: string;
+  total: number;
+  paidAmount: number;
+  remainingAmount: number;
+};
+
+type UnpaidFirmsResponse = {
+  success: boolean;
+  items?: UnpaidFirm[];
+  error?: string;
+};
+
+type UnpaidInvoicesResponse = {
+  success: boolean;
+  invoices?: UnpaidInvoice[];
+  error?: string;
+};
+
+export async function listUnpaidFirms(): Promise<UnpaidFirm[]> {
+  const response = await fetch("/api/miniapp/invoices/unpaid/firms");
+  const data = (await response.json()) as UnpaidFirmsResponse;
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || "Не удалось загрузить фирмы");
+  }
+  return data.items ?? [];
+}
+
+export async function listUnpaidInvoices(
+  supplierId: number,
+): Promise<UnpaidInvoice[]> {
+  const params = new URLSearchParams({ supplierId: String(supplierId) });
+  const response = await fetch(`/api/miniapp/invoices/unpaid?${params}`);
+  const data = (await response.json()) as UnpaidInvoicesResponse;
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || "Не удалось загрузить счета");
+  }
+  return data.invoices ?? [];
+}
+
 export async function createInvoice(
   payload: CreateInvoicePayload,
   photos: File[] = [],
