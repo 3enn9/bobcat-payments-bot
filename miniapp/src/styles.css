@@ -1255,8 +1255,8 @@
 
 .unpaid-table {
   width: 100%;
-  min-width: 520px;
   border-collapse: collapse;
+  table-layout: fixed;
   font-size: 13px;
 }
 
@@ -1277,11 +1277,37 @@
   background: #fff;
 }
 
-.unpaid-table td.buyer {
-  max-width: 160px;
+.unpaid-table th:nth-child(1),
+.unpaid-table td:nth-child(1) {
+  width: 2.4em;
+}
+
+.unpaid-table th:nth-child(2),
+.unpaid-table td:nth-child(2) {
+  width: 4.6em;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+.unpaid-table th:nth-child(4),
+.unpaid-table td:nth-child(4),
+.unpaid-table th:nth-child(5),
+.unpaid-table td:nth-child(5),
+.unpaid-table th:nth-child(6),
+.unpaid-table td:nth-child(6) {
+  width: 5.4em;
+}
+
+.unpaid-table th.num {
+  white-space: normal;
+  line-height: 1.2;
+}
+
+.unpaid-table td.buyer {
+  white-space: normal;
+  overflow: visible;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
 }
 
 .unpaid-table .num {

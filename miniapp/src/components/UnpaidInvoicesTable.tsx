@@ -18,6 +18,34 @@ function shortDate(value: string): string {
   return `${d}.${m}.${y}`;
 }
 
+const LEGAL_PREFIXES = [
+  /^индивидуальный\s+предприниматель\s+/i,
+  /^общество\s+с\s+ограниченной\s+ответственностью\s+/i,
+  /^публичное\s+акционерное\s+общество\s+/i,
+  /^открытое\s+акционерное\s+общество\s+/i,
+  /^закрытое\s+акционерное\s+общество\s+/i,
+  /^акционерное\s+общество\s+/i,
+  /^(ип|ооо|оао|пао|зао|нао|ао)\s+/i,
+];
+
+function shortBuyerName(name: string): string {
+  let s = name.replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
+  if (!s) return "—";
+  for (let i = 0; i < 3; i++) {
+    let cut = false;
+    for (const re of LEGAL_PREFIXES) {
+      const next = s.replace(re, "");
+      if (next !== s) {
+        s = next.trim().replace(/^[,.\-–—]\s*/, "");
+        cut = true;
+        break;
+      }
+    }
+    if (!cut) break;
+  }
+  return s.replace(/^["«]+|["»]+$/g, "").trim() || name;
+}
+
 export default function UnpaidInvoicesTable() {
   const [firms, setFirms] = useState<UnpaidFirm[]>([]);
   const [supplierId, setSupplierId] = useState<number | null>(null);
@@ -104,7 +132,7 @@ export default function UnpaidInvoicesTable() {
                 <th>Дата</th>
                 <th>Покупатель</th>
                 <th className="num">Сумма</th>
-                <th className="num">Оплачено</th>
+                <th className="num">Опл.</th>
                 <th className="num">К оплате</th>
               </tr>
             </thead>
@@ -114,7 +142,7 @@ export default function UnpaidInvoicesTable() {
                   <td>{inv.number}</td>
                   <td>{shortDate(String(inv.invoiceDate))}</td>
                   <td className="buyer" title={inv.buyerName}>
-                    {inv.buyerName || "—"}
+                    {shortBuyerName(inv.buyerName)}
                   </td>
                   <td className="num">{money(inv.total)}</td>
                   <td className="num">{money(inv.paidAmount)}</td>
