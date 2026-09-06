@@ -7,7 +7,11 @@ import {
 } from "../api/invoices";
 
 function money(value: number): string {
-  return value.toFixed(2).replace(".", ",");
+  const n = Math.round(value * 100) / 100;
+  if (Number.isInteger(n)) {
+    return String(n);
+  }
+  return String(n).replace(".", ",");
 }
 
 function shortDate(value: string): string {

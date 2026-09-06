@@ -1285,11 +1285,11 @@
 
 .unpaid-table th.date,
 .unpaid-table td.date {
-  width: 7.2em;
+  width: 5.2em;
   white-space: nowrap;
   overflow: hidden;
   font-variant-numeric: tabular-nums;
-  padding-right: 12px;
+  padding-right: 6px;
 }
 
 .unpaid-table th:nth-child(4),
@@ -1298,7 +1298,7 @@
 .unpaid-table td:nth-child(5),
 .unpaid-table th:nth-child(6),
 .unpaid-table td:nth-child(6) {
-  width: 5.2em;
+  width: 4.4em;
 }
 
 .unpaid-table th.num {
@@ -1312,7 +1312,7 @@
   word-break: break-word;
   overflow-wrap: anywhere;
   line-height: 1.35;
-  padding-left: 10px;
+  padding-left: 6px;
 }
 
 .unpaid-table .num {
