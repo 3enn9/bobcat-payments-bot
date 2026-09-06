@@ -15,7 +15,7 @@ function shortDate(value: string): string {
   const iso = value.slice(0, 10);
   const [y, m, d] = iso.split("-");
   if (!y || !m || !d) return value;
-  return `${d}.${m}.${y}`;
+  return `${d}.${m}.${y.slice(2)}`;
 }
 
 const LEGAL_PREFIXES = [
