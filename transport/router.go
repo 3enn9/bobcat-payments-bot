@@ -96,6 +96,11 @@ func NewRouter(
 	).Methods(http.MethodGet, http.MethodOptions)
 
 	router.HandleFunc(
+		"/api/miniapp/invoices/{id}/items",
+		miniApp.ListInvoiceItems,
+	).Methods(http.MethodGet, http.MethodOptions)
+
+	router.HandleFunc(
 		"/api/miniapp/payments/match/firms",
 		miniApp.ListMatchFirms,
 	).Methods(http.MethodGet, http.MethodOptions)

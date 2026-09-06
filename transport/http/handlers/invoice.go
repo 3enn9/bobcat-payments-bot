@@ -18,6 +18,8 @@ import (
 	"PaymentsBot/internal/invoice"
 	mailpkg "PaymentsBot/internal/mail"
 	max2 "PaymentsBot/internal/max"
+
+	"github.com/gorilla/mux"
 )
 
 type partyPayload struct {
@@ -47,15 +49,15 @@ type itemPayload struct {
 }
 
 type createInvoiceRequest struct {
-	Number      int           `json:"number"`
-	InvoiceDate string        `json:"invoiceDate"`
-	Basis       string        `json:"basis"`
-	Supplier    partyPayload  `json:"supplier"`
-	Buyer       partyPayload  `json:"buyer"`
-	Bank        bankPayload   `json:"bank"`
-	Items       []itemPayload `json:"items"`
-	SendToEmail      bool          `json:"sendToEmail"`
-	ReplaceExisting  bool          `json:"replaceExisting"`
+	Number          int           `json:"number"`
+	InvoiceDate     string        `json:"invoiceDate"`
+	Basis           string        `json:"basis"`
+	Supplier        partyPayload  `json:"supplier"`
+	Buyer           partyPayload  `json:"buyer"`
+	Bank            bankPayload   `json:"bank"`
+	Items           []itemPayload `json:"items"`
+	SendToEmail     bool          `json:"sendToEmail"`
+	ReplaceExisting bool          `json:"replaceExisting"`
 }
 
 func (h *MiniAppHandler) SearchInvoiceSuppliers(w http.ResponseWriter, r *http.Request) {
@@ -104,6 +106,30 @@ func (h *MiniAppHandler) searchJSON(w http.ResponseWriter, r *http.Request, fn f
 		return
 	}
 
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"items":   items,
+	})
+}
+
+func (h *MiniAppHandler) ListInvoiceItems(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	id, _ := strconv.ParseInt(mux.Vars(r)["id"], 10, 64)
+	if id <= 0 {
+		http.Error(w, `{"success":false,"error":"Счёт не найден"}`, http.StatusBadRequest)
+		return
+	}
+
+	items, err := h.db.ListInvoiceItems(id)
+	if err != nil {
+		http.Error(w, `{"success":false,"error":"Ошибка загрузки позиций"}`, http.StatusInternalServerError)
+		return
+	}
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
 		"items":   items,

@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import {
+  listInvoiceItems,
   listUnpaidFirms,
   listUnpaidInvoices,
+  type InvoiceLine,
   type UnpaidFirm,
   type UnpaidInvoice,
 } from "../api/invoices";
@@ -50,12 +52,23 @@ function shortBuyerName(name: string): string {
   return s.replace(/^["«]+|["»]+$/g, "").trim() || name;
 }
 
+function qty(value: number): string {
+  const n = Math.round(value * 1000) / 1000;
+  if (Number.isInteger(n)) {
+    return String(n);
+  }
+  return String(n).replace(".", ",");
+}
+
 export default function UnpaidInvoicesTable() {
   const [firms, setFirms] = useState<UnpaidFirm[]>([]);
   const [supplierId, setSupplierId] = useState<number | null>(null);
   const [invoices, setInvoices] = useState<UnpaidInvoice[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [itemsById, setItemsById] = useState<Record<number, InvoiceLine[]>>({});
+  const [itemsLoading, setItemsLoading] = useState<number | null>(null);
 
   useEffect(() => {
     void listUnpaidFirms()
@@ -71,10 +84,12 @@ export default function UnpaidInvoicesTable() {
   useEffect(() => {
     if (!supplierId) {
       setInvoices([]);
+      setExpandedId(null);
       return;
     }
     setLoading(true);
     setError("");
+    setExpandedId(null);
     void listUnpaidInvoices(supplierId)
       .then(setInvoices)
       .catch((err: Error) => setError(err.message))
@@ -96,6 +111,27 @@ export default function UnpaidInvoicesTable() {
       paid: Math.round(paid * 100) / 100,
     };
   }, [invoices]);
+
+  async function toggleInvoice(id: number) {
+    if (expandedId === id) {
+      setExpandedId(null);
+      return;
+    }
+    setExpandedId(id);
+    if (itemsById[id]) {
+      return;
+    }
+    setItemsLoading(id);
+    try {
+      const items = await listInvoiceItems(id);
+      setItemsById((prev) => ({ ...prev, [id]: items }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ошибка загрузки позиций");
+      setExpandedId(null);
+    } finally {
+      setItemsLoading(null);
+    }
+  }
 
   return (
     <div className="unpaid-form">
@@ -141,18 +177,56 @@ export default function UnpaidInvoicesTable() {
               </tr>
             </thead>
             <tbody>
-              {invoices.map((inv) => (
-                <tr key={inv.id}>
-                  <td>{inv.number}</td>
-                  <td className="date">{shortDate(String(inv.invoiceDate))}</td>
-                  <td className="buyer" title={inv.buyerName}>
-                    {shortBuyerName(inv.buyerName)}
-                  </td>
-                  <td className="num">{money(inv.total)}</td>
-                  <td className="num">{money(inv.paidAmount)}</td>
-                  <td className="num">{money(inv.remainingAmount)}</td>
-                </tr>
-              ))}
+              {invoices.map((inv) => {
+                const open = expandedId === inv.id;
+                const lines = itemsById[inv.id];
+                return (
+                  <Fragment key={inv.id}>
+                    <tr
+                      className={open ? "unpaid-row open" : "unpaid-row"}
+                      onClick={() => void toggleInvoice(inv.id)}
+                    >
+                      <td>{inv.number}</td>
+                      <td className="date">
+                        {shortDate(String(inv.invoiceDate))}
+                      </td>
+                      <td className="buyer" title={inv.buyerName}>
+                        {shortBuyerName(inv.buyerName)}
+                      </td>
+                      <td className="num">{money(inv.total)}</td>
+                      <td className="num">{money(inv.paidAmount)}</td>
+                      <td className="num">{money(inv.remainingAmount)}</td>
+                    </tr>
+                    {open && (
+                      <tr className="unpaid-items-row">
+                        <td colSpan={6}>
+                          {itemsLoading === inv.id && (
+                            <p className="invoice-hint">Загрузка позиций…</p>
+                          )}
+                          {lines && lines.length === 0 && (
+                            <p className="invoice-hint">Нет позиций</p>
+                          )}
+                          {lines && lines.length > 0 && (
+                            <ul className="unpaid-items">
+                              {lines.map((line, idx) => (
+                                <li key={`${inv.id}-${line.position}-${idx}`}>
+                                  <span className="unpaid-item-title">
+                                    {line.title}
+                                  </span>
+                                  <span className="unpaid-item-sum">
+                                    {qty(line.quantity)} {line.unit} ×{" "}
+                                    {money(line.price)} = {money(line.amount)}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
             </tbody>
             <tfoot>
               <tr>

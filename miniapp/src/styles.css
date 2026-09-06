@@ -1326,3 +1326,46 @@
   border-bottom: 0;
   padding-top: 10px;
 }
+
+.unpaid-row {
+  cursor: pointer;
+}
+
+.unpaid-row:active {
+  background: #f6f6f6;
+}
+
+.unpaid-row.open {
+  background: #f7f7f7;
+}
+
+.unpaid-items-row td {
+  padding: 0 8px 10px 8px;
+  border-bottom: 1px solid #eee;
+  background: #fafafa;
+}
+
+.unpaid-items {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0 0;
+  display: grid;
+  gap: 8px;
+}
+
+.unpaid-items li {
+  display: grid;
+  gap: 2px;
+}
+
+.unpaid-item-title {
+  font-size: 13px;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.unpaid-item-sum {
+  font-size: 12px;
+  color: #666;
+  font-variant-numeric: tabular-nums;
+}

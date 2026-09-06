@@ -417,6 +417,38 @@ func (d *Database) CreateInvoice(input CreateInvoiceInput) (*CreatedInvoice, err
 	return &CreatedInvoice{ID: invoiceID, Number: invoiceNumber, Replaced: replaced}, nil
 }
 
+type InvoiceItemRow struct {
+	Position int     `json:"position"`
+	Title    string  `json:"title"`
+	Quantity float64 `json:"quantity"`
+	Unit     string  `json:"unit"`
+	Price    float64 `json:"price"`
+	Amount   float64 `json:"amount"`
+}
+
+func (d *Database) ListInvoiceItems(invoiceID int64) ([]InvoiceItemRow, error) {
+	rows, err := d.DB.Query(`
+		SELECT position, title, quantity, unit, price, amount
+		FROM invoice_items
+		WHERE invoice_id = ?
+		ORDER BY position, id
+	`, invoiceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make([]InvoiceItemRow, 0)
+	for rows.Next() {
+		var item InvoiceItemRow
+		if err := rows.Scan(&item.Position, &item.Title, &item.Quantity, &item.Unit, &item.Price, &item.Amount); err != nil {
+			return nil, err
+		}
+		result = append(result, item)
+	}
+	return result, rows.Err()
+}
+
 func FormatMoney(value float64) string {
 	return strings.Replace(fmt.Sprintf("%.2f", value), ".", ",", 1)
 }

@@ -158,6 +158,30 @@ export async function listUnpaidInvoices(
   return data.invoices ?? [];
 }
 
+export type InvoiceLine = {
+  position: number;
+  title: string;
+  quantity: number;
+  unit: string;
+  price: number;
+  amount: number;
+};
+
+type InvoiceLinesResponse = {
+  success: boolean;
+  items?: InvoiceLine[];
+  error?: string;
+};
+
+export async function listInvoiceItems(invoiceId: number): Promise<InvoiceLine[]> {
+  const response = await fetch(`/api/miniapp/invoices/${invoiceId}/items`);
+  const data = (await response.json()) as InvoiceLinesResponse;
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || "Не удалось загрузить позиции");
+  }
+  return data.items ?? [];
+}
+
 export async function createInvoice(
   payload: CreateInvoicePayload,
   photos: File[] = [],
