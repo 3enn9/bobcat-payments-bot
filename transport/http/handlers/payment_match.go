@@ -110,7 +110,12 @@ func (h *MiniAppHandler) ListMatchData(w http.ResponseWriter, r *http.Request) {
 
 	var invoices []db.MatchInvoiceItem
 	if paymentID > 0 {
-		invoices, err = h.db.ListOpenInvoicesForSupplier(supplierID, payerINN, payerName)
+		anyPayer := strings.TrimSpace(r.URL.Query().Get("anyPayer")) == "1"
+		if anyPayer {
+			invoices, err = h.db.ListOpenInvoicesForSupplier(supplierID, "", "")
+		} else {
+			invoices, err = h.db.ListOpenInvoicesForSupplier(supplierID, payerINN, payerName)
+		}
 		if err != nil {
 			http.Error(w, `{"success":false,"error":"Ошибка загрузки счетов"}`, http.StatusInternalServerError)
 			return
@@ -129,6 +134,7 @@ func (h *MiniAppHandler) ListMatchData(w http.ResponseWriter, r *http.Request) {
 type matchPaymentRequest struct {
 	PaymentID  int64   `json:"paymentId"`
 	InvoiceIDs []int64 `json:"invoiceIds"`
+	AnyPayer   bool    `json:"anyPayer"`
 }
 
 func (h *MiniAppHandler) MatchPayment(w http.ResponseWriter, r *http.Request) {
@@ -144,7 +150,7 @@ func (h *MiniAppHandler) MatchPayment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.db.MatchPaymentToInvoices(input.PaymentID, input.InvoiceIDs)
+	err := h.db.MatchPaymentToInvoices(input.PaymentID, input.InvoiceIDs, input.AnyPayer)
 	if err != nil {
 		switch {
 		case errors.Is(err, db.ErrMatchEmpty):

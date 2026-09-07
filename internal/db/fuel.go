@@ -1,6 +1,10 @@
 package db
 
 import (
+	"database/sql"
+	"errors"
+	"fmt"
+	"math"
 	"strings"
 	"time"
 )
@@ -105,4 +109,84 @@ func (d *Database) UpdateFuelEquipment(id int64, equipmentNumber string) error {
 		UPDATE fuel_entries SET equipment_number = ? WHERE id = ?
 	`, equipmentNumber, id)
 	return err
+}
+
+type FuelSplitPart struct {
+	EquipmentNumber string  `json:"equipmentNumber"`
+	Amount          float64 `json:"amount"`
+}
+
+func (d *Database) SplitFuelEntry(id int64, parts []FuelSplitPart) error {
+	if id <= 0 || len(parts) < 2 {
+		return fmt.Errorf("нужно минимум две части")
+	}
+
+	cleaned := make([]FuelSplitPart, 0, len(parts))
+	var sumRub int64
+	for _, part := range parts {
+		number := strings.TrimSpace(part.EquipmentNumber)
+		rub := rublesOnly(part.Amount)
+		if number == "" || rub <= 0 {
+			return fmt.Errorf("у каждой части укажите номер техники и сумму")
+		}
+		if len([]rune(number)) > 32 {
+			return fmt.Errorf("номер техники слишком длинный")
+		}
+		cleaned = append(cleaned, FuelSplitPart{EquipmentNumber: number, Amount: float64(rub)})
+		sumRub += rub
+	}
+
+	tx, err := d.DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var amount float64
+	err = tx.QueryRow(`
+		SELECT amount FROM fuel_entries WHERE id = ? FOR UPDATE
+	`, id).Scan(&amount)
+	if errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("заправка не найдена")
+	}
+	if err != nil {
+		return err
+	}
+	origKop := moneyToKopecks(amount)
+	if sumRub != origKop/100 {
+		return fmt.Errorf("сумма частей должна быть равна %d", origKop/100)
+	}
+
+	first := cleaned[0]
+	first.Amount = roundMoney(first.Amount + float64(origKop%100)/100)
+	if _, err := tx.Exec(`
+		UPDATE fuel_entries SET equipment_number = ?, amount = ? WHERE id = ?
+	`, first.EquipmentNumber, first.Amount, id); err != nil {
+		return err
+	}
+
+	for _, part := range cleaned[1:] {
+		if _, err := tx.Exec(`
+			INSERT INTO fuel_entries (fueled_at, fueled_date, equipment_number, amount, holder)
+			SELECT fueled_at, fueled_date, ?, ?, holder
+			FROM fuel_entries
+			WHERE id = ?
+		`, part.EquipmentNumber, part.Amount, id); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
+}
+
+func moneyToKopecks(v float64) int64 {
+	return int64(math.Round(v * 100))
+}
+
+func rublesOnly(v float64) int64 {
+	kop := moneyToKopecks(v)
+	if kop < 0 {
+		return 0
+	}
+	return kop / 100
 }

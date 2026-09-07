@@ -212,7 +212,7 @@ func (d *Database) ListOpenInvoicesForSupplier(supplierID int64, payerINN, payer
 
 // MatchPaymentToInvoices распределяет остаток платежа по выбранным счетам по порядку.
 // Частичная оплата допускается: остаток платежа и остаток счёта сохраняются.
-func (d *Database) MatchPaymentToInvoices(paymentID int64, invoiceIDs []int64) error {
+func (d *Database) MatchPaymentToInvoices(paymentID int64, invoiceIDs []int64, anyPayer bool) error {
 	if paymentID <= 0 || len(invoiceIDs) == 0 {
 		return ErrMatchEmpty
 	}
@@ -303,7 +303,7 @@ func (d *Database) MatchPaymentToInvoices(paymentID int64, invoiceIDs []int64) e
 			_ = rows.Close()
 			return ErrMatchForeignInvoice
 		}
-		if !payerMatches(payerINN, payerName, buyerINN, buyerName) {
+		if !anyPayer && !payerMatches(payerINN, payerName, buyerINN, buyerName) {
 			_ = rows.Close()
 			return ErrMatchWrongPayer
 		}

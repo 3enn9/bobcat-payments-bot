@@ -41,3 +41,23 @@ export async function updateFuelEquipment(
     throw new Error(data.error || "Не удалось сохранить номер");
   }
 }
+
+export type FuelSplitPart = {
+  equipmentNumber: string;
+  amount: number;
+};
+
+export async function splitFuel(
+  id: number,
+  parts: FuelSplitPart[],
+): Promise<void> {
+  const response = await fetch(`/api/miniapp/fuels/${id}/split`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ parts }),
+  });
+  const data = (await response.json()) as MutateResponse;
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || "Не удалось разделить заправку");
+  }
+}

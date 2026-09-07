@@ -59,6 +59,7 @@ export async function listMatchFirms(): Promise<MatchFirm[]> {
 export async function listMatchData(
   supplierId: number,
   paymentId?: number | null,
+  anyPayer = false,
 ): Promise<{
   payments: MatchPayment[];
   invoices: MatchInvoice[];
@@ -66,6 +67,9 @@ export async function listMatchData(
   const params = new URLSearchParams({ supplierId: String(supplierId) });
   if (paymentId) {
     params.set("paymentId", String(paymentId));
+  }
+  if (anyPayer) {
+    params.set("anyPayer", "1");
   }
   const response = await fetch(`/api/miniapp/payments/match?${params}`);
   const data = (await response.json()) as MatchDataResponse;
@@ -81,11 +85,12 @@ export async function listMatchData(
 export async function matchPayment(
   paymentId: number,
   invoiceIds: number[],
+  anyPayer = false,
 ): Promise<void> {
   const response = await fetch("/api/miniapp/payments/match", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ paymentId, invoiceIds }),
+    body: JSON.stringify({ paymentId, invoiceIds, anyPayer }),
   });
   const data = (await response.json()) as MatchResponse;
   if (!response.ok || !data.success) {

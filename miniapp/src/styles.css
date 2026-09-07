@@ -1168,6 +1168,23 @@
   font-size: 15px;
 }
 
+.match-any-btn {
+  width: 100%;
+  border: 1px solid #e6e6e6;
+  background: #fafafa;
+  color: #171717;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-weight: 650;
+  margin-bottom: 10px;
+}
+
+.match-any-btn.active {
+  background: #111;
+  border-color: #111;
+  color: #fff;
+}
+
 .match-list {
   list-style: none;
   margin: 0;
@@ -1459,4 +1476,59 @@
 .fuels-saved {
   color: #16794c;
   font-size: 12px;
+}
+
+.fuels-split {
+  display: grid;
+  gap: 8px;
+}
+
+.fuels-split-row {
+  display: grid;
+  grid-template-columns: 1fr 88px auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.fuels-split-row input {
+  margin: 0;
+}
+
+.fuels-split-remove {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid #e6e6e6;
+  background: #fff;
+  border-radius: 10px;
+  font-size: 20px;
+  line-height: 1;
+  color: #666;
+}
+
+.fuels-split small {
+  color: #666;
+  font-size: 12px;
+}
+
+.fuels-split-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.fuels-split-actions .fuels-search-btn {
+  flex: 1;
+  min-width: 0;
+}
+
+.fuels-split-open {
+  width: 100%;
+  border: 1px dashed #ddd;
+  background: #fff;
+  color: #444;
+  border-radius: 12px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 650;
 }

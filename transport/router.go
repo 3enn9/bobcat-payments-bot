@@ -131,6 +131,11 @@ func NewRouter(
 	).Methods(http.MethodGet, http.MethodOptions)
 
 	router.HandleFunc(
+		"/api/miniapp/fuels/{id}/split",
+		miniApp.SplitFuelEntry,
+	).Methods(http.MethodPost, http.MethodOptions)
+
+	router.HandleFunc(
 		"/api/miniapp/fuels/{id}",
 		miniApp.UpdateFuelEquipment,
 	).Methods(http.MethodPut, http.MethodOptions)
