@@ -6,6 +6,7 @@ CREATE TABLE fuel_entries (
   fueled_at DATETIME NOT NULL COMMENT 'Дата и время заправки',
   fueled_date DATE NOT NULL COMMENT 'Дата заправки (для проверки «день уже импортирован»)',
   equipment_number VARCHAR(32) NOT NULL DEFAULT '' COMMENT 'Номер техники, которую заправил рабочий',
+  fuel_kind VARCHAR(16) NOT NULL DEFAULT '' COMMENT 'petrol (бензин) или dt (ДТ)',
   amount DECIMAL(14,2) NOT NULL COMMENT 'Сумма',
   holder VARCHAR(255) NOT NULL DEFAULT '' COMMENT 'Носитель карты',
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

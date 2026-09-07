@@ -9,10 +9,16 @@ import (
 	"time"
 )
 
+const (
+	FuelKindPetrol = "petrol"
+	FuelKindDT     = "dt"
+)
+
 type FuelEntry struct {
 	ID              int64   `json:"id"`
 	FueledAt        string  `json:"fueledAt"`
 	EquipmentNumber string  `json:"equipmentNumber"`
+	FuelKind        string  `json:"fuelKind"`
 	Amount          float64 `json:"amount"`
 	Holder          string  `json:"holder"`
 }
@@ -21,6 +27,7 @@ type FuelEntryInput struct {
 	FueledAt time.Time
 	Amount   float64
 	Holder   string
+	FuelKind string
 }
 
 func (d *Database) SaveFuelEntriesIfNewDate(day time.Time, entries []FuelEntryInput) (bool, error) {
@@ -45,8 +52,8 @@ func (d *Database) SaveFuelEntriesIfNewDate(day time.Time, entries []FuelEntryIn
 	}
 
 	stmt, err := tx.Prepare(`
-		INSERT INTO fuel_entries (fueled_at, fueled_date, equipment_number, amount, holder)
-		VALUES (?, ?, '', ?, ?)
+		INSERT INTO fuel_entries (fueled_at, fueled_date, equipment_number, fuel_kind, amount, holder)
+		VALUES (?, ?, '', ?, ?, ?)
 	`)
 	if err != nil {
 		return false, err
@@ -61,6 +68,7 @@ func (d *Database) SaveFuelEntriesIfNewDate(day time.Time, entries []FuelEntryIn
 		if _, err := stmt.Exec(
 			fueledAt.Format("2006-01-02 15:04:05"),
 			fueledAt.Format("2006-01-02"),
+			NormalizeFuelKind(item.FuelKind),
 			item.Amount,
 			strings.TrimSpace(item.Holder),
 		); err != nil {
@@ -81,7 +89,7 @@ func (d *Database) ListFuelEntriesByHolder(holder string, since time.Time) ([]Fu
 	}
 
 	rows, err := d.DB.Query(`
-		SELECT id, DATE_FORMAT(fueled_at, '%Y-%m-%dT%H:%i:%s'), equipment_number, amount, holder
+		SELECT id, DATE_FORMAT(fueled_at, '%Y-%m-%dT%H:%i:%s'), equipment_number, fuel_kind, amount, holder
 		FROM fuel_entries
 		WHERE fueled_date >= ?
 		  AND holder LIKE CONCAT('%', ?, '%')
@@ -95,7 +103,7 @@ func (d *Database) ListFuelEntriesByHolder(holder string, since time.Time) ([]Fu
 	result := make([]FuelEntry, 0)
 	for rows.Next() {
 		var item FuelEntry
-		if err := rows.Scan(&item.ID, &item.FueledAt, &item.EquipmentNumber, &item.Amount, &item.Holder); err != nil {
+		if err := rows.Scan(&item.ID, &item.FueledAt, &item.EquipmentNumber, &item.FuelKind, &item.Amount, &item.Holder); err != nil {
 			return nil, err
 		}
 		result = append(result, item)
@@ -103,16 +111,21 @@ func (d *Database) ListFuelEntriesByHolder(holder string, since time.Time) ([]Fu
 	return result, rows.Err()
 }
 
-func (d *Database) UpdateFuelEquipment(id int64, equipmentNumber string) error {
+func (d *Database) UpdateFuelEquipment(id int64, equipmentNumber, fuelKind string) error {
 	equipmentNumber = strings.TrimSpace(equipmentNumber)
+	kind, ok := ParseFuelKind(fuelKind)
+	if !ok {
+		return fmt.Errorf("укажите бензин или ДТ")
+	}
 	_, err := d.DB.Exec(`
-		UPDATE fuel_entries SET equipment_number = ? WHERE id = ?
-	`, equipmentNumber, id)
+		UPDATE fuel_entries SET equipment_number = ?, fuel_kind = ? WHERE id = ?
+	`, equipmentNumber, kind, id)
 	return err
 }
 
 type FuelSplitPart struct {
 	EquipmentNumber string  `json:"equipmentNumber"`
+	FuelKind        string  `json:"fuelKind"`
 	Amount          float64 `json:"amount"`
 }
 
@@ -125,6 +138,10 @@ func (d *Database) SplitFuelEntry(id int64, parts []FuelSplitPart) error {
 	var sumRub int64
 	for _, part := range parts {
 		number := strings.TrimSpace(part.EquipmentNumber)
+		kind, ok := ParseFuelKind(part.FuelKind)
+		if !ok || kind == "" {
+			return fmt.Errorf("у каждой части укажите вид: бензин или ДТ")
+		}
 		rub := rublesOnly(part.Amount)
 		if number == "" || rub <= 0 {
 			return fmt.Errorf("у каждой части укажите номер техники и сумму")
@@ -132,7 +149,7 @@ func (d *Database) SplitFuelEntry(id int64, parts []FuelSplitPart) error {
 		if len([]rune(number)) > 32 {
 			return fmt.Errorf("номер техники слишком длинный")
 		}
-		cleaned = append(cleaned, FuelSplitPart{EquipmentNumber: number, Amount: float64(rub)})
+		cleaned = append(cleaned, FuelSplitPart{EquipmentNumber: number, FuelKind: kind, Amount: float64(rub)})
 		sumRub += rub
 	}
 
