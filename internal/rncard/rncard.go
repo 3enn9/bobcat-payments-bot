@@ -19,13 +19,23 @@ type apiResponse struct {
 }
 
 type operation struct {
-	Ref    string  `json:"Ref"`
-	Code   string  `json:"Code"`
-	Sum    float64 `json:"Sum"`
-	Value  float64 `json:"Value"`
-	Holder string  `json:"Holder"`
-	GName  string  `json:"GName"`
-	Date   string  `json:"Date"`
+	Ref     string  `json:"Ref"`
+	Code    string  `json:"Code"`
+	Sum     float64 `json:"Sum"`
+	Value   float64 `json:"Value"`
+	Card    string  `json:"Card"`
+	CardNum string  `json:"CardNum"`
+	Holder  string  `json:"Holder"`
+	GName   string  `json:"GName"`
+	Date    string  `json:"Date"`
+}
+
+func (op operation) cardNumber() string {
+	card := strings.TrimSpace(op.Card)
+	if card != "" {
+		return card
+	}
+	return strings.TrimSpace(op.CardNum)
 }
 
 type RnCard struct {
@@ -128,9 +138,11 @@ func (r *RnCard) FetchAndSendTransactions() error {
 		message += operationInfo
 
 		toSave = append(toSave, db.FuelEntryInput{
-			FueledAt: parsedDate,
-			Amount:   op.Sum,
-			Holder:   strings.TrimSpace(op.Holder),
+			FueledAt:   parsedDate,
+			Amount:     op.Sum,
+			Holder:     strings.TrimSpace(op.Holder),
+			FuelKind:   db.FuelKindFromProduct(op.GName),
+			CardNumber: op.cardNumber(),
 		})
 	}
 
