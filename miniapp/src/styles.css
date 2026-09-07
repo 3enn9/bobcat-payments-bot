@@ -1462,16 +1462,19 @@
   font-size: 13px;
 }
 
-.fuels-holder {
-  font-size: 14px;
-  font-weight: 650;
+.fuels-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  font-size: 13px;
+  color: #555;
   word-break: break-word;
 }
 
-.fuels-card {
-  font-size: 13px;
-  color: #666;
-  font-variant-numeric: tabular-nums;
+.fuels-meta span:first-child {
+  font-size: 14px;
+  font-weight: 650;
+  color: #171717;
 }
 
 .fuels-eq {
@@ -1487,29 +1490,6 @@
 .fuels-split {
   display: grid;
   gap: 8px;
-}
-
-.fuels-kind {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-}
-
-.fuels-kind-btn {
-  width: 100%;
-  border: 1px solid #dedede;
-  border-radius: 12px;
-  padding: 10px 12px;
-  background: #fff;
-  color: #171717;
-  font-weight: 650;
-  font-size: 13px;
-}
-
-.fuels-kind-btn.active {
-  background: #111;
-  color: #fff;
-  border-color: #111;
 }
 
 .fuels-split-row {

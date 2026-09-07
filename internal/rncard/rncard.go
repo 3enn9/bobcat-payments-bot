@@ -24,18 +24,25 @@ type operation struct {
 	Sum     float64 `json:"Sum"`
 	Value   float64 `json:"Value"`
 	Card    string  `json:"Card"`
-	CardNum string  `json:"CardNum"`
 	Holder  string  `json:"Holder"`
 	GName   string  `json:"GName"`
+	GCode   string  `json:"GCode"`
+	DTL     string  `json:"DTL"`
 	Date    string  `json:"Date"`
 }
 
 func (op operation) cardNumber() string {
-	card := strings.TrimSpace(op.Card)
-	if card != "" {
-		return card
+	return strings.TrimSpace(op.Card)
+}
+
+func (op operation) fuelName() string {
+	if name := strings.TrimSpace(op.GName); name != "" {
+		return name
 	}
-	return strings.TrimSpace(op.CardNum)
+	if name := strings.TrimSpace(op.DTL); name != "" {
+		return name
+	}
+	return db.FuelKindFromProduct(op.GCode)
 }
 
 type RnCard struct {
@@ -141,7 +148,7 @@ func (r *RnCard) FetchAndSendTransactions() error {
 			FueledAt:   parsedDate,
 			Amount:     op.Sum,
 			Holder:     strings.TrimSpace(op.Holder),
-			FuelKind:   db.FuelKindFromProduct(op.GName),
+			FuelKind:   op.fuelName(),
 			CardNumber: op.cardNumber(),
 		})
 	}

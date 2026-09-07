@@ -43,7 +43,6 @@ func (h *MiniAppHandler) ListFuelEntries(w http.ResponseWriter, r *http.Request)
 
 type updateFuelRequest struct {
 	EquipmentNumber string `json:"equipmentNumber"`
-	FuelKind        string `json:"fuelKind"`
 }
 
 func (h *MiniAppHandler) UpdateFuelEquipment(w http.ResponseWriter, r *http.Request) {
@@ -71,13 +70,7 @@ func (h *MiniAppHandler) UpdateFuelEquipment(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	kind, ok := db.ParseFuelKind(input.FuelKind)
-	if !ok {
-		http.Error(w, `{"success":false,"error":"Укажите бензин или ДТ"}`, http.StatusBadRequest)
-		return
-	}
-
-	if err := h.db.UpdateFuelEquipment(id, number, kind); err != nil {
+	if err := h.db.UpdateFuelEquipment(id, number); err != nil {
 		log.Printf("update fuel equipment error: %v", err)
 		http.Error(w, `{"success":false,"error":"Не удалось сохранить номер"}`, http.StatusInternalServerError)
 		return

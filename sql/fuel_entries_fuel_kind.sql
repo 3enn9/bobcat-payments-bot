@@ -2,4 +2,4 @@
 -- Выполнить вручную на VPS
 
 ALTER TABLE fuel_entries
-  ADD COLUMN fuel_kind VARCHAR(16) NOT NULL DEFAULT '' COMMENT 'petrol или dt' AFTER equipment_number;
+  ADD COLUMN fuel_kind VARCHAR(64) NOT NULL DEFAULT '' COMMENT 'Вид топлива из РН Карт (GName)' AFTER equipment_number;

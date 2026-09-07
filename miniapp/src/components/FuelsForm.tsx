@@ -5,7 +5,6 @@ import {
   splitFuel,
   updateFuelEquipment,
   type FuelEntry,
-  type FuelKind,
 } from "../api/fuels";
 
 function money(value: number): string {
@@ -32,39 +31,14 @@ function formatWhen(value: string): string {
   return `${m[3]}.${m[2]}.${m[1].slice(2)} ${m[4]}:${m[5]}`;
 }
 
-function asFuelKind(value: string | undefined): FuelKind {
-  return value === "petrol" || value === "dt" ? value : "";
-}
-
-function FuelKindToggle({
-  value,
-  disabled,
-  onChange,
-}: {
-  value: FuelKind;
-  disabled?: boolean;
-  onChange: (kind: FuelKind) => void;
-}) {
-  return (
-    <div className="fuels-kind">
-      <button
-        type="button"
-        className={value === "petrol" ? "fuels-kind-btn active" : "fuels-kind-btn"}
-        disabled={disabled}
-        onClick={() => onChange("petrol")}
-      >
-        Бензин
-      </button>
-      <button
-        type="button"
-        className={value === "dt" ? "fuels-kind-btn active" : "fuels-kind-btn"}
-        disabled={disabled}
-        onClick={() => onChange("dt")}
-      >
-        ДТ
-      </button>
-    </div>
-  );
+function fuelLabel(kind: string | undefined): string {
+  if (kind === "petrol") {
+    return "Бензин";
+  }
+  if (kind === "dt") {
+    return "ДТ";
+  }
+  return (kind ?? "").trim();
 }
 
 type SplitRow = {
@@ -86,7 +60,6 @@ export default function FuelsForm() {
   const [appliedHolder, setAppliedHolder] = useState("");
   const [entries, setEntries] = useState<FuelEntry[]>([]);
   const [numbers, setNumbers] = useState<Record<number, string>>({});
-  const [kinds, setKinds] = useState<Record<number, FuelKind>>({});
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [savingId, setSavingId] = useState<number | null>(null);
@@ -100,13 +73,10 @@ export default function FuelsForm() {
     const items = await listFuels(holder);
     setEntries(items);
     const nextNumbers: Record<number, string> = {};
-    const nextKinds: Record<number, FuelKind> = {};
     for (const item of items) {
       nextNumbers[item.id] = item.equipmentNumber ?? "";
-      nextKinds[item.id] = asFuelKind(item.fuelKind);
     }
     setNumbers(nextNumbers);
-    setKinds(nextKinds);
   }
 
   async function search(event: FormEvent) {
@@ -131,25 +101,19 @@ export default function FuelsForm() {
     }
   }
 
-  async function saveEntry(id: number, nextNumber?: string, nextKind?: FuelKind) {
-    const value = (nextNumber ?? numbers[id] ?? "").trim();
-    const kind = nextKind ?? kinds[id] ?? "";
+  async function saveNumber(id: number) {
+    const value = (numbers[id] ?? "").trim();
     const current = entries.find((item) => item.id === id);
-    if (
-      (current?.equipmentNumber ?? "") === value &&
-      asFuelKind(current?.fuelKind) === kind
-    ) {
+    if ((current?.equipmentNumber ?? "") === value) {
       return;
     }
     setSavingId(id);
     setError("");
     try {
-      await updateFuelEquipment(id, value, kind);
+      await updateFuelEquipment(id, value);
       setEntries((prev) =>
         prev.map((item) =>
-          item.id === id
-            ? { ...item, equipmentNumber: value, fuelKind: kind }
-            : item,
+          item.id === id ? { ...item, equipmentNumber: value } : item,
         ),
       );
       setSavedId(id);
@@ -232,10 +196,13 @@ export default function FuelsForm() {
                   <time>{formatWhen(item.fueledAt)}</time>
                   <strong>{money(item.amount)}</strong>
                 </div>
-                <div className="fuels-holder">{item.holder || "—"}</div>
-                {item.cardNumber ? (
-                  <div className="fuels-card">Карта {item.cardNumber}</div>
-                ) : null}
+                <div className="fuels-meta">
+                  <span>{item.holder || "—"}</span>
+                  {fuelLabel(item.fuelKind) ? (
+                    <span>{fuelLabel(item.fuelKind)}</span>
+                  ) : null}
+                  {item.cardNumber ? <span>карта {item.cardNumber}</span> : null}
+                </div>
                 <label className="invoice-field">
                   <span>Номер техники</span>
                   <input
@@ -253,20 +220,9 @@ export default function FuelsForm() {
                         [item.id]: e.target.value,
                       }))
                     }
-                    onBlur={() => void saveEntry(item.id)}
+                    onBlur={() => void saveNumber(item.id)}
                   />
                 </label>
-                <div className="invoice-field">
-                  <span>Вид</span>
-                  <FuelKindToggle
-                    value={kinds[item.id] ?? ""}
-                    disabled={savingId === item.id || splitting}
-                    onChange={(kind) => {
-                      setKinds((prev) => ({ ...prev, [item.id]: kind }));
-                      void saveEntry(item.id, undefined, kind);
-                    }}
-                  />
-                </div>
                 {savedId === item.id && !splitting && (
                   <small className="fuels-saved">Сохранено</small>
                 )}

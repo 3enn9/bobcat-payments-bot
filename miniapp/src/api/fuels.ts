@@ -1,10 +1,8 @@
-export type FuelKind = "" | "petrol" | "dt";
-
 export type FuelEntry = {
   id: number;
   fueledAt: string;
   equipmentNumber: string;
-  fuelKind: FuelKind;
+  fuelKind: string;
   cardNumber: string;
   amount: number;
   holder: string;
@@ -34,12 +32,11 @@ export async function listFuels(holder: string): Promise<FuelEntry[]> {
 export async function updateFuelEquipment(
   id: number,
   equipmentNumber: string,
-  fuelKind: FuelKind,
 ): Promise<void> {
   const response = await fetch(`/api/miniapp/fuels/${id}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ equipmentNumber, fuelKind }),
+    body: JSON.stringify({ equipmentNumber }),
   });
   const data = (await response.json()) as MutateResponse;
   if (!response.ok || !data.success) {

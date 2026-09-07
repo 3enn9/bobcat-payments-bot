@@ -67,10 +67,14 @@ func (d *Database) SaveFuelEntriesIfNewDate(day time.Time, entries []FuelEntryIn
 		if fueledAt.IsZero() {
 			continue
 		}
+		fuelKind := strings.TrimSpace(item.FuelKind)
+		if runes := []rune(fuelKind); len(runes) > 64 {
+			fuelKind = string(runes[:64])
+		}
 		if _, err := stmt.Exec(
 			fueledAt.Format("2006-01-02 15:04:05"),
 			fueledAt.Format("2006-01-02"),
-			NormalizeFuelKind(item.FuelKind),
+			fuelKind,
 			strings.TrimSpace(item.CardNumber),
 			item.Amount,
 			strings.TrimSpace(item.Holder),
@@ -114,15 +118,11 @@ func (d *Database) ListFuelEntriesByHolder(holder string, since time.Time) ([]Fu
 	return result, rows.Err()
 }
 
-func (d *Database) UpdateFuelEquipment(id int64, equipmentNumber, fuelKind string) error {
+func (d *Database) UpdateFuelEquipment(id int64, equipmentNumber string) error {
 	equipmentNumber = strings.TrimSpace(equipmentNumber)
-	kind, ok := ParseFuelKind(fuelKind)
-	if !ok {
-		return fmt.Errorf("укажите бензин или ДТ")
-	}
 	_, err := d.DB.Exec(`
-		UPDATE fuel_entries SET equipment_number = ?, fuel_kind = ? WHERE id = ?
-	`, equipmentNumber, kind, id)
+		UPDATE fuel_entries SET equipment_number = ? WHERE id = ?
+	`, equipmentNumber, id)
 	return err
 }
 
@@ -206,39 +206,15 @@ func rublesOnly(v float64) int64 {
 	return kop / 100
 }
 
-func NormalizeFuelKind(s string) string {
-	s = strings.ToLower(strings.TrimSpace(s))
-	s = strings.ReplaceAll(s, "ё", "е")
-	switch s {
-	case FuelKindPetrol, "бензин":
-		return FuelKindPetrol
-	case FuelKindDT, "дт", "дизель", "diesel":
-		return FuelKindDT
-	default:
-		return ""
-	}
-}
-
-func ParseFuelKind(s string) (string, bool) {
-	if strings.TrimSpace(s) == "" {
-		return "", true
-	}
-	kind := NormalizeFuelKind(s)
-	if kind == "" {
-		return "", false
-	}
-	return kind, true
-}
-
 func FuelKindFromProduct(name string) string {
 	n := strings.ToLower(strings.TrimSpace(name))
 	n = strings.ReplaceAll(n, "ё", "е")
 	switch {
-	case strings.Contains(n, "дт"), strings.Contains(n, "дизел"):
+	case strings.Contains(n, "dt"), strings.Contains(n, "дт"), strings.Contains(n, "дизел"):
 		return FuelKindDT
-	case strings.Contains(n, "бензин"), strings.Contains(n, "аи-"), strings.Contains(n, "аи "), strings.HasPrefix(n, "аи"):
+	case strings.Contains(n, "бензин"), strings.Contains(n, "аи"), strings.Contains(n, "92"), strings.Contains(n, "95"), strings.Contains(n, "98"):
 		return FuelKindPetrol
 	default:
-		return ""
+		return strings.TrimSpace(name)
 	}
 }
