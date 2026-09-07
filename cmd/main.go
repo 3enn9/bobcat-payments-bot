@@ -50,7 +50,7 @@ func main() {
 	}
 
 	multiMessengers := multi.NewMultiMessenger([]usecase.SendMessanger{tgBotService, maxBotService})
-	rnCardService := rncard.NewRnCardService(multiMessengers)
+	rnCardService := rncard.NewRnCardService(multiMessengers, dbInstance)
 	banksService := banks.NewBankService(multiMessengers, dbInstance)
 	banksHandler := handlers.NewBanksHandler(banksService)
 	telegramHandler := handlers.NewTelegramHandler(tgBotService)

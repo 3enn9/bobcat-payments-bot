@@ -1,6 +1,8 @@
 package rncard
 
 import (
+	"PaymentsBot/internal/clock"
+	"PaymentsBot/internal/db"
 	multi "PaymentsBot/internal/multiMessenger"
 	"encoding/json"
 	"fmt"
@@ -18,7 +20,7 @@ type apiResponse struct {
 
 type operation struct {
 	Ref    string  `json:"Ref"`
-	Code   string  `'json:"Code"`
+	Code   string  `json:"Code"`
 	Sum    float64 `json:"Sum"`
 	Value  float64 `json:"Value"`
 	Holder string  `json:"Holder"`
@@ -28,17 +30,18 @@ type operation struct {
 
 type RnCard struct {
 	messenger *multi.MultiMessenger
+	db        *db.Database
 }
 
-func NewRnCardService(service *multi.MultiMessenger) *RnCard {
-	return &RnCard{messenger: service}
+func NewRnCardService(service *multi.MultiMessenger, database *db.Database) *RnCard {
+	return &RnCard{messenger: service, db: database}
 }
 
 func (r *RnCard) FetchAndSendTransactions() error {
 
 	var message string
 
-	date := time.Now().AddDate(0, 0, -1)
+	date := clock.Now().AddDate(0, 0, -1)
 
 	begin := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
 	end := time.Date(date.Year(), date.Month(), date.Day(), 23, 59, 59, 0, date.Location())
@@ -98,6 +101,7 @@ func (r *RnCard) FetchAndSendTransactions() error {
 		}
 	}
 
+	toSave := make([]db.FuelEntryInput, 0, len(filtered))
 	for _, op := range filtered {
 		parsedDate, err := time.Parse("2006-01-02T15:04:05", op.Date)
 		if err != nil {
@@ -123,6 +127,20 @@ func (r *RnCard) FetchAndSendTransactions() error {
 		)
 		message += operationInfo
 
+		toSave = append(toSave, db.FuelEntryInput{
+			FueledAt: parsedDate,
+			Amount:   op.Sum,
+			Holder:   strings.TrimSpace(op.Holder),
+		})
+	}
+
+	if r.db != nil && len(toSave) > 0 {
+		saved, saveErr := r.db.SaveFuelEntriesIfNewDate(begin, toSave)
+		if saveErr != nil {
+			log.Printf("fuels save: %v", saveErr)
+		} else if saved {
+			log.Printf("fuels saved %d entries for %s", len(toSave), begin.Format("2006-01-02"))
+		}
 	}
 
 	err = r.messenger.SendMessageInGroupName("Fuels", message)

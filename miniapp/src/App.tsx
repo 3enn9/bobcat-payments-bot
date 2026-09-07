@@ -8,8 +8,9 @@ import UnpaidInvoicesTable from "./components/UnpaidInvoicesTable";
 import DaysOffForm from "./components/DaysOffForm";
 import KopytenkovForm from "./components/KopytenkovForm";
 import CashForm from "./components/CashForm";
+import FuelsForm from "./components/FuelsForm";
 
-type Screen = "home" | "garage" | "worker" | "kopytenkov" | "kosenko" | "invoices" | "daysoff" | "cash";
+type Screen = "home" | "garage" | "fuels" | "worker" | "kopytenkov" | "kosenko" | "invoices" | "daysoff" | "cash";
 type InvoiceTab = "create" | "match" | "table";
 
 export default function App() {
@@ -33,6 +34,29 @@ export default function App() {
 
           <div className="requests-scroll">
             <GarageForm />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (screen === "fuels") {
+    return (
+      <div className="page page-worker">
+        <div className="card card-worker">
+          <div className="worker-header">
+            <button
+              type="button"
+              className="back-button"
+              onClick={() => setScreen("home")}
+            >
+              ← Назад
+            </button>
+            <h1>Заправки</h1>
+          </div>
+
+          <div className="requests-scroll">
+            <FuelsForm />
           </div>
         </div>
       </div>
@@ -216,6 +240,19 @@ export default function App() {
           <span>
             <strong>Гараж</strong>
             <small>Учёт работ</small>
+          </span>
+        </button>
+
+        <button
+          type="button"
+          className="role-button"
+          onClick={() => setScreen("fuels")}
+        >
+          <span className="role-icon">⛽</span>
+
+          <span>
+            <strong>Заправки</strong>
+            <small>РН Карт и номера техники</small>
           </span>
         </button>
 

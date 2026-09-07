@@ -126,6 +126,16 @@ func NewRouter(
 	).Methods(http.MethodGet, http.MethodOptions)
 
 	router.HandleFunc(
+		"/api/miniapp/fuels",
+		miniApp.ListFuelEntries,
+	).Methods(http.MethodGet, http.MethodOptions)
+
+	router.HandleFunc(
+		"/api/miniapp/fuels/{id}",
+		miniApp.UpdateFuelEquipment,
+	).Methods(http.MethodPut, http.MethodOptions)
+
+	router.HandleFunc(
 		"/api/miniapp/days-off/upcoming",
 		miniApp.ListUpcomingDaysOff,
 	).Methods(http.MethodGet, http.MethodOptions)
