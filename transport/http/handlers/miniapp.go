@@ -373,6 +373,9 @@ func (h *MiniAppHandler) LogBotOpen(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("bot open: source=miniapp user_id=%d name=%q username=%q", userID, name, username)
+	if err := h.db.SaveBotUserIfNew(userID, name, username); err != nil {
+		log.Printf("bot user save: %v", err)
+	}
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
 	})

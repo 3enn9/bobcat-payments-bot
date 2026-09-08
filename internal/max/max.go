@@ -176,13 +176,18 @@ func (m *MaxService) handleMessage(upd *schemes.MessageCreatedUpdate) {
 }
 
 func (m *MaxService) handleBotStarted(upd *schemes.BotStartedUpdate) {
+	name := strings.TrimSpace(upd.User.Name)
+	username := strings.TrimSpace(upd.User.Username)
 	log.Printf(
 		"bot open: source=max user_id=%d name=%q username=%q chat_id=%d",
 		upd.User.UserId,
-		strings.TrimSpace(upd.User.Name),
-		strings.TrimSpace(upd.User.Username),
+		name,
+		username,
 		upd.ChatId,
 	)
+	if err := m.db.SaveBotUserIfNew(upd.User.UserId, name, username); err != nil {
+		log.Printf("bot user save: %v", err)
+	}
 }
 
 func (m *MaxService) handleGroupCommand(upd *schemes.MessageCreatedUpdate) {
