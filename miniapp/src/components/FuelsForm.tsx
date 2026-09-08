@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import {
   listFuels,
   splitFuel,
+  suggestFuelHolders,
   updateFuelEquipment,
   type FuelEntry,
 } from "../api/fuels";
@@ -114,6 +115,9 @@ export default function FuelsForm() {
   const [splitId, setSplitId] = useState<number | null>(null);
   const [splitRows, setSplitRows] = useState<SplitRow[]>([]);
   const [splitSaving, setSplitSaving] = useState(false);
+  const [hints, setHints] = useState<string[]>([]);
+  const [hintsOpen, setHintsOpen] = useState(false);
+  const hintTimer = useRef<number | null>(null);
 
   async function reload(holder: string) {
     const items = await listFuels(holder);
@@ -128,9 +132,35 @@ export default function FuelsForm() {
     setPicked(nextPicked);
   }
 
-  async function search(event: FormEvent) {
-    event.preventDefault();
-    const holder = holderQuery.trim();
+  useEffect(() => {
+    if (hintTimer.current) {
+      window.clearTimeout(hintTimer.current);
+    }
+    const q = holderQuery.trim();
+    if (q.length < 2) {
+      setHints([]);
+      setHintsOpen(false);
+      return;
+    }
+    hintTimer.current = window.setTimeout(() => {
+      void suggestFuelHolders(q)
+        .then((items) => {
+          setHints(items);
+          setHintsOpen(items.length > 0);
+        })
+        .catch(() => {
+          setHints([]);
+          setHintsOpen(false);
+        });
+    }, 200);
+    return () => {
+      if (hintTimer.current) {
+        window.clearTimeout(hintTimer.current);
+      }
+    };
+  }, [holderQuery]);
+
+  async function searchHolder(holder: string) {
     if (!holder) {
       setError("Укажите носителя карты");
       return;
@@ -140,6 +170,7 @@ export default function FuelsForm() {
     setError("");
     setSearched(true);
     setSplitId(null);
+    setHintsOpen(false);
     try {
       await reload(holder);
     } catch (err) {
@@ -223,14 +254,50 @@ export default function FuelsForm() {
 
   return (
     <div className="fuels-form">
-      <form className="fuels-search" onSubmit={(e) => void search(e)}>
+      <form
+        className="fuels-search"
+        onSubmit={(e: FormEvent) => {
+          e.preventDefault();
+          void searchHolder(holderQuery.trim());
+        }}
+      >
         <label className="invoice-field">
           <span>Носитель карты</span>
-          <input
-            value={holderQuery}
-            placeholder="Фамилия или имя на карте"
-            onChange={(e) => setHolderQuery(e.target.value)}
-          />
+          <div className="autocomplete">
+            <input
+              value={holderQuery}
+              placeholder="Фамилия или имя на карте"
+              autoComplete="off"
+              onChange={(e) => setHolderQuery(e.target.value)}
+              onFocus={() => {
+                if (hints.length > 0) {
+                  setHintsOpen(true);
+                }
+              }}
+              onBlur={() => {
+                window.setTimeout(() => setHintsOpen(false), 150);
+              }}
+            />
+            {hintsOpen && hints.length > 0 && (
+              <ul className="autocomplete-list">
+                {hints.map((name) => (
+                  <li key={name}>
+                    <button
+                      type="button"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => {
+                        setHolderQuery(name);
+                        setHintsOpen(false);
+                        void searchHolder(name);
+                      }}
+                    >
+                      {name}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </label>
         <button type="submit" className="fuels-search-btn" disabled={loading}>
           {loading ? "…" : "Найти"}

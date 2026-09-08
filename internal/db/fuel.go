@@ -121,6 +121,64 @@ func (d *Database) ListFuelEntriesByHolder(holder string, since time.Time) ([]Fu
 	return result, rows.Err()
 }
 
+func (d *Database) SuggestFuelHolders(query string, limit int) ([]string, error) {
+	query = strings.TrimSpace(query)
+	if query == "" {
+		return []string{}, nil
+	}
+	if limit <= 0 {
+		limit = 12
+	}
+
+	like := "%" + escapeLike(query) + "%"
+	rows, err := d.DB.Query(`
+		SELECT DISTINCT holder, holder_picked
+		FROM fuel_entries
+		WHERE holder LIKE ? OR holder_picked LIKE ?
+		ORDER BY holder
+		LIMIT 80
+	`, like, like)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	seen := make(map[string]struct{})
+	result := make([]string, 0)
+	needle := strings.ToLower(query)
+	for rows.Next() {
+		var holder, picked string
+		if err := rows.Scan(&holder, &picked); err != nil {
+			return nil, err
+		}
+		for _, name := range append(SplitFuelHolders(holder), strings.TrimSpace(picked)) {
+			name = strings.TrimSpace(name)
+			if name == "" {
+				continue
+			}
+			if _, ok := seen[strings.ToLower(name)]; ok {
+				continue
+			}
+			if !strings.Contains(strings.ToLower(name), needle) {
+				continue
+			}
+			seen[strings.ToLower(name)] = struct{}{}
+			result = append(result, name)
+			if len(result) >= limit {
+				return result, nil
+			}
+		}
+	}
+	return result, rows.Err()
+}
+
+func escapeLike(value string) string {
+	value = strings.ReplaceAll(value, `\`, "")
+	value = strings.ReplaceAll(value, `%`, "")
+	value = strings.ReplaceAll(value, `_`, "")
+	return value
+}
+
 func (d *Database) UpdateFuelEquipment(id int64, equipmentNumber, holderPicked string) error {
 	equipmentNumber = strings.TrimSpace(equipmentNumber)
 	holderPicked = strings.TrimSpace(holderPicked)

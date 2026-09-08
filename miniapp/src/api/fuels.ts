@@ -31,6 +31,26 @@ export async function listFuels(holder: string): Promise<FuelEntry[]> {
   return data.items ?? [];
 }
 
+type HoldersResponse = {
+  success: boolean;
+  items?: string[];
+  error?: string;
+};
+
+export async function suggestFuelHolders(query: string): Promise<string[]> {
+  const q = query.trim();
+  if (q.length < 2) {
+    return [];
+  }
+  const params = new URLSearchParams({ q });
+  const response = await fetch(`/api/miniapp/fuels/holders?${params}`);
+  const data = (await response.json()) as HoldersResponse;
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || "Не удалось найти носителей");
+  }
+  return data.items ?? [];
+}
+
 export async function updateFuelEquipment(
   id: number,
   equipmentNumber: string,

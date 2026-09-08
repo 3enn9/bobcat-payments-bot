@@ -41,6 +41,35 @@ func (h *MiniAppHandler) ListFuelEntries(w http.ResponseWriter, r *http.Request)
 	})
 }
 
+func (h *MiniAppHandler) SuggestFuelHolders(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	q := strings.TrimSpace(r.URL.Query().Get("q"))
+	if len([]rune(q)) < 2 {
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": true,
+			"items":   []string{},
+		})
+		return
+	}
+
+	items, err := h.db.SuggestFuelHolders(q, 12)
+	if err != nil {
+		log.Printf("suggest fuel holders error: %v", err)
+		http.Error(w, `{"success":false,"error":"Ошибка поиска"}`, http.StatusInternalServerError)
+		return
+	}
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"items":   items,
+	})
+}
+
 type updateFuelRequest struct {
 	EquipmentNumber string `json:"equipmentNumber"`
 	Holder          string `json:"holder"`
