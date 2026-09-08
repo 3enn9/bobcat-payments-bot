@@ -6,6 +6,8 @@ export type FuelEntry = {
   cardNumber: string;
   amount: number;
   holder: string;
+  holderPicked: string;
+  holders: string[];
 };
 
 type ListResponse = {
@@ -32,11 +34,12 @@ export async function listFuels(holder: string): Promise<FuelEntry[]> {
 export async function updateFuelEquipment(
   id: number,
   equipmentNumber: string,
+  holder = "",
 ): Promise<void> {
   const response = await fetch(`/api/miniapp/fuels/${id}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ equipmentNumber }),
+    body: JSON.stringify({ equipmentNumber, holder }),
   });
   const data = (await response.json()) as MutateResponse;
   if (!response.ok || !data.success) {
@@ -47,6 +50,7 @@ export async function updateFuelEquipment(
 export type FuelSplitPart = {
   equipmentNumber: string;
   amount: number;
+  holder?: string;
 };
 
 export async function splitFuel(

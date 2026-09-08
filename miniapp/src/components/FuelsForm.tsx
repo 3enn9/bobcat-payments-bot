@@ -41,17 +41,62 @@ function fuelLabel(kind: string | undefined): string {
   return (kind ?? "").trim();
 }
 
+function splitHolders(holder: string | undefined, holders?: string[]): string[] {
+  if (holders && holders.length > 0) {
+    return holders.map((name) => name.trim()).filter(Boolean);
+  }
+  return (holder ?? "")
+    .split(";")
+    .map((name) => name.trim())
+    .filter(Boolean);
+}
+
+function HolderPicker({
+  names,
+  value,
+  disabled,
+  onChange,
+}: {
+  names: string[];
+  value: string;
+  disabled?: boolean;
+  onChange: (name: string) => void;
+}) {
+  return (
+    <div className="fuels-holders">
+      <span>Кто заправлял</span>
+      <div className="fuels-holder-btns">
+        {names.map((name) => (
+          <button
+            key={name}
+            type="button"
+            className={
+              value === name ? "fuels-holder-btn active" : "fuels-holder-btn"
+            }
+            disabled={disabled}
+            onClick={() => onChange(name)}
+          >
+            {name}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 type SplitRow = {
   key: string;
   equipment: string;
   amount: string;
+  holder: string;
 };
 
-function newSplitRow(equipment = "", amount = ""): SplitRow {
+function newSplitRow(equipment = "", amount = "", holder = ""): SplitRow {
   return {
     key: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
     equipment,
     amount,
+    holder,
   };
 }
 
@@ -60,6 +105,7 @@ export default function FuelsForm() {
   const [appliedHolder, setAppliedHolder] = useState("");
   const [entries, setEntries] = useState<FuelEntry[]>([]);
   const [numbers, setNumbers] = useState<Record<number, string>>({});
+  const [picked, setPicked] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [savingId, setSavingId] = useState<number | null>(null);
@@ -73,10 +119,13 @@ export default function FuelsForm() {
     const items = await listFuels(holder);
     setEntries(items);
     const nextNumbers: Record<number, string> = {};
+    const nextPicked: Record<number, string> = {};
     for (const item of items) {
       nextNumbers[item.id] = item.equipmentNumber ?? "";
+      nextPicked[item.id] = item.holderPicked ?? "";
     }
     setNumbers(nextNumbers);
+    setPicked(nextPicked);
   }
 
   async function search(event: FormEvent) {
@@ -101,19 +150,30 @@ export default function FuelsForm() {
     }
   }
 
-  async function saveNumber(id: number) {
-    const value = (numbers[id] ?? "").trim();
+  async function saveEntry(id: number, nextNumber?: string, nextHolder?: string) {
+    const value = (nextNumber ?? numbers[id] ?? "").trim();
+    const holderName = nextHolder ?? picked[id] ?? "";
     const current = entries.find((item) => item.id === id);
-    if ((current?.equipmentNumber ?? "") === value) {
+    const names = splitHolders(current?.holder, current?.holders);
+    if (names.length >= 2 && value && !holderName) {
+      setError("Выберите, кто заправлял");
+      return;
+    }
+    if (
+      (current?.equipmentNumber ?? "") === value &&
+      (current?.holderPicked ?? "") === holderName
+    ) {
       return;
     }
     setSavingId(id);
     setError("");
     try {
-      await updateFuelEquipment(id, value);
+      await updateFuelEquipment(id, value, holderName);
       setEntries((prev) =>
         prev.map((item) =>
-          item.id === id ? { ...item, equipmentNumber: value } : item,
+          item.id === id
+            ? { ...item, equipmentNumber: value, holderPicked: holderName }
+            : item,
         ),
       );
       setSavedId(id);
@@ -128,18 +188,22 @@ export default function FuelsForm() {
   }
 
   function openSplit(item: FuelEntry) {
+    const chosen = picked[item.id] || item.holderPicked || "";
     setSplitId(item.id);
     setSplitRows([
-      newSplitRow(item.equipmentNumber || "", ""),
-      newSplitRow(),
+      newSplitRow(item.equipmentNumber || "", "", chosen),
+      newSplitRow("", "", chosen),
     ]);
     setError("");
   }
 
   async function saveSplit(item: FuelEntry) {
+    const names = splitHolders(item.holder, item.holders);
+    const dual = names.length >= 2;
     const parts = splitRows.map((row) => ({
       equipmentNumber: row.equipment.trim(),
       amount: parseAmount(row.amount),
+      holder: dual ? row.holder : "",
     }));
     setSplitSaving(true);
     setError("");
@@ -185,6 +249,9 @@ export default function FuelsForm() {
         <ul className="fuels-list">
           {entries.map((item) => {
             const splitting = splitId === item.id;
+            const names = splitHolders(item.holder, item.holders);
+            const dual = names.length >= 2;
+            const chosen = picked[item.id] ?? "";
             const splitTotal = splitRows.reduce(
               (sum, row) => sum + parseAmount(row.amount),
               0,
@@ -197,12 +264,24 @@ export default function FuelsForm() {
                   <strong>{money(item.amount)}</strong>
                 </div>
                 <div className="fuels-meta">
-                  <span>{item.holder || "—"}</span>
+                  {!dual && <span>{item.holder || "—"}</span>}
+                  {dual && chosen ? <span>{chosen}</span> : null}
                   {fuelLabel(item.fuelKind) ? (
                     <span>{fuelLabel(item.fuelKind)}</span>
                   ) : null}
                   {item.cardNumber ? <span>карта {item.cardNumber}</span> : null}
                 </div>
+                {dual && !splitting && (
+                  <HolderPicker
+                    names={names}
+                    value={chosen}
+                    disabled={savingId === item.id}
+                    onChange={(name) => {
+                      setPicked((prev) => ({ ...prev, [item.id]: name }));
+                      void saveEntry(item.id, undefined, name);
+                    }}
+                  />
+                )}
                 <label className="invoice-field">
                   <span>Номер техники</span>
                   <input
@@ -220,7 +299,7 @@ export default function FuelsForm() {
                         [item.id]: e.target.value,
                       }))
                     }
-                    onBlur={() => void saveNumber(item.id)}
+                    onBlur={() => void saveEntry(item.id)}
                   />
                 </label>
                 {savedId === item.id && !splitting && (
@@ -230,51 +309,68 @@ export default function FuelsForm() {
                 {splitting ? (
                   <div className="fuels-split">
                     {splitRows.map((row, idx) => (
-                      <div key={row.key} className="fuels-split-row">
-                        <input
-                          type="text"
-                          inputMode="text"
-                          autoCapitalize="characters"
-                          autoCorrect="off"
-                          spellCheck={false}
-                          placeholder="Техника"
-                          value={row.equipment}
-                          onChange={(e) =>
-                            setSplitRows((prev) =>
-                              prev.map((itemRow) =>
-                                itemRow.key === row.key
-                                  ? { ...itemRow, equipment: e.target.value }
-                                  : itemRow,
-                              ),
-                            )
-                          }
-                        />
-                        <input
-                          inputMode="numeric"
-                          placeholder="Рубли"
-                          value={row.amount}
-                          onChange={(e) =>
-                            setSplitRows((prev) =>
-                              prev.map((itemRow) =>
-                                itemRow.key === row.key
-                                  ? { ...itemRow, amount: e.target.value }
-                                  : itemRow,
-                              ),
-                            )
-                          }
-                        />
-                        {splitRows.length > 2 && (
-                          <button
-                            type="button"
-                            className="fuels-split-remove"
-                            onClick={() =>
+                      <div key={row.key} className="fuels-split-block">
+                        <div className="fuels-split-row">
+                          <input
+                            type="text"
+                            inputMode="text"
+                            autoCapitalize="characters"
+                            autoCorrect="off"
+                            spellCheck={false}
+                            placeholder="Техника"
+                            value={row.equipment}
+                            onChange={(e) =>
                               setSplitRows((prev) =>
-                                prev.filter((_, i) => i !== idx),
+                                prev.map((itemRow) =>
+                                  itemRow.key === row.key
+                                    ? { ...itemRow, equipment: e.target.value }
+                                    : itemRow,
+                                ),
                               )
                             }
-                          >
-                            ×
-                          </button>
+                          />
+                          <input
+                            inputMode="numeric"
+                            placeholder="Рубли"
+                            value={row.amount}
+                            onChange={(e) =>
+                              setSplitRows((prev) =>
+                                prev.map((itemRow) =>
+                                  itemRow.key === row.key
+                                    ? { ...itemRow, amount: e.target.value }
+                                    : itemRow,
+                                ),
+                              )
+                            }
+                          />
+                          {splitRows.length > 2 && (
+                            <button
+                              type="button"
+                              className="fuels-split-remove"
+                              onClick={() =>
+                                setSplitRows((prev) =>
+                                  prev.filter((_, i) => i !== idx),
+                                )
+                              }
+                            >
+                              ×
+                            </button>
+                          )}
+                        </div>
+                        {dual && (
+                          <HolderPicker
+                            names={names}
+                            value={row.holder}
+                            onChange={(name) =>
+                              setSplitRows((prev) =>
+                                prev.map((itemRow) =>
+                                  itemRow.key === row.key
+                                    ? { ...itemRow, holder: name }
+                                    : itemRow,
+                                ),
+                              )
+                            }
+                          />
                         )}
                       </div>
                     ))}
@@ -290,7 +386,10 @@ export default function FuelsForm() {
                         type="button"
                         className="fuels-search-btn"
                         onClick={() =>
-                          setSplitRows((prev) => [...prev, newSplitRow()])
+                          setSplitRows((prev) => [
+                            ...prev,
+                            newSplitRow("", "", chosen),
+                          ])
                         }
                       >
                         Ещё машина
@@ -303,7 +402,9 @@ export default function FuelsForm() {
                           leftover !== 0 ||
                           splitRows.some(
                             (row) =>
-                              !row.equipment.trim() || parseAmount(row.amount) <= 0,
+                              !row.equipment.trim() ||
+                              parseAmount(row.amount) <= 0 ||
+                              (dual && !row.holder),
                           )
                         }
                         onClick={() => void saveSplit(item)}

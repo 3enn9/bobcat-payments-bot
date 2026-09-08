@@ -43,6 +43,7 @@ func (h *MiniAppHandler) ListFuelEntries(w http.ResponseWriter, r *http.Request)
 
 type updateFuelRequest struct {
 	EquipmentNumber string `json:"equipmentNumber"`
+	Holder          string `json:"holder"`
 }
 
 func (h *MiniAppHandler) UpdateFuelEquipment(w http.ResponseWriter, r *http.Request) {
@@ -70,9 +71,9 @@ func (h *MiniAppHandler) UpdateFuelEquipment(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	if err := h.db.UpdateFuelEquipment(id, number); err != nil {
+	if err := h.db.UpdateFuelEquipment(id, number, strings.TrimSpace(input.Holder)); err != nil {
 		log.Printf("update fuel equipment error: %v", err)
-		http.Error(w, `{"success":false,"error":"Не удалось сохранить номер"}`, http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf(`{"success":false,"error":%q}`, err.Error()), http.StatusBadRequest)
 		return
 	}
 

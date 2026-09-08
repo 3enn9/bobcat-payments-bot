@@ -15,13 +15,15 @@ const (
 )
 
 type FuelEntry struct {
-	ID              int64   `json:"id"`
-	FueledAt        string  `json:"fueledAt"`
-	EquipmentNumber string  `json:"equipmentNumber"`
-	FuelKind        string  `json:"fuelKind"`
-	CardNumber      string  `json:"cardNumber"`
-	Amount          float64 `json:"amount"`
-	Holder          string  `json:"holder"`
+	ID              int64    `json:"id"`
+	FueledAt        string   `json:"fueledAt"`
+	EquipmentNumber string   `json:"equipmentNumber"`
+	FuelKind        string   `json:"fuelKind"`
+	CardNumber      string   `json:"cardNumber"`
+	Amount          float64  `json:"amount"`
+	Holder          string   `json:"holder"`
+	HolderPicked    string   `json:"holderPicked"`
+	Holders         []string `json:"holders"`
 }
 
 type FuelEntryInput struct {
@@ -96,7 +98,7 @@ func (d *Database) ListFuelEntriesByHolder(holder string, since time.Time) ([]Fu
 	}
 
 	rows, err := d.DB.Query(`
-		SELECT id, DATE_FORMAT(fueled_at, '%Y-%m-%dT%H:%i:%s'), equipment_number, fuel_kind, card_number, amount, holder
+		SELECT id, DATE_FORMAT(fueled_at, '%Y-%m-%dT%H:%i:%s'), equipment_number, fuel_kind, card_number, amount, holder, holder_picked
 		FROM fuel_entries
 		WHERE fueled_date >= ?
 		  AND holder LIKE CONCAT('%', ?, '%')
@@ -110,25 +112,45 @@ func (d *Database) ListFuelEntriesByHolder(holder string, since time.Time) ([]Fu
 	result := make([]FuelEntry, 0)
 	for rows.Next() {
 		var item FuelEntry
-		if err := rows.Scan(&item.ID, &item.FueledAt, &item.EquipmentNumber, &item.FuelKind, &item.CardNumber, &item.Amount, &item.Holder); err != nil {
+		if err := rows.Scan(&item.ID, &item.FueledAt, &item.EquipmentNumber, &item.FuelKind, &item.CardNumber, &item.Amount, &item.Holder, &item.HolderPicked); err != nil {
 			return nil, err
 		}
+		item.Holders = SplitFuelHolders(item.Holder)
 		result = append(result, item)
 	}
 	return result, rows.Err()
 }
 
-func (d *Database) UpdateFuelEquipment(id int64, equipmentNumber string) error {
+func (d *Database) UpdateFuelEquipment(id int64, equipmentNumber, holderPicked string) error {
 	equipmentNumber = strings.TrimSpace(equipmentNumber)
-	_, err := d.DB.Exec(`
-		UPDATE fuel_entries SET equipment_number = ? WHERE id = ?
-	`, equipmentNumber, id)
+	holderPicked = strings.TrimSpace(holderPicked)
+
+	var holder string
+	err := d.DB.QueryRow(`
+		SELECT holder FROM fuel_entries WHERE id = ?
+	`, id).Scan(&holder)
+	if errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("заправка не найдена")
+	}
+	if err != nil {
+		return err
+	}
+
+	picked, err := ResolvePickedHolder(holder, holderPicked, equipmentNumber != "")
+	if err != nil {
+		return err
+	}
+
+	_, err = d.DB.Exec(`
+		UPDATE fuel_entries SET equipment_number = ?, holder_picked = ? WHERE id = ?
+	`, equipmentNumber, picked, id)
 	return err
 }
 
 type FuelSplitPart struct {
 	EquipmentNumber string  `json:"equipmentNumber"`
 	Amount          float64 `json:"amount"`
+	Holder          string  `json:"holder"`
 }
 
 func (d *Database) SplitFuelEntry(id int64, parts []FuelSplitPart) error {
@@ -147,7 +169,11 @@ func (d *Database) SplitFuelEntry(id int64, parts []FuelSplitPart) error {
 		if len([]rune(number)) > 32 {
 			return fmt.Errorf("номер техники слишком длинный")
 		}
-		cleaned = append(cleaned, FuelSplitPart{EquipmentNumber: number, Amount: float64(rub)})
+		cleaned = append(cleaned, FuelSplitPart{
+			EquipmentNumber: number,
+			Amount:          float64(rub),
+			Holder:          strings.TrimSpace(part.Holder),
+		})
 		sumRub += rub
 	}
 
@@ -158,9 +184,10 @@ func (d *Database) SplitFuelEntry(id int64, parts []FuelSplitPart) error {
 	defer func() { _ = tx.Rollback() }()
 
 	var amount float64
+	var holder string
 	err = tx.QueryRow(`
-		SELECT amount FROM fuel_entries WHERE id = ? FOR UPDATE
-	`, id).Scan(&amount)
+		SELECT amount, holder FROM fuel_entries WHERE id = ? FOR UPDATE
+	`, id).Scan(&amount, &holder)
 	if errors.Is(err, sql.ErrNoRows) {
 		return fmt.Errorf("заправка не найдена")
 	}
@@ -172,21 +199,30 @@ func (d *Database) SplitFuelEntry(id int64, parts []FuelSplitPart) error {
 		return fmt.Errorf("сумма частей должна быть равна %d", origKop/100)
 	}
 
+	needHolder := len(SplitFuelHolders(holder)) >= 2
+	for i := range cleaned {
+		picked, err := ResolvePickedHolder(holder, cleaned[i].Holder, needHolder)
+		if err != nil {
+			return err
+		}
+		cleaned[i].Holder = picked
+	}
+
 	first := cleaned[0]
 	first.Amount = roundMoney(first.Amount + float64(origKop%100)/100)
 	if _, err := tx.Exec(`
-		UPDATE fuel_entries SET equipment_number = ?, amount = ? WHERE id = ?
-	`, first.EquipmentNumber, first.Amount, id); err != nil {
+		UPDATE fuel_entries SET equipment_number = ?, amount = ?, holder_picked = ? WHERE id = ?
+	`, first.EquipmentNumber, first.Amount, first.Holder, id); err != nil {
 		return err
 	}
 
 	for _, part := range cleaned[1:] {
 		if _, err := tx.Exec(`
-			INSERT INTO fuel_entries (fueled_at, fueled_date, equipment_number, fuel_kind, card_number, amount, holder)
-			SELECT fueled_at, fueled_date, ?, fuel_kind, card_number, ?, holder
+			INSERT INTO fuel_entries (fueled_at, fueled_date, equipment_number, fuel_kind, card_number, amount, holder, holder_picked)
+			SELECT fueled_at, fueled_date, ?, fuel_kind, card_number, ?, holder, ?
 			FROM fuel_entries
 			WHERE id = ?
-		`, part.EquipmentNumber, part.Amount, id); err != nil {
+		`, part.EquipmentNumber, part.Amount, part.Holder, id); err != nil {
 			return err
 		}
 	}
@@ -204,6 +240,38 @@ func rublesOnly(v float64) int64 {
 		return 0
 	}
 	return kop / 100
+}
+
+func SplitFuelHolders(holder string) []string {
+	raw := strings.Split(holder, ";")
+	out := make([]string, 0, len(raw))
+	for _, part := range raw {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			out = append(out, part)
+		}
+	}
+	return out
+}
+
+func ResolvePickedHolder(holder, picked string, required bool) (string, error) {
+	names := SplitFuelHolders(holder)
+	picked = strings.TrimSpace(picked)
+	if len(names) < 2 {
+		return "", nil
+	}
+	if picked == "" {
+		if required {
+			return "", fmt.Errorf("выберите носителя карты")
+		}
+		return "", nil
+	}
+	for _, name := range names {
+		if picked == name {
+			return picked, nil
+		}
+	}
+	return "", fmt.Errorf("выберите одного из носителей карты")
 }
 
 func FuelKindFromProduct(name string) string {
