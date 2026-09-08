@@ -344,3 +344,36 @@ func (h *MiniAppHandler) CompleteRogatkaRequest(w http.ResponseWriter, r *http.R
 		"success": true,
 	})
 }
+
+type logBotOpenRequest struct {
+	MaxUserID   string `json:"maxUserId"`
+	MaxUsername string `json:"maxUsername"`
+	Name        string `json:"name"`
+}
+
+func (h *MiniAppHandler) LogBotOpen(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	var input logBotOpenRequest
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		http.Error(w, `{"success":false,"error":"Некорректный JSON"}`, http.StatusBadRequest)
+		return
+	}
+
+	userID, _ := strconv.ParseInt(strings.TrimSpace(input.MaxUserID), 10, 64)
+	name := strings.TrimSpace(input.Name)
+	username := strings.TrimSpace(input.MaxUsername)
+	if userID == 0 && name == "" && username == "" {
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
+		return
+	}
+
+	log.Printf("bot open: source=miniapp user_id=%d name=%q username=%q", userID, name, username)
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+	})
+}

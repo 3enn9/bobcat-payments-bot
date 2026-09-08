@@ -32,3 +32,20 @@ export function getMaxWebApp(): MaxWebApp | null {
 export function getMaxUser(): MaxUser | null {
   return getMaxWebApp()?.initDataUnsafe?.user ?? null;
 }
+
+export function logMiniappOpen(): void {
+  const app = getMaxWebApp();
+  app?.ready?.();
+  const user = getMaxUser();
+  const maxUserId = String(user?.user_id ?? "").trim();
+  const name = (user?.name ?? "").trim();
+  const maxUsername = (user?.username ?? "").trim();
+  if (!maxUserId && !name && !maxUsername) {
+    return;
+  }
+  void fetch("/api/miniapp/open", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ maxUserId, maxUsername, name }),
+  }).catch(() => {});
+}

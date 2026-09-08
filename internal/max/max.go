@@ -135,6 +135,9 @@ func (m *MaxService) Updates(update schemes.UpdateInterface) error {
 	case *schemes.MessageEditedUpdate:
 		m.handleRogatkaMessageEdited(upd)
 
+	case *schemes.BotStartedUpdate:
+		m.handleBotStarted(upd)
+
 	default:
 		log.Printf("unknown update %T", upd)
 	}
@@ -170,6 +173,16 @@ func (m *MaxService) handleMessage(upd *schemes.MessageCreatedUpdate) {
 	if upd.GetChatID() == m.Chats["Rogatka"] {
 		m.saveRogatkaRequest(upd, text)
 	}
+}
+
+func (m *MaxService) handleBotStarted(upd *schemes.BotStartedUpdate) {
+	log.Printf(
+		"bot open: source=max user_id=%d name=%q username=%q chat_id=%d",
+		upd.User.UserId,
+		strings.TrimSpace(upd.User.Name),
+		strings.TrimSpace(upd.User.Username),
+		upd.ChatId,
+	)
 }
 
 func (m *MaxService) handleGroupCommand(upd *schemes.MessageCreatedUpdate) {

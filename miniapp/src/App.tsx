@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import GarageForm from "./components/GarageForm";
 import WorkerCabinet from "./components/WorkerCabinet";
 import WorkerRequests from "./components/WorkerRequests";
@@ -9,6 +9,7 @@ import DaysOffForm from "./components/DaysOffForm";
 import KopytenkovForm from "./components/KopytenkovForm";
 import CashForm from "./components/CashForm";
 import FuelsForm from "./components/FuelsForm";
+import { logMiniappOpen } from "./max";
 
 type Screen = "home" | "garage" | "fuels" | "worker" | "kopytenkov" | "kosenko" | "invoices" | "daysoff" | "cash";
 type InvoiceTab = "create" | "match" | "table";
@@ -16,6 +17,10 @@ type InvoiceTab = "create" | "match" | "table";
 export default function App() {
   const [screen, setScreen] = useState<Screen>("home");
   const [invoiceTab, setInvoiceTab] = useState<InvoiceTab>("create");
+
+  useEffect(() => {
+    logMiniappOpen();
+  }, []);
 
   if (screen === "garage") {
     return (

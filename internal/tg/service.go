@@ -80,6 +80,14 @@ func (s *TelegramService) Updates(u tgbotapi.Update) error {
 	chatID := u.Message.Chat.ID
 	chatName := u.Message.Chat.Title
 
+	if strings.HasPrefix(text, "/start") {
+		user := u.Message.From
+		if user != nil {
+			name := strings.TrimSpace(strings.TrimSpace(user.FirstName + " " + user.LastName))
+			log.Printf("bot open: source=telegram user_id=%d name=%q username=%q chat_id=%d", user.ID, name, user.UserName, chatID)
+		}
+	}
+
 	switch {
 	case strings.HasPrefix(text, "/add "):
 		cashCh := make(chan string, 1)

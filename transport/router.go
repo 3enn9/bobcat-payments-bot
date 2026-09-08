@@ -41,6 +41,11 @@ func NewRouter(
 	)
 
 	router.HandleFunc(
+		"/api/miniapp/open",
+		miniApp.LogBotOpen,
+	).Methods(http.MethodPost, http.MethodOptions)
+
+	router.HandleFunc(
 		"/api/miniapp/requests",
 		miniApp.CreateRequest,
 	).Methods(http.MethodPost, http.MethodOptions)
