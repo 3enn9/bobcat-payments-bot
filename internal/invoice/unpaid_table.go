@@ -104,7 +104,7 @@ func GenerateUnpaidTablesPDF(firms []UnpaidFirmTable, generatedAt time.Time) ([]
 				pdf.SetFont("arial", "", 8)
 			}
 			y := pdf.GetY()
-			buyer := truncateRunes(row.BuyerName, 72)
+			buyer := truncateRunes(ShortenBuyerName(row.BuyerName), 72)
 			date := "—"
 			if !row.Date.IsZero() {
 				date = row.Date.Format("02.01.06")
