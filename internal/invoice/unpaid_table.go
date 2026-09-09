@@ -23,25 +23,33 @@ type UnpaidTableRow struct {
 	Remaining float64
 }
 
-// GenerateUnpaidTablesPDF — landscape A4 tables of unpaid invoices, one section per firm.
+// GenerateUnpaidTablesPDF — таблицы неоплаченных счетов; ширина страницы = ширина таблицы.
 func GenerateUnpaidTablesPDF(firms []UnpaidFirmTable, generatedAt time.Time) ([]byte, error) {
-	pdf := fpdf.New("L", "mm", "A4", "")
-	pdf.SetMargins(10, 10, 10)
+	const (
+		margin   = 8.0
+		colN     = 12.0
+		colDate  = 20.0
+		colBuyer = 72.0
+		colTotal = 30.0
+		colPaid  = 30.0
+		colRem   = 30.0
+		rowH     = 7.0
+		pageH    = 210.0
+	)
+	tableW := colN + colDate + colBuyer + colTotal + colPaid + colRem
+	pageW := margin*2 + tableW
+	left := margin
+	contentW := tableW
+	bottomLimit := pageH - 12
+
+	pdf := fpdf.NewCustom(&fpdf.InitType{
+		UnitStr: "mm",
+		Size:    fpdf.SizeType{Wd: pageW, Ht: pageH},
+	})
+	pdf.SetMargins(margin, margin, margin)
 	pdf.SetAutoPageBreak(true, 12)
 	pdf.AddUTF8FontFromBytes("arial", "", fontRegular)
 	pdf.AddUTF8FontFromBytes("arial", "B", fontBold)
-
-	const pageW = 277.0 // A4 landscape usable width with 10mm margins
-	left := 10.0
-
-	// columns: № | дата | покупатель | сумма | оплачено | остаток
-	colN := 12.0
-	colDate := 20.0
-	colBuyer := 72.0
-	colTotal := 30.0
-	colPaid := 30.0
-	colRem := 30.0
-	rowH := 7.0
 
 	writeHeader := func(firm UnpaidFirmTable) {
 		pdf.SetFont("arial", "B", 12)
@@ -50,12 +58,12 @@ func GenerateUnpaidTablesPDF(firms []UnpaidFirmTable, generatedAt time.Time) ([]
 			title += "  ·  ИНН " + firm.FirmINN
 		}
 		pdf.SetXY(left, pdf.GetY())
-		pdf.MultiCell(pageW, 6, title, "", "L", false)
+		pdf.MultiCell(contentW, 6, title, "", "L", false)
 		pdf.Ln(1)
 
 		pdf.SetFont("arial", "", 9)
 		pdf.SetXY(left, pdf.GetY())
-		pdf.CellFormat(pageW, 5, fmt.Sprintf("Неоплаченные счета · %s · %d шт.", generatedAt.Format("02.01.2006 15:04"), len(firm.Rows)), "", 1, "L", false, 0, "")
+		pdf.CellFormat(contentW, 5, fmt.Sprintf("Неоплаченные счета · %s · %d шт.", generatedAt.Format("02.01.2006 15:04"), len(firm.Rows)), "", 1, "L", false, 0, "")
 		pdf.Ln(2)
 
 		pdf.SetFont("arial", "B", 8)
@@ -86,9 +94,9 @@ func GenerateUnpaidTablesPDF(firms []UnpaidFirmTable, generatedAt time.Time) ([]
 		pdf.AddPage()
 		pdf.SetFont("arial", "B", 14)
 		pdf.SetXY(left, 40)
-		pdf.CellFormat(pageW, 8, "Неоплаченных счетов нет", "", 1, "C", false, 0, "")
+		pdf.CellFormat(contentW, 8, "Неоплаченных счетов нет", "", 1, "C", false, 0, "")
 		pdf.SetFont("arial", "", 10)
-		pdf.CellFormat(pageW, 6, generatedAt.Format("02.01.2006 15:04"), "", 1, "C", false, 0, "")
+		pdf.CellFormat(contentW, 6, generatedAt.Format("02.01.2006 15:04"), "", 1, "C", false, 0, "")
 	}
 
 	for _, firm := range firms {
@@ -98,7 +106,7 @@ func GenerateUnpaidTablesPDF(firms []UnpaidFirmTable, generatedAt time.Time) ([]
 		pdf.SetFont("arial", "", 8)
 		var sumTotal, sumPaid, sumRem float64
 		for _, row := range firm.Rows {
-			if pdf.GetY()+rowH > 200 {
+			if pdf.GetY()+rowH > bottomLimit {
 				pdf.AddPage()
 				writeHeader(firm)
 				pdf.SetFont("arial", "", 8)
@@ -129,7 +137,7 @@ func GenerateUnpaidTablesPDF(firms []UnpaidFirmTable, generatedAt time.Time) ([]
 			sumRem += row.Remaining
 		}
 
-		if pdf.GetY()+rowH > 200 {
+		if pdf.GetY()+rowH > bottomLimit {
 			pdf.AddPage()
 			writeHeader(firm)
 		}
