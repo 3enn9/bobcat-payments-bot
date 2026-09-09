@@ -10,27 +10,25 @@ var orgFormPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)^\s*акционерное\s+общество\s*`),
 	regexp.MustCompile(`(?i)^\s*общество\s+с\s+ограниченной\s+ответственностью\s*`),
 	regexp.MustCompile(`(?i)^\s*индивидуальный\s+предприниматель\s*`),
+	regexp.MustCompile(`(?i)^\s*индувидуальный\s+предприниматель\s*`), // опечатка бухгалтера
 	regexp.MustCompile(`(?i)^\s*оао\s*`),
 	regexp.MustCompile(`(?i)^\s*ооо\s*`),
 	regexp.MustCompile(`(?i)^\s*ао\s*`),
 	regexp.MustCompile(`(?i)^\s*ип\s*`),
 }
 
-var municipalNameRE = regexp.MustCompile(`(?i)^\s*муниципальн`)
 var quotedChunkRE = regexp.MustCompile(`["«„]([^"»“]+)["»“]`)
 
-// ShortenBuyerName убирает типовые формы собственности для компактных таблиц.
+// ShortenBuyerName уплотняет имя покупателя для таблицы:
+// если есть кавычки — только содержимое; иначе срезает форму собственности.
 func ShortenBuyerName(name string) string {
 	s := strings.TrimSpace(name)
 	if s == "" {
 		return s
 	}
 
-	// Муниципальное … "Короткое имя" → берём содержимое кавычек.
-	if municipalNameRE.MatchString(s) {
-		if q := extractQuotedName(s); q != "" {
-			return q
-		}
+	if q := extractQuotedName(s); q != "" {
+		return q
 	}
 
 	for {

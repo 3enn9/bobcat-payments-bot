@@ -37,10 +37,10 @@ func GenerateUnpaidTablesPDF(firms []UnpaidFirmTable, generatedAt time.Time) ([]
 	// columns: № | дата | покупатель | сумма | оплачено | остаток
 	colN := 14.0
 	colDate := 22.0
-	colBuyer := 125.0
-	colTotal := 38.0
-	colPaid := 38.0
-	colRem := 40.0
+	colBuyer := 85.0
+	colTotal := 52.0
+	colPaid := 52.0
+	colRem := 52.0
 	rowH := 7.0
 
 	writeHeader := func(firm UnpaidFirmTable) {
@@ -104,7 +104,7 @@ func GenerateUnpaidTablesPDF(firms []UnpaidFirmTable, generatedAt time.Time) ([]
 				pdf.SetFont("arial", "", 8)
 			}
 			y := pdf.GetY()
-			buyer := truncateRunes(ShortenBuyerName(row.BuyerName), 72)
+			buyer := truncateRunes(ShortenBuyerName(row.BuyerName), 48)
 			date := "—"
 			if !row.Date.IsZero() {
 				date = row.Date.Format("02.01.06")
