@@ -168,7 +168,7 @@ func (m *MaxService) handleMessage(upd *schemes.MessageCreatedUpdate) {
 			m.handleDaysOffTomorrow(upd.GetChatID())
 		}
 		return
-	case "/invoices":
+	case "/invoices", "/invoice":
 		if !upd.Message.Sender.IsBot {
 			m.handleInvoicesCommand(upd)
 		}

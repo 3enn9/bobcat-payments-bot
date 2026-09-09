@@ -6,7 +6,9 @@ import (
 	"bytes"
 	"fmt"
 	"log"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/max-messenger/max-bot-api-client-go/schemes"
 )
@@ -22,8 +24,8 @@ func (m *MaxService) handleInvoicesCommand(upd *schemes.MessageCreatedUpdate) {
 		return
 	}
 
-	tables := make([]invoice.UnpaidFirmTable, 0, len(firms))
-	totalInvoices := 0
+	now := clock.Now()
+	sent := 0
 	for _, firm := range firms {
 		items, err := m.db.ListOpenInvoicesForSupplier(firm.ID, "", "")
 		if err != nil {
@@ -44,64 +46,85 @@ func (m *MaxService) handleInvoicesCommand(upd *schemes.MessageCreatedUpdate) {
 				Remaining: item.RemainingAmount,
 			})
 		}
-		tables = append(tables, invoice.UnpaidFirmTable{
+		table := invoice.UnpaidFirmTable{
 			FirmName: firm.Name,
 			FirmINN:  firm.INN,
 			Rows:     rows,
-		})
-		totalInvoices += len(rows)
-	}
-
-	now := clock.Now()
-	pdfBytes, err := invoice.GenerateUnpaidTablesPDF(tables, now)
-	if err != nil {
-		log.Printf("invoices cmd: pdf: %v", err)
-		_ = m.SendMessageInGroupID(chatID, "Не удалось сформировать таблицу.")
-		return
-	}
-
-	caption := formatUnpaidCaption(now, len(tables), totalInvoices)
-	pages, err := invoice.PDFToImages(pdfBytes, 150)
-	if err != nil {
-		log.Printf("invoices cmd: pdf->png: %v", err)
-		if sendErr := m.SendFileToChat(chatID, "unpaid_invoices.pdf", bytes.NewReader(pdfBytes)); sendErr != nil {
-			log.Printf("invoices cmd: pdf fallback: %v", sendErr)
-			_ = m.SendMessageInGroupID(chatID, "Не удалось отправить таблицу.")
-			return
 		}
-		_ = m.SendMessageInGroupID(chatID, caption)
-		return
-	}
 
-	const batchSize = 8
-	for i := 0; i < len(pages); i += batchSize {
-		end := i + batchSize
-		if end > len(pages) {
-			end = len(pages)
+		pdfBytes, err := invoice.GenerateUnpaidTablesPDF([]invoice.UnpaidFirmTable{table}, now)
+		if err != nil {
+			log.Printf("invoices cmd: pdf firm=%s: %v", firm.Name, err)
+			continue
 		}
-		photos := make([]PhotoUpload, 0, end-i)
-		for j, p := range pages[i:end] {
+
+		code := strings.ToUpper(invoice.SupplierFileCode(firm.Name, firm.INN))
+		caption := formatFirmUnpaidCaption(code, firm.Name, len(rows), now)
+
+		pages, err := invoice.PDFToImages(pdfBytes, 150)
+		if err != nil {
+			log.Printf("invoices cmd: pdf->png firm=%s: %v", firm.Name, err)
+			fileName := fmt.Sprintf("unpaid_%s.pdf", sanitizeFilePart(code))
+			if sendErr := m.SendFileToChat(chatID, fileName, bytes.NewReader(pdfBytes)); sendErr != nil {
+				log.Printf("invoices cmd: pdf fallback firm=%s: %v", firm.Name, sendErr)
+				continue
+			}
+			_ = m.SendMessageInGroupID(chatID, caption)
+			sent++
+			continue
+		}
+
+		photos := make([]PhotoUpload, 0, len(pages))
+		for i, p := range pages {
 			photos = append(photos, PhotoUpload{
-				Name:   fmt.Sprintf("invoices_%d.png", i+j+1),
+				Name:   fmt.Sprintf("%s_%d.png", sanitizeFilePart(code), i+1),
 				Reader: bytes.NewReader(p),
 			})
 		}
-		text := ""
-		if i == 0 {
-			text = caption
+		if err := m.SendPhotosToChat(chatID, caption, photos); err != nil {
+			log.Printf("invoices cmd: send photos firm=%s: %v", firm.Name, err)
+			_ = m.SendMessageInGroupID(chatID, fmt.Sprintf("Не удалось отправить %s", code))
+			continue
 		}
-		if err := m.SendPhotosToChat(chatID, text, photos); err != nil {
-			log.Printf("invoices cmd: send photos: %v", err)
-			_ = m.SendMessageInGroupID(chatID, "Не удалось отправить фото таблиц.")
-			return
-		}
+		sent++
+	}
+
+	if sent == 0 {
+		_ = m.SendMessageInGroupID(chatID, formatFirmUnpaidCaption("", "", 0, now))
 	}
 }
 
-func formatUnpaidCaption(at time.Time, firms, invoices int) string {
+func formatFirmUnpaidCaption(code, firmName string, invoices int, at time.Time) string {
 	when := at.Format("02.01.2006 15:04")
-	if firms == 0 {
+	if invoices == 0 || firmName == "" {
 		return fmt.Sprintf("Неоплаченных счетов нет · %s", when)
 	}
-	return fmt.Sprintf("Неоплаченные счета · %s\nФирм: %d · Счетов: %d", when, firms, invoices)
+	if code != "" {
+		return fmt.Sprintf("%s\n%s\nСчетов: %d · %s", code, firmName, invoices, when)
+	}
+	return fmt.Sprintf("%s\nСчетов: %d · %s", firmName, invoices, when)
+}
+
+func sanitizeFilePart(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return "firm"
+	}
+	var b strings.Builder
+	for _, r := range s {
+		switch {
+		case r >= 'A' && r <= 'Z', r >= 'a' && r <= 'z', r >= '0' && r <= '9',
+			r >= 'А' && r <= 'Я', r >= 'а' && r <= 'я', r == 'Ё' || r == 'ё':
+			b.WriteRune(r)
+		default:
+			if utf8.RuneCountInString(b.String()) > 0 {
+				b.WriteByte('_')
+			}
+		}
+	}
+	out := strings.Trim(b.String(), "_")
+	if out == "" {
+		return "firm"
+	}
+	return out
 }
