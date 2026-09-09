@@ -50,7 +50,10 @@ func (m *MaxService) SendMessageWithPhotos(groupName, text string, photos []Phot
 	if !ok {
 		return fmt.Errorf("group name does not exist: %s", groupName)
 	}
+	return m.SendPhotosToChat(chatID, text, photos)
+}
 
+func (m *MaxService) SendPhotosToChat(chatID int64, text string, photos []PhotoUpload) error {
 	ctx := context.Background()
 	msg := maxbot.NewMessage().SetChat(chatID).SetText(text)
 
@@ -65,7 +68,6 @@ func (m *MaxService) SendMessageWithPhotos(groupName, text string, photos []Phot
 	if err := m.Bot.Messages.Send(ctx, msg); err != nil {
 		return fmt.Errorf("send message: %w", err)
 	}
-
 	return nil
 }
 
@@ -74,7 +76,10 @@ func (m *MaxService) SendFileToGroup(groupName, fileName string, reader io.Reade
 	if !ok {
 		return fmt.Errorf("group name does not exist: %s", groupName)
 	}
+	return m.SendFileToChat(chatID, fileName, reader)
+}
 
+func (m *MaxService) SendFileToChat(chatID int64, fileName string, reader io.Reader) error {
 	ctx := context.Background()
 	info, err := m.Bot.Uploads.UploadMediaFromReaderWithName(ctx, schemes.FILE, reader, fileName)
 	if err != nil {
@@ -161,6 +166,11 @@ func (m *MaxService) handleMessage(upd *schemes.MessageCreatedUpdate) {
 	case "/zavtra":
 		if !upd.Message.Sender.IsBot {
 			m.handleDaysOffTomorrow(upd.GetChatID())
+		}
+		return
+	case "/invoices":
+		if !upd.Message.Sender.IsBot {
+			m.handleInvoicesCommand(upd)
 		}
 		return
 	}

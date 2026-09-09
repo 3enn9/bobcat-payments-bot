@@ -131,16 +131,32 @@ func (m *MaxService) RegisterBotCommands() error {
 	}
 
 	commands := bot.Commands
+	haveZavtra := false
+	haveInvoices := false
 	for _, c := range commands {
-		if c.Name == "zavtra" {
-			return nil
+		switch c.Name {
+		case "zavtra":
+			haveZavtra = true
+		case "invoices":
+			haveInvoices = true
 		}
 	}
+	if haveZavtra && haveInvoices {
+		return nil
+	}
 
-	commands = append(commands, schemes.BotCommand{
-		Name:        "zavtra",
-		Description: "Завтра",
-	})
+	if !haveZavtra {
+		commands = append(commands, schemes.BotCommand{
+			Name:        "zavtra",
+			Description: "Завтра",
+		})
+	}
+	if !haveInvoices {
+		commands = append(commands, schemes.BotCommand{
+			Name:        "invoices",
+			Description: "Неоплаченные счета",
+		})
+	}
 
 	_, err = m.Bot.Bots.PatchBot(ctx, &schemes.BotPatch{Commands: commands})
 	if err != nil {
