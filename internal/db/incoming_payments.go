@@ -55,8 +55,8 @@ func (d *Database) SaveIncomingPayment(inp SaveIncomingPaymentInput) (int64, err
 	res, err := d.DB.Exec(`
 		INSERT IGNORE INTO incoming_payments
 			(source, external_id, executed_at, amount, currency,
-			 account, recipient_name, payer_name, payer_inn, purpose, raw_doc_number)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			 account, recipient_name, payer_name, payer_inn, purpose, raw_doc_number, match_status)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open')
 	`,
 		inp.Source,
 		inp.ExternalID,

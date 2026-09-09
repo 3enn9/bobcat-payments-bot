@@ -69,7 +69,8 @@ func (d *Database) ListMatchFirms() ([]MatchFirm, error) {
 		FROM invoice_suppliers s
 		INNER JOIN invoice_banks b ON b.supplier_id = s.id
 		INNER JOIN incoming_payments p ON p.account = b.account
-		WHERE ROUND(p.amount - IFNULL((
+		WHERE p.match_status = 'open'
+		  AND ROUND(p.amount - IFNULL((
 		  SELECT SUM(a.amount) FROM invoice_payment_allocations a WHERE a.payment_id = p.id
 		), 0), 2) > 0
 		GROUP BY s.id, s.name, s.inn
@@ -133,6 +134,7 @@ func (d *Database) ListUnmatchedPaymentsForSupplier(supplierID int64) ([]MatchPa
 		FROM incoming_payments p
 		INNER JOIN invoice_banks b ON b.account = p.account AND b.supplier_id = ?
 		LEFT JOIN invoice_payment_allocations a ON a.payment_id = p.id
+		WHERE p.match_status = 'open'
 		GROUP BY p.id, p.source, p.executed_at, p.amount, p.payer_name, p.payer_inn, p.purpose, p.account
 		HAVING remaining > 0
 		ORDER BY p.executed_at DESC, p.id DESC
@@ -224,18 +226,21 @@ func (d *Database) MatchPaymentToInvoices(paymentID int64, invoiceIDs []int64, a
 	defer func() { _ = tx.Rollback() }()
 
 	var paymentAmount float64
-	var paymentAccount, payerINN, payerName string
+	var paymentAccount, payerINN, payerName, matchStatus string
 	err = tx.QueryRow(`
-		SELECT amount, account, payer_inn, payer_name
+		SELECT amount, account, payer_inn, payer_name, match_status
 		FROM incoming_payments
 		WHERE id = ?
 		FOR UPDATE
-	`, paymentID).Scan(&paymentAmount, &paymentAccount, &payerINN, &payerName)
+	`, paymentID).Scan(&paymentAmount, &paymentAccount, &payerINN, &payerName, &matchStatus)
 	if errors.Is(err, sql.ErrNoRows) {
 		return fmt.Errorf("платёж не найден")
 	}
 	if err != nil {
 		return err
+	}
+	if matchStatus != "open" {
+		return fmt.Errorf("платёж исключён из сопоставления")
 	}
 
 	var allocated float64

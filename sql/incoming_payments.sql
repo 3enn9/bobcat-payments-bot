@@ -16,11 +16,13 @@ CREATE TABLE incoming_payments (
   purpose        TEXT         NOT NULL,
 
   raw_doc_number VARCHAR(64)  NOT NULL DEFAULT '',
+  match_status   ENUM('open','ignored') NOT NULL DEFAULT 'open',
 
   created_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
   PRIMARY KEY (id),
   UNIQUE KEY uq_incoming_source_ext (source, external_id),
   KEY idx_incoming_executed (executed_at),
-  KEY idx_incoming_account  (account)
+  KEY idx_incoming_account  (account),
+  KEY idx_incoming_match_status (match_status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
