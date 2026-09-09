@@ -101,6 +101,19 @@ function newSplitRow(equipment = "", amount = "", holder = ""): SplitRow {
   };
 }
 
+type EntryFilter = "all" | "empty";
+
+function isEntryFilled(item: FuelEntry): boolean {
+  if (!(item.equipmentNumber ?? "").trim()) {
+    return false;
+  }
+  const names = splitHolders(item.holder, item.holders);
+  if (names.length >= 2 && !(item.holderPicked ?? "").trim()) {
+    return false;
+  }
+  return true;
+}
+
 export default function FuelsForm() {
   const [holderQuery, setHolderQuery] = useState("");
   const [appliedHolder, setAppliedHolder] = useState("");
@@ -109,6 +122,7 @@ export default function FuelsForm() {
   const [picked, setPicked] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [entryFilter, setEntryFilter] = useState<EntryFilter>("all");
   const [savingId, setSavingId] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [savedId, setSavedId] = useState<number | null>(null);
@@ -169,6 +183,7 @@ export default function FuelsForm() {
     setLoading(true);
     setError("");
     setSearched(true);
+    setEntryFilter("all");
     setSplitId(null);
     setHintsOpen(false);
     try {
@@ -313,19 +328,58 @@ export default function FuelsForm() {
       )}
 
       {entries.length > 0 && (
+        <div className="fuels-filter">
+          <button
+            type="button"
+            className={
+              entryFilter === "all" ? "fuels-filter-btn active" : "fuels-filter-btn"
+            }
+            onClick={() => setEntryFilter("all")}
+          >
+            Все
+          </button>
+          <button
+            type="button"
+            className={
+              entryFilter === "empty"
+                ? "fuels-filter-btn active"
+                : "fuels-filter-btn"
+            }
+            onClick={() => setEntryFilter("empty")}
+          >
+            Пустые
+          </button>
+        </div>
+      )}
+
+      {entries.length > 0 &&
+        entryFilter === "empty" &&
+        entries.every((item) => isEntryFilled(item)) && (
+          <p className="invoice-hint">Нет пустых заправок</p>
+        )}
+
+      {entries.length > 0 && (
         <ul className="fuels-list">
-          {entries.map((item) => {
+          {entries
+            .filter((item) => entryFilter === "all" || !isEntryFilled(item))
+            .map((item) => {
             const splitting = splitId === item.id;
             const names = splitHolders(item.holder, item.holders);
             const dual = names.length >= 2;
             const chosen = picked[item.id] ?? "";
+            const filled = isEntryFilled(item);
             const splitTotal = splitRows.reduce(
               (sum, row) => sum + parseAmount(row.amount),
               0,
             );
             const leftover = rublesOnly(item.amount) - splitTotal;
             return (
-              <li key={item.id} className="fuels-item">
+              <li
+                key={item.id}
+                className={
+                  filled ? "fuels-item fuels-item-filled" : "fuels-item fuels-item-empty"
+                }
+              >
                 <div className="fuels-item-top">
                   <time>{formatWhen(item.fueledAt)}</time>
                   <strong>{money(item.amount)}</strong>

@@ -1432,6 +1432,29 @@
   font-size: 14px;
 }
 
+.fuels-filter {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.fuels-filter-btn {
+  width: 100%;
+  border: 1px solid #dedede;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #fff;
+  color: #444;
+  font-weight: 650;
+  font-size: 13px;
+}
+
+.fuels-filter-btn.active {
+  background: #111;
+  color: #fff;
+  border-color: #111;
+}
+
 .fuels-list {
   list-style: none;
   margin: 0;
@@ -1447,6 +1470,16 @@
   border: 1px solid #eee;
   display: grid;
   gap: 8px;
+}
+
+.fuels-item-filled {
+  background: #eef8f1;
+  border-color: #cfe8d7;
+}
+
+.fuels-item-empty {
+  background: #fbf0f0;
+  border-color: #efd0d0;
 }
 
 .fuels-item-top {
