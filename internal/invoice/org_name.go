@@ -17,10 +17,9 @@ var orgFormPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)^\s*ип\s*`),
 }
 
-var quotedChunkRE = regexp.MustCompile(`["«„]([^"»“]+)["»“]`)
-
 // ShortenBuyerName уплотняет имя покупателя для таблицы:
-// если есть кавычки — только содержимое; иначе срезает форму собственности.
+// если есть открывающая кавычка — берём текст от неё до конца (закрывающая необязательна);
+// иначе срезает форму собственности.
 func ShortenBuyerName(name string) string {
 	s := strings.TrimSpace(name)
 	if s == "" {
@@ -52,9 +51,21 @@ func ShortenBuyerName(name string) string {
 }
 
 func extractQuotedName(s string) string {
-	m := quotedChunkRE.FindStringSubmatch(s)
-	if len(m) < 2 {
+	runes := []rune(s)
+	openIdx := -1
+	for i, r := range runes {
+		if r == '"' || r == '«' || r == '„' {
+			openIdx = i
+			break
+		}
+	}
+	if openIdx < 0 || openIdx+1 >= len(runes) {
 		return ""
 	}
-	return strings.TrimSpace(m[1])
+
+	// От кавычки до конца строки; хвостовые кавычки/пробелы срезаем.
+	body := strings.TrimSpace(string(runes[openIdx+1:]))
+	body = strings.TrimRight(body, " \t\"»“")
+	body = strings.TrimSpace(body)
+	return body
 }
