@@ -26,7 +26,7 @@ type MutateCashResponse = {
   error?: string;
 };
 
-export const CASH_HISTORY_LIMIT = 10;
+export const CASH_HISTORY_LIMIT = 20;
 
 async function loadWorkersResponse(
   response: Response,

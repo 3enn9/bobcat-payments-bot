@@ -22,11 +22,11 @@ type cashEntryRequest struct {
 
 func parseCashEntryLimit(raw string) int {
 	if raw == "" {
-		return 10
+		return 20
 	}
 	limit, err := strconv.Atoi(raw)
 	if err != nil || limit <= 0 {
-		return 10
+		return 20
 	}
 	if limit > 50 {
 		return 50

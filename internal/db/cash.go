@@ -32,7 +32,7 @@ func (d *Database) CreateWorkerCashEntry(workerName, entryType string, amount fl
 func (d *Database) ListWorkerCashEntries(workerName string, limit int) ([]WorkerCashEntry, error) {
 	workerName = strings.TrimSpace(workerName)
 	if limit <= 0 {
-		limit = 10
+		limit = 20
 	}
 	rows, err := d.DB.Query(`
 		SELECT id, worker_name, entry_type, amount, description,
