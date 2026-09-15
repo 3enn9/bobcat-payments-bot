@@ -8,7 +8,7 @@ RUN go mod download
 COPY . .
 
 RUN CGO_ENABLED=0 go build -o app ./cmd
-
+    
 FROM alpine:latest
 
 RUN apk add --no-cache ca-certificates tzdata poppler-utils

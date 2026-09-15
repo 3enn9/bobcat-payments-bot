@@ -327,11 +327,15 @@ func (d *Database) CreateInvoice(input CreateInvoiceInput) (*CreatedInvoice, err
 	}
 
 	var existingID int64
+	invoiceYear := input.InvoiceDate.Year()
+	if input.InvoiceDate.IsZero() {
+		invoiceYear = time.Now().Year()
+	}
 	err = tx.QueryRow(`
 		SELECT id
 		FROM invoices
-		WHERE supplier_id = ? AND number = ?
-	`, *supplierID, invoiceNumber).Scan(&existingID)
+		WHERE supplier_id = ? AND number = ? AND YEAR(invoice_date) = ?
+	`, *supplierID, invoiceNumber, invoiceYear).Scan(&existingID)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, err
 	}

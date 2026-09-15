@@ -45,6 +45,7 @@ CREATE TABLE invoices (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   number INT UNSIGNED NOT NULL,
   invoice_date DATE NOT NULL,
+  invoice_year SMALLINT UNSIGNED AS (YEAR(invoice_date)) STORED,
   basis VARCHAR(500) NOT NULL DEFAULT '',
   supplier_id BIGINT UNSIGNED NULL,
   buyer_id BIGINT UNSIGNED NULL,
@@ -64,7 +65,7 @@ CREATE TABLE invoices (
   vat_amount DECIMAL(14,2) NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
-  UNIQUE KEY uq_invoices_supplier_number (supplier_id, number),
+  UNIQUE KEY uq_invoices_supplier_number_year (supplier_id, number, invoice_year),
   KEY idx_invoices_created (created_at),
   CONSTRAINT fk_invoices_supplier FOREIGN KEY (supplier_id) REFERENCES invoice_suppliers(id) ON DELETE SET NULL,
   CONSTRAINT fk_invoices_buyer FOREIGN KEY (buyer_id) REFERENCES invoice_buyers(id) ON DELETE SET NULL
