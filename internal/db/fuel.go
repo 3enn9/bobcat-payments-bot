@@ -91,19 +91,21 @@ func (d *Database) SaveFuelEntriesIfNewDate(day time.Time, entries []FuelEntryIn
 	return true, nil
 }
 
-func (d *Database) ListFuelEntriesByHolder(holder string, since time.Time) ([]FuelEntry, error) {
+func (d *Database) ListFuelEntriesByHolder(holder string, month time.Time) ([]FuelEntry, error) {
 	holder = strings.TrimSpace(holder)
 	if holder == "" {
 		return []FuelEntry{}, nil
 	}
 
+	monthStart := time.Date(month.Year(), month.Month(), 1, 0, 0, 0, 0, month.Location())
+	monthEnd := monthStart.AddDate(0, 1, 0)
 	rows, err := d.DB.Query(`
 		SELECT id, DATE_FORMAT(fueled_at, '%Y-%m-%dT%H:%i:%s'), equipment_number, fuel_kind, card_number, amount, holder, holder_picked
 		FROM fuel_entries
-		WHERE fueled_date >= ?
+		WHERE fueled_date >= ? AND fueled_date < ?
 		  AND holder LIKE CONCAT('%', ?, '%')
 		ORDER BY fueled_at DESC, id DESC
-	`, since.Format("2006-01-02"), holder)
+	`, monthStart.Format("2006-01-02"), monthEnd.Format("2006-01-02"), holder)
 	if err != nil {
 		return nil, err
 	}

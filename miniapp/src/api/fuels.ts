@@ -21,8 +21,8 @@ type MutateResponse = {
   error?: string;
 };
 
-export async function listFuels(holder: string): Promise<FuelEntry[]> {
-  const params = new URLSearchParams({ holder: holder.trim() });
+export async function listFuels(holder: string, month: string): Promise<FuelEntry[]> {
+  const params = new URLSearchParams({ holder: holder.trim(), month });
   const response = await fetch(`/api/miniapp/fuels?${params}`);
   const data = (await response.json()) as ListResponse;
   if (!response.ok || !data.success) {

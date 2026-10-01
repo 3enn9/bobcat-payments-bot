@@ -1508,6 +1508,10 @@
   word-break: break-word;
 }
 
+.fuels-month {
+  margin: 12px 0;
+}
+
 .fuels-meta span:first-child {
   font-size: 14px;
   font-weight: 650;

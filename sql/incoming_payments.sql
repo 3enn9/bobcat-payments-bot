@@ -1,6 +1,6 @@
 CREATE TABLE incoming_payments (
   id             BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  source         ENUM('modulbank','tochka','tbank') NOT NULL,
+  source         ENUM('modulbank','tochka','tbank','ozon') NOT NULL,
   external_id    VARCHAR(128) NOT NULL DEFAULT '',
 
   executed_at    DATE         NOT NULL,

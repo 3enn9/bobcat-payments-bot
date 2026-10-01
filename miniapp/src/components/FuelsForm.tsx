@@ -32,6 +32,11 @@ function formatWhen(value: string): string {
   return `${m[3]}.${m[2]}.${m[1].slice(2)} ${m[4]}:${m[5]}`;
 }
 
+function currentMonth(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
 function fuelLabel(kind: string | undefined): string {
   if (kind === "petrol") {
     return "Бензин";
@@ -117,6 +122,7 @@ function isEntryFilled(item: FuelEntry): boolean {
 export default function FuelsForm() {
   const [holderQuery, setHolderQuery] = useState("");
   const [appliedHolder, setAppliedHolder] = useState("");
+  const [month, setMonth] = useState(currentMonth);
   const [entries, setEntries] = useState<FuelEntry[]>([]);
   const [numbers, setNumbers] = useState<Record<number, string>>({});
   const [picked, setPicked] = useState<Record<number, string>>({});
@@ -133,8 +139,8 @@ export default function FuelsForm() {
   const [hintsOpen, setHintsOpen] = useState(false);
   const hintTimer = useRef<number | null>(null);
 
-  async function reload(holder: string) {
-    const items = await listFuels(holder);
+  async function reload(holder: string, selectedMonth = month) {
+    const items = await listFuels(holder, selectedMonth);
     setEntries(items);
     const nextNumbers: Record<number, string> = {};
     const nextPicked: Record<number, string> = {};
@@ -319,11 +325,36 @@ export default function FuelsForm() {
         </button>
       </form>
 
+      <label className="invoice-field fuels-month">
+        <span>Месяц заправок</span>
+        <input
+          type="month"
+          value={month}
+          onChange={(e) => {
+            const nextMonth = e.target.value;
+            setMonth(nextMonth);
+            if (appliedHolder && nextMonth) {
+              setLoading(true);
+              setError("");
+              setSearched(true);
+              setEntryFilter("all");
+              setSplitId(null);
+              void reload(appliedHolder, nextMonth)
+                .catch((err) => {
+                  setError(err instanceof Error ? err.message : "Ошибка загрузки");
+                  setEntries([]);
+                })
+                .finally(() => setLoading(false));
+            }
+          }}
+        />
+      </label>
+
       {loading && <p className="invoice-hint">Загрузка…</p>}
 
       {searched && !loading && entries.length === 0 && !error && (
         <p className="invoice-hint">
-          Нет заправок за 30 дней для «{appliedHolder}»
+          Нет заправок за выбранный месяц для «{appliedHolder}»
         </p>
       )}
 

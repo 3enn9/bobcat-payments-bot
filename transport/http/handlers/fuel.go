@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"PaymentsBot/internal/clock"
 	"PaymentsBot/internal/db"
@@ -27,8 +28,13 @@ func (h *MiniAppHandler) ListFuelEntries(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	since := clock.Now().AddDate(0, 0, -30)
-	items, err := h.db.ListFuelEntriesByHolder(holder, since)
+	month := strings.TrimSpace(r.URL.Query().Get("month"))
+	selectedMonth, err := time.ParseInLocation("2006-01", month, clock.Now().Location())
+	if err != nil || selectedMonth.Format("2006-01") != month {
+		http.Error(w, `{"success":false,"error":"Укажите месяц в формате YYYY-MM"}`, http.StatusBadRequest)
+		return
+	}
+	items, err := h.db.ListFuelEntriesByHolder(holder, selectedMonth)
 	if err != nil {
 		log.Printf("list fuels error: %v", err)
 		http.Error(w, `{"success":false,"error":"Ошибка загрузки заправок"}`, http.StatusInternalServerError)
