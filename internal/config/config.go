@@ -16,6 +16,7 @@ type Config struct {
 	Dbname            string
 	Host              string
 	Token             string
+	InvoicesChatID    int64
 	MaxToken          string
 	SMTPHost          string
 	SMTPPort          string
@@ -57,6 +58,7 @@ func NewConfig() *Config {
 		Dbname:            os.Getenv("DB_NAME"),
 		Host:              os.Getenv("DB_HOST"),
 		Token:             os.Getenv("BOT_TOKEN"),
+		InvoicesChatID:    parseInt64(os.Getenv("CHAT_ID")),
 		MaxToken:          os.Getenv("MAX_TOKEN"),
 		SMTPHost:          os.Getenv("SMTP_HOST"),
 		SMTPPort:          os.Getenv("SMTP_PORT"),
@@ -73,6 +75,11 @@ func NewConfig() *Config {
 		IMAPBackfillSince: parseDate(os.Getenv("IMAP_BACKFILL_SINCE")),
 		Timezone:          os.Getenv("APP_TIMEZONE"),
 	}
+}
+
+func parseInt64(s string) int64 {
+	n, _ := strconv.ParseInt(strings.TrimSpace(s), 10, 64)
+	return n
 }
 
 func firstNonEmpty(values ...string) string {

@@ -22,10 +22,15 @@ type Notifier interface {
 	SendMessageInGroupName(nameGroup, message string) error
 }
 
+type TelegramInvoiceNotifier interface {
+	SendInvoicePages(filename, caption string, pages [][]byte) error
+}
+
 type Importer struct {
 	DB            *db.Database
 	IMAP          mail.IMAPConfig
 	Max           Notifier
+	Telegram      TelegramInvoiceNotifier
 	BackfillSince time.Time // если задано — один тихий прогон с этой даты при старте
 }
 
@@ -162,6 +167,7 @@ func (im *Importer) importAttachment(att mail.Attachment, notify, replace bool) 
 	if invoice.IsReconciliationFilename(name) {
 		if notify {
 			im.notifyText("Акт сверки: " + name)
+			im.sendTelegramPages(name, "акт", att.Bytes)
 		}
 		return nil
 	}
@@ -187,26 +193,29 @@ func (im *Importer) importAttachment(att mail.Attachment, notify, replace bool) 
 		return err
 	}
 
-	if notify && im.Max != nil {
+	if notify {
 		caption := fmt.Sprintf("%s\n%s", name, data.BuyerName)
 		pages, err := invoice.PDFToImages(att.Bytes, 150)
 		if err != nil {
 			log.Printf("accountant pdf->png: %v", err)
-			if sendErr := im.Max.SendFileToGroup("Invoices", name, bytes.NewReader(att.Bytes)); sendErr != nil {
-				log.Printf("accountant max file fallback: %v", sendErr)
+			if im.Max != nil {
+				if sendErr := im.Max.SendFileToGroup("Invoices", name, bytes.NewReader(att.Bytes)); sendErr != nil {
+					log.Printf("accountant max file fallback: %v", sendErr)
+				}
+				im.notifyText(caption)
 			}
-			im.notifyText(caption)
+			im.sendTelegramPages(name, caption, att.Bytes)
 		} else {
-			photos := make([]max.PhotoUpload, 0, len(pages))
-			for i, p := range pages {
-				photos = append(photos, max.PhotoUpload{
-					Name:   fmt.Sprintf("page_%d.png", i+1),
-					Reader: bytes.NewReader(p),
-				})
+			if im.Max != nil {
+				photos := make([]max.PhotoUpload, 0, len(pages))
+				for i, p := range pages {
+					photos = append(photos, max.PhotoUpload{Name: fmt.Sprintf("page_%d.png", i+1), Reader: bytes.NewReader(p)})
+				}
+				if sendErr := im.Max.SendMessageWithPhotos("Invoices", caption, photos); sendErr != nil {
+					log.Printf("accountant max photos: %v", sendErr)
+				}
 			}
-			if sendErr := im.Max.SendMessageWithPhotos("Invoices", caption, photos); sendErr != nil {
-				log.Printf("accountant max photos: %v", sendErr)
-			}
+			im.sendTelegramPageBytes(name, caption, pages)
 		}
 	}
 	if created != nil && created.Replaced {
@@ -215,6 +224,27 @@ func (im *Importer) importAttachment(att mail.Attachment, notify, replace bool) 
 	}
 	log.Printf("accountant imported %s №%d %s", data.SupplierName, data.Number, data.BuyerName)
 	return nil
+}
+
+func (im *Importer) sendTelegramPages(filename, caption string, pdf []byte) {
+	if im == nil || im.Telegram == nil {
+		return
+	}
+	pages, err := invoice.PDFToImages(pdf, 150)
+	if err != nil {
+		log.Printf("accountant telegram pdf->png: %v", err)
+		return
+	}
+	im.sendTelegramPageBytes(filename, caption, pages)
+}
+
+func (im *Importer) sendTelegramPageBytes(filename, caption string, pages [][]byte) {
+	if im == nil || im.Telegram == nil {
+		return
+	}
+	if err := im.Telegram.SendInvoicePages(filename, caption, pages); err != nil {
+		log.Printf("accountant telegram photos: %v", err)
+	}
 }
 
 func (im *Importer) notifyText(text string) {

@@ -36,7 +36,7 @@ func main() {
 	}
 	defer dbInstance.DB.Close()
 	paymentsService := payments.NewPaymentsService(dbInstance)
-	tgBotService, err := tg.NewTelegramService(cf.Token, paymentsService)
+	tgBotService, err := tg.NewTelegramService(cf.Token, paymentsService, cf.InvoicesChatID)
 	if err != nil {
 		log.Fatalf("error create tgbot %v", err)
 	}
@@ -85,6 +85,7 @@ func main() {
 			StartUID: cf.IMAPStartUID,
 		},
 		Max:           maxBotService,
+		Telegram:      tgBotService,
 		BackfillSince: cf.IMAPBackfillSince,
 	}).Run(ctx)
 
