@@ -15,12 +15,13 @@ type UnpaidFirmTable struct {
 }
 
 type UnpaidTableRow struct {
-	Number    int
-	Date      time.Time
-	BuyerName string
-	Total     float64
-	Paid      float64
-	Remaining float64
+	Number            int
+	Date              time.Time
+	BuyerName         string
+	IsRegularCustomer bool
+	Total             float64
+	Paid              float64
+	Remaining         float64
 }
 
 // GenerateUnpaidTablesPDF — таблицы неоплаченных счетов; ширина страницы = ширина таблицы.
@@ -64,6 +65,9 @@ func GenerateUnpaidTablesPDF(firms []UnpaidFirmTable, generatedAt time.Time) ([]
 		pdf.SetFont("arial", "", 9)
 		pdf.SetXY(left, pdf.GetY())
 		pdf.CellFormat(contentW, 5, fmt.Sprintf("Неоплаченные счета · %s · %d шт.", generatedAt.Format("02.01.2006 15:04"), len(firm.Rows)), "", 1, "L", false, 0, "")
+		pdf.SetTextColor(165, 110, 0)
+		pdf.CellFormat(contentW, 5, "Жёлтым отмечены постоянщики", "", 1, "L", false, 0, "")
+		pdf.SetTextColor(0, 0, 0)
 		pdf.Ln(2)
 
 		pdf.SetFont("arial", "B", 8)
@@ -112,6 +116,11 @@ func GenerateUnpaidTablesPDF(firms []UnpaidFirmTable, generatedAt time.Time) ([]
 				pdf.SetFont("arial", "", 8)
 			}
 			y := pdf.GetY()
+			if row.IsRegularCustomer {
+				pdf.SetFillColor(255, 244, 204)
+			} else {
+				pdf.SetFillColor(255, 255, 255)
+			}
 			buyer := truncateRunes(ShortenBuyerName(row.BuyerName), 42)
 			date := "—"
 			if !row.Date.IsZero() {
@@ -119,7 +128,7 @@ func GenerateUnpaidTablesPDF(firms []UnpaidFirmTable, generatedAt time.Time) ([]
 			}
 			x := left
 			draw := func(w float64, text, align string) {
-				pdf.Rect(x, y, w, rowH, "D")
+				pdf.Rect(x, y, w, rowH, "FD")
 				pdf.SetXY(x+1, y+1.5)
 				pdf.CellFormat(w-2, 4, text, "", 0, align, false, 0, "")
 				x += w
@@ -131,6 +140,7 @@ func GenerateUnpaidTablesPDF(firms []UnpaidFirmTable, generatedAt time.Time) ([]
 			draw(colPaid, formatMoney(row.Paid), "R")
 			draw(colRem, formatMoney(row.Remaining), "R")
 			pdf.SetY(y + rowH)
+			pdf.SetFillColor(255, 255, 255)
 
 			sumTotal += row.Total
 			sumPaid += row.Paid

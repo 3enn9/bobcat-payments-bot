@@ -38,14 +38,15 @@ type MatchPaymentItem struct {
 }
 
 type MatchInvoiceItem struct {
-	ID              int64     `json:"id"`
-	Number          int       `json:"number"`
-	InvoiceDate     time.Time `json:"invoiceDate"`
-	BuyerName       string    `json:"buyerName"`
-	BuyerINN        string    `json:"buyerInn"`
-	Total           float64   `json:"total"`
-	PaidAmount      float64   `json:"paidAmount"`
-	RemainingAmount float64   `json:"remainingAmount"`
+	ID                int64     `json:"id"`
+	Number            int       `json:"number"`
+	InvoiceDate       time.Time `json:"invoiceDate"`
+	BuyerName         string    `json:"buyerName"`
+	BuyerINN          string    `json:"buyerInn"`
+	IsRegularCustomer bool      `json:"isRegularCustomer"`
+	Total             float64   `json:"total"`
+	PaidAmount        float64   `json:"paidAmount"`
+	RemainingAmount   float64   `json:"remainingAmount"`
 }
 
 func roundMoney(v float64) float64 {
@@ -161,7 +162,8 @@ func (d *Database) ListUnmatchedPaymentsForSupplier(supplierID int64) ([]MatchPa
 // ListOpenInvoicesForSupplier — счета с остатком к оплате; если payerINN задан — только этого покупателя.
 func (d *Database) ListOpenInvoicesForSupplier(supplierID int64, payerINN, payerName string) ([]MatchInvoiceItem, error) {
 	query := `
-		SELECT i.id, i.number, i.invoice_date, i.buyer_name, i.buyer_inn, i.total,
+		SELECT i.id, i.number, i.invoice_date, i.buyer_name, i.buyer_inn,
+		       (i.is_regular_customer = 'да') AS is_regular_customer, i.total,
 		       ROUND(IFNULL(SUM(a.amount), 0), 2) AS paid,
 		       ROUND(i.total - IFNULL(SUM(a.amount), 0), 2) AS remaining,
 		       i.status
@@ -183,7 +185,8 @@ func (d *Database) ListOpenInvoicesForSupplier(supplierID int64, payerINN, payer
 	}
 
 	query += `
-		GROUP BY i.id, i.number, i.invoice_date, i.buyer_name, i.buyer_inn, i.total, i.status
+		GROUP BY i.id, i.number, i.invoice_date, i.buyer_name, i.buyer_inn,
+		         i.is_regular_customer, i.total, i.status
 		HAVING remaining > 0
 		ORDER BY i.invoice_date ASC, i.number ASC
 	`
@@ -199,7 +202,8 @@ func (d *Database) ListOpenInvoicesForSupplier(supplierID int64, payerINN, payer
 		var item MatchInvoiceItem
 		var status string
 		if err := rows.Scan(
-			&item.ID, &item.Number, &item.InvoiceDate, &item.BuyerName, &item.BuyerINN, &item.Total,
+			&item.ID, &item.Number, &item.InvoiceDate, &item.BuyerName, &item.BuyerINN,
+			&item.IsRegularCustomer, &item.Total,
 			&item.PaidAmount, &item.RemainingAmount, &status,
 		); err != nil {
 			return nil, err

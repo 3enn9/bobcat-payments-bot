@@ -38,12 +38,13 @@ func (m *MaxService) handleInvoicesCommand(upd *schemes.MessageCreatedUpdate) {
 		rows := make([]invoice.UnpaidTableRow, 0, len(items))
 		for _, item := range items {
 			rows = append(rows, invoice.UnpaidTableRow{
-				Number:    item.Number,
-				Date:      item.InvoiceDate,
-				BuyerName: item.BuyerName,
-				Total:     item.Total,
-				Paid:      item.PaidAmount,
-				Remaining: item.RemainingAmount,
+				Number:            item.Number,
+				Date:              item.InvoiceDate,
+				BuyerName:         item.BuyerName,
+				IsRegularCustomer: item.IsRegularCustomer,
+				Total:             item.Total,
+				Paid:              item.PaidAmount,
+				Remaining:         item.RemainingAmount,
 			})
 		}
 		table := invoice.UnpaidFirmTable{
