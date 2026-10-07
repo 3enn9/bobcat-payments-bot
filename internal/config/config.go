@@ -9,6 +9,8 @@ import (
 	"time"
 )
 
+const defaultInvoicesChatID int64 = -1003884082636
+
 type Config struct {
 	Port              string
 	Root              string
@@ -58,7 +60,7 @@ func NewConfig() *Config {
 		Dbname:            os.Getenv("DB_NAME"),
 		Host:              os.Getenv("DB_HOST"),
 		Token:             os.Getenv("BOT_TOKEN"),
-		InvoicesChatID:    parseInt64(os.Getenv("CHAT_ID")),
+		InvoicesChatID:    parseInt64OrDefault(os.Getenv("CHAT_ID"), defaultInvoicesChatID),
 		MaxToken:          os.Getenv("MAX_TOKEN"),
 		SMTPHost:          os.Getenv("SMTP_HOST"),
 		SMTPPort:          os.Getenv("SMTP_PORT"),
@@ -77,8 +79,11 @@ func NewConfig() *Config {
 	}
 }
 
-func parseInt64(s string) int64 {
-	n, _ := strconv.ParseInt(strings.TrimSpace(s), 10, 64)
+func parseInt64OrDefault(s string, fallback int64) int64 {
+	n, err := strconv.ParseInt(strings.TrimSpace(s), 10, 64)
+	if err != nil || n == 0 {
+		return fallback
+	}
 	return n
 }
 
