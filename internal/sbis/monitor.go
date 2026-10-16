@@ -77,9 +77,10 @@ func (m *Monitor) poll(ctx context.Context) error {
 		Document []document `json:"Документ"`
 	}
 	filter := map[string]any{"ДатаВремяС": from, "ПолныйСертификатЭП": "Нет"}
-	// Unlike authentication, СБИС.СписокИзменений takes Фильтр and Навигация
-	// directly in JSON-RPC params (without a nested Параметр object).
-	if err := m.call(ctx, "/service/?srv=1", "СБИС.СписокИзменений", map[string]any{"Фильтр": filter, "Навигация": map[string]any{"РазмерСтраницы": "50"}}, m.session, &response); err != nil {
+	// The method takes one argument, Фильтр. Навигация belongs inside it;
+	// placing it beside Фильтр makes JSON-RPC resolve the nonexistent /2 overload.
+	filter["Навигация"] = map[string]any{"РазмерСтраницы": "50"}
+	if err := m.call(ctx, "/service/?srv=1", "СБИС.СписокИзменений", map[string]any{"Фильтр": filter}, m.session, &response); err != nil {
 		m.session = ""
 		return err
 	}
