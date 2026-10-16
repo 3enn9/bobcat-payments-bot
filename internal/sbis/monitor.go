@@ -2,7 +2,6 @@ package sbis
 
 import (
 	"PaymentsBot/internal/db"
-	maxbot "PaymentsBot/internal/max"
 	"bytes"
 	"context"
 	"crypto/sha256"
@@ -15,6 +14,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	maxbot "github.com/max-messenger/max-bot-api-client-go"
 )
 
 const (
