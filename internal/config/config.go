@@ -34,6 +34,9 @@ type Config struct {
 	IMAPStartUID      uint32
 	IMAPBackfillSince time.Time
 	Timezone          string
+	SBISLogin         string
+	SBISPassword      string
+	SBISAccount       string
 }
 
 func NewConfig() *Config {
@@ -76,6 +79,9 @@ func NewConfig() *Config {
 		IMAPStartUID:      parseUID(os.Getenv("IMAP_START_UID")),
 		IMAPBackfillSince: parseDate(os.Getenv("IMAP_BACKFILL_SINCE")),
 		Timezone:          os.Getenv("APP_TIMEZONE"),
+		SBISLogin:         os.Getenv("SBIS_LOGIN"),
+		SBISPassword:      os.Getenv("SBIS_PASSWORD"),
+		SBISAccount:       os.Getenv("SBIS_ACCOUNT"),
 	}
 }
 

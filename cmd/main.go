@@ -11,6 +11,7 @@ import (
 	multi "PaymentsBot/internal/multiMessenger"
 	"PaymentsBot/internal/payments"
 	"PaymentsBot/internal/rncard"
+	"PaymentsBot/internal/sbis"
 	"PaymentsBot/internal/scheduler"
 	"PaymentsBot/internal/tg"
 	"PaymentsBot/internal/usecase"
@@ -88,6 +89,8 @@ func main() {
 		Telegram:      tgBotService,
 		BackfillSince: cf.IMAPBackfillSince,
 	}).Run(ctx)
+
+	go sbis.NewMonitor(cf.SBISLogin, cf.SBISPassword, cf.SBISAccount, dbInstance, maxBotService.Bot).Run(ctx)
 
 	server := &http.Server{Handler: router, Addr: ":8080"}
 
