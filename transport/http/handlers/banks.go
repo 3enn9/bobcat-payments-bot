@@ -6,6 +6,7 @@ import (
 	"crypto/rsa"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/golang-jwt/jwt/v5"
 	"io"
@@ -55,18 +56,25 @@ func (b *BanksHandler) ModuleBankHandler(w http.ResponseWriter, r *http.Request)
 
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
+		http.Error(w, "failed to read webhook body", http.StatusInternalServerError)
 		return
 	}
 
 	var modulBankPayment payment.ModulbankPayment
 	err = json.Unmarshal(bodyBytes, &modulBankPayment)
 	if err != nil {
+		http.Error(w, "invalid webhook payload", http.StatusBadRequest)
 		return
 	}
 
 	err = b.banksSvc.ModuleBank(modulBankPayment)
 	if err != nil {
+		if errors.Is(err, payment.ErrTypeOfOperation) {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
 		log.Println(err)
+		http.Error(w, "failed to save incoming payment", http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
@@ -83,17 +91,24 @@ func (b *BanksHandler) TBankHandler(w http.ResponseWriter, r *http.Request) {
 
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
+		http.Error(w, "failed to read webhook body", http.StatusInternalServerError)
 		return
 	}
 
 	var tBankPayment payment.TBankPayment
 	if err = json.Unmarshal(bodyBytes, &tBankPayment); err != nil {
+		http.Error(w, "invalid webhook payload", http.StatusBadRequest)
 		return
 	}
 
 	err = b.banksSvc.TBank(tBankPayment)
 	if err != nil {
+		if errors.Is(err, payment.ErrTypeOfOperation) {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
 		log.Println(err)
+		http.Error(w, "failed to save incoming payment", http.StatusInternalServerError)
 		return
 	}
 
@@ -111,21 +126,25 @@ func (b *BanksHandler) TochkaBankHandler(w http.ResponseWriter, r *http.Request)
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		log.Println("read body error:", err)
+		http.Error(w, "failed to read webhook body", http.StatusInternalServerError)
 		return
 	}
 
 	if len(body) == 0 {
+		http.Error(w, "empty webhook body", http.StatusBadRequest)
 		return
 	}
 
 	keyJSON := `{"kty":"RSA","e":"AQAB","n":"rwm77av7GIttq-JF1itEgLCGEZW_zz16RlUQVYlLbJtyRSu61fCec_rroP6PxjXU2uLzUOaGaLgAPeUZAJrGuVp9nryKgbZceHckdHDYgJd9TsdJ1MYUsXaOb9joN9vmsCscBx1lwSlFQyNQsHUsrjuDk-opf6RCuazRQ9gkoDCX70HV8WBMFoVm-YWQKJHZEaIQxg_DU4gMFyKRkDGKsYKA0POL-UgWA1qkg6nHY5BOMKaqxbc5ky87muWB5nNk4mfmsckyFv9j1gBiXLKekA_y4UwG2o1pbOLpJS3bP_c95rm4M9ZBmGXqfOQhbjz8z-s9C11i-jmOQ2ByohS-ST3E5sqBzIsxxrxyQDTw--bZNhzpbciyYW4GfkkqyeYoOPd_84jPTBDKQXssvj8ZOj2XboS77tvEO1n1WlwUzh8HPCJod5_fEgSXuozpJtOggXBv0C2ps7yXlDZf-7Jar0UYc_NJEHJF-xShlqd6Q3sVL02PhSCM-ibn9DN9BKmD"}`
 	var jwk payment.JWK
 	if err := json.Unmarshal([]byte(keyJSON), &jwk); err != nil {
+		http.Error(w, "webhook verification unavailable", http.StatusInternalServerError)
 		return
 	}
 
 	pubKey, err := jwkToPublicKey(jwk)
 	if err != nil {
+		http.Error(w, "webhook verification unavailable", http.StatusInternalServerError)
 		return
 	}
 
@@ -137,30 +156,35 @@ func (b *BanksHandler) TochkaBankHandler(w http.ResponseWriter, r *http.Request)
 	})
 	if err != nil || !token.Valid {
 		log.Printf("invalid signature %v", err)
+		http.Error(w, "invalid webhook signature", http.StatusUnauthorized)
 		return
 	}
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
 		log.Printf("invalid claims %v", err)
+		http.Error(w, "invalid webhook claims", http.StatusBadRequest)
 		return
 	}
 
 	payloadBytes, err := json.Marshal(claims)
 	if err != nil {
 		log.Printf("cannot marshal claims %v", err)
+		http.Error(w, "invalid webhook claims", http.StatusBadRequest)
 		return
 	}
 
 	var tochkaPayment payment.TochkaPayment
 	if err := json.Unmarshal(payloadBytes, &tochkaPayment); err != nil {
 		log.Printf("cannot parse payment %v", err)
+		http.Error(w, "invalid webhook payload", http.StatusBadRequest)
 		return
 	}
 
 	err = b.banksSvc.TochkaBank(tochkaPayment)
 	if err != nil {
 		log.Println(err)
+		http.Error(w, "failed to save incoming payment", http.StatusInternalServerError)
 		return
 	}
 

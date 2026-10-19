@@ -64,7 +64,7 @@ func (b *BankService) ModuleBank(payload payment.ModulbankPayment) error {
 		RawDocNumber:  payload.Operation.DocNumber,
 	})
 	if saveErr != nil && !errors.Is(saveErr, db.ErrIncomingPaymentExists) {
-		log.Printf("modulbank save payment: %v", saveErr)
+		return fmt.Errorf("modulbank save payment: %w", saveErr)
 	}
 
 	err := b.messenger.SendMessageInGroupName("Payments", message)

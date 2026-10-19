@@ -58,7 +58,7 @@ func (b *BankService) TochkaBank(payment payment.TochkaPayment) error {
 		RawDocNumber:  payment.DocumentNumber,
 	})
 	if saveErr != nil && !errors.Is(saveErr, db.ErrIncomingPaymentExists) {
-		log.Printf("tochka save payment: %v", saveErr)
+		return fmt.Errorf("tochka save payment: %w", saveErr)
 	}
 
 	err := b.messenger.SendMessageInGroupName("Payments", message)

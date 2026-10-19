@@ -25,7 +25,6 @@ func (b *BankService) TBank(payment domainPayment.TBankPayment) error {
 		log.Println("tbank dublicate:", opID)
 		return nil
 	}
-	tbankCache.Set(opID, true, cache.DefaultExpiration)
 
 	date := formatRFC3339(payment.DrawDate)
 
@@ -66,8 +65,11 @@ func (b *BankService) TBank(payment domainPayment.TBankPayment) error {
 		RawDocNumber:  payment.DocumentNumber,
 	})
 	if saveErr != nil && !errors.Is(saveErr, db.ErrIncomingPaymentExists) {
-		log.Printf("tbank save payment: %v", saveErr)
+		return fmt.Errorf("tbank save payment: %w", saveErr)
 	}
+	// Ставим ID в кеш только после успешной записи (или если запись уже была).
+	// Иначе повтор вебхука после ошибки БД будет ошибочно принят за обработанный.
+	tbankCache.Set(opID, true, cache.DefaultExpiration)
 
 	err := b.messenger.SendMessageInGroupName("Payments", message)
 	if err != nil {
