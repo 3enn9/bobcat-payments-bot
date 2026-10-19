@@ -17,7 +17,6 @@ func NewConnectionDB(c *config.Config) (*Database, error) {
 
 	for i := 0; i < 20; i++ {
 		db, err = sql.Open("mysql", dataSourceName)
-		log.Printf("connection: %s", dataSourceName)
 		if err != nil {
 			log.Printf("❌ Failed to open DB connection (try %d/20): %v", i+1, err)
 		} else if pingErr := db.Ping(); pingErr == nil {

@@ -1,0 +1,48 @@
+discovery.docker "host" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "paymentsbot" {
+  targets = discovery.docker.host.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/bobcat-payments-bot-app-[0-9]+"
+    action        = "keep"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_id"]
+    regex         = "(.+)"
+    target_label  = "__path__"
+    replacement   = "/var/lib/docker/containers/$1/$1-json.log"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+}
+
+loki.source.file "paymentsbot" {
+  targets       = discovery.relabel.paymentsbot.output
+  tail_from_end = true
+  forward_to    = [loki.process.docker.receiver]
+}
+
+loki.process "docker" {
+  stage.docker {}
+  forward_to = [loki.write.grafana_cloud.receiver]
+}
+
+loki.write "grafana_cloud" {
+  endpoint {
+    url = sys.env("GRAFANA_CLOUD_LOKI_URL")
+
+    basic_auth {
+      username = sys.env("GRAFANA_CLOUD_LOKI_USER")
+      password = sys.env("GRAFANA_CLOUD_LOKI_TOKEN")
+    }
+  }
+}

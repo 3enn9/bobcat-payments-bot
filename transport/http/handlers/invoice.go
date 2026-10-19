@@ -365,7 +365,7 @@ func (h *MiniAppHandler) CreateInvoice(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if input.SendToEmail {
-		log.Printf("invoice email stub: счёт № %d -> %s (отправка на почту пока отключена)", created.Number, input.Buyer.Email)
+		log.Printf("invoice email stub: счёт № %d (отправка на почту пока отключена)", created.Number)
 	}
 
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{

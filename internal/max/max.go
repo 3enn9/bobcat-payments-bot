@@ -4,7 +4,6 @@ import (
 	"PaymentsBot/internal/db"
 	"PaymentsBot/internal/payments"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -176,7 +175,7 @@ func (m *MaxService) handleMessage(upd *schemes.MessageCreatedUpdate) {
 	}
 
 	if strings.HasPrefix(cmd, "/") {
-		log.Printf("max: unknown command=%q chatID=%d", cmd, upd.GetChatID())
+		log.Println("max: unknown command received")
 		return
 	}
 
@@ -188,13 +187,7 @@ func (m *MaxService) handleMessage(upd *schemes.MessageCreatedUpdate) {
 func (m *MaxService) handleBotStarted(upd *schemes.BotStartedUpdate) {
 	name := strings.TrimSpace(upd.User.Name)
 	username := strings.TrimSpace(upd.User.Username)
-	log.Printf(
-		"bot open: source=max user_id=%d name=%q username=%q chat_id=%d",
-		upd.User.UserId,
-		name,
-		username,
-		upd.ChatId,
-	)
+	log.Println("bot open: source=max")
 	if err := m.db.SaveBotUserIfNew(upd.User.UserId, name, username); err != nil {
 		log.Printf("bot user save: %v", err)
 	}
@@ -204,34 +197,19 @@ func (m *MaxService) handleGroupCommand(upd *schemes.MessageCreatedUpdate) {
 	chatID := upd.GetChatID()
 	ctx := context.Background()
 
-	chat, err := m.Bot.Chats.GetChat(ctx, chatID)
+	_, err := m.Bot.Chats.GetChat(ctx, chatID)
 	if err != nil {
 		log.Printf("max /group: GetChat error chatID=%d: %v", chatID, err)
 		return
 	}
 
-	logJSON("max /group: chat", chat)
-
-	membership, err := m.Bot.Chats.GetChatMembership(ctx, chatID)
+	_, err = m.Bot.Chats.GetChatMembership(ctx, chatID)
 	if err != nil {
 		log.Printf("max /group: GetChatMembership error chatID=%d: %v", chatID, err)
-	} else {
-		logJSON("max /group: membership", membership)
 	}
 
-	admins, err := m.Bot.Chats.GetChatAdmins(ctx, chatID)
+	_, err = m.Bot.Chats.GetChatAdmins(ctx, chatID)
 	if err != nil {
 		log.Printf("max /group: GetChatAdmins error chatID=%d: %v", chatID, err)
-	} else {
-		logJSON("max /group: admins", admins)
 	}
-}
-
-func logJSON(prefix string, v any) {
-	data, err := json.MarshalIndent(v, "", "  ")
-	if err != nil {
-		log.Printf("%s: %#v", prefix, v)
-		return
-	}
-	log.Printf("%s:\n%s", prefix, string(data))
 }

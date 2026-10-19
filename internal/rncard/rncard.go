@@ -19,16 +19,16 @@ type apiResponse struct {
 }
 
 type operation struct {
-	Ref     string  `json:"Ref"`
-	Code    string  `json:"Code"`
-	Sum     float64 `json:"Sum"`
-	Value   float64 `json:"Value"`
-	Card    string  `json:"Card"`
-	Holder  string  `json:"Holder"`
-	GName   string  `json:"GName"`
-	GCode   string  `json:"GCode"`
-	DTL     string  `json:"DTL"`
-	Date    string  `json:"Date"`
+	Ref    string  `json:"Ref"`
+	Code   string  `json:"Code"`
+	Sum    float64 `json:"Sum"`
+	Value  float64 `json:"Value"`
+	Card   string  `json:"Card"`
+	Holder string  `json:"Holder"`
+	GName  string  `json:"GName"`
+	GCode  string  `json:"GCode"`
+	DTL    string  `json:"DTL"`
+	Date   string  `json:"Date"`
 }
 
 func (op operation) cardNumber() string {
@@ -167,8 +167,6 @@ func (r *RnCard) FetchAndSendTransactions() error {
 	if err != nil {
 		return err
 	}
-
-	log.Printf("fuels message: %s", message)
 
 	return nil
 }

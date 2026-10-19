@@ -42,7 +42,7 @@ func (p *MaxHandler) MaxUpdates(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if err != nil {
-			log.Printf("max webhook parse error: %v body=%s", err, string(body))
+			log.Printf("max webhook parse error: %v", err)
 			w.WriteHeader(http.StatusOK)
 			return
 		}

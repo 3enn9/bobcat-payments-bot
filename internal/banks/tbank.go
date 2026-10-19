@@ -76,7 +76,7 @@ func (b *BankService) TBank(payment domainPayment.TBankPayment) error {
 		return err
 	}
 
-	log.Printf("TBank %+v", payment)
+	log.Println("tbank incoming payment saved")
 
 	return nil
 }

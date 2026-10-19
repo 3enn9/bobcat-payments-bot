@@ -57,6 +57,33 @@ services:
       - web
       - vnutri_net
 
+  alloy:
+    image: grafana/alloy:v1.21.0
+
+    profiles:
+      - observability
+
+    command:
+      - run
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+
+    restart: unless-stopped
+
+    environment:
+      GRAFANA_CLOUD_LOKI_URL: ${GRAFANA_CLOUD_LOKI_URL:-}
+      GRAFANA_CLOUD_LOKI_USER: ${GRAFANA_CLOUD_LOKI_USER:-}
+      GRAFANA_CLOUD_LOKI_TOKEN: ${GRAFANA_CLOUD_LOKI_TOKEN:-}
+
+    volumes:
+      - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - alloy_data:/var/lib/alloy/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/snap/docker/common/var-lib-docker/containers:/var/lib/docker/containers:ro
+
+    networks:
+      - web
+
 networks:
 
   web:
@@ -70,3 +97,5 @@ volumes:
   caddy_data:
 
   caddy_config:
+
+  alloy_data:

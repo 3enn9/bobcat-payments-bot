@@ -186,7 +186,7 @@ func (im *Importer) importAttachment(att mail.Attachment, notify, replace bool) 
 	replace = replace || invoice.IsRevisedFilename(name)
 	created, err := im.DB.CreateInvoice(toInput(data, replace))
 	if errors.Is(err, db.ErrInvoiceExists) {
-		log.Printf("accountant skip existing invoice %s №%d %s", data.SupplierName, data.Number, data.Date.Format("2006-01-02"))
+		log.Printf("accountant skip existing invoice number=%d date=%s", data.Number, data.Date.Format("2006-01-02"))
 		return db.ErrInvoiceExists
 	}
 	if err != nil {
@@ -219,10 +219,10 @@ func (im *Importer) importAttachment(att mail.Attachment, notify, replace bool) 
 		}
 	}
 	if created != nil && created.Replaced {
-		log.Printf("accountant updated invoice %s №%d %s", data.SupplierName, data.Number, data.BuyerName)
+		log.Printf("accountant updated invoice number=%d", data.Number)
 		return errInvoiceUpdated
 	}
-	log.Printf("accountant imported %s №%d %s", data.SupplierName, data.Number, data.BuyerName)
+	log.Printf("accountant imported invoice number=%d", data.Number)
 	return nil
 }
 

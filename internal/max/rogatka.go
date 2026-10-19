@@ -107,7 +107,7 @@ func (m *MaxService) upsertRogatkaRequest(
 	chatID, userID int64,
 	username, userName, messageID, message, action string,
 ) {
-	id, created, err := m.db.SaveRogatkaRequest(
+	_, created, err := m.db.SaveRogatkaRequest(
 		chatID,
 		userID,
 		username,
@@ -116,13 +116,13 @@ func (m *MaxService) upsertRogatkaRequest(
 		message,
 	)
 	if err != nil {
-		log.Printf("max rogatka: save error chatID=%d messageID=%s: %v", chatID, messageID, err)
+		log.Printf("max rogatka: save error: %v", err)
 		return
 	}
 
 	if created {
-		log.Printf("max rogatka: created id=%d chatID=%d message=%q", id, chatID, message)
+		log.Println("max rogatka: request created")
 		return
 	}
-	log.Printf("max rogatka: updated id=%d chatID=%d action=%s message=%q", id, chatID, action, message)
+	log.Printf("max rogatka: request updated action=%s", action)
 }

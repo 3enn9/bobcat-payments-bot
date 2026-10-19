@@ -11,8 +11,8 @@ import (
 	"strings"
 
 	"PaymentsBot/internal/db"
-	max2 "PaymentsBot/internal/max"
 	mailpkg "PaymentsBot/internal/mail"
+	max2 "PaymentsBot/internal/max"
 
 	"github.com/gorilla/mux"
 )
@@ -372,7 +372,7 @@ func (h *MiniAppHandler) LogBotOpen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("bot open: source=miniapp user_id=%d name=%q username=%q", userID, name, username)
+	log.Println("bot open: source=miniapp")
 	if err := h.db.SaveBotUserIfNew(userID, name, username); err != nil {
 		log.Printf("bot user save: %v", err)
 	}
