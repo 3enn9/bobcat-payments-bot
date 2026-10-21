@@ -25,9 +25,9 @@ discovery.relabel "paymentsbot" {
   }
 }
 
-loki.source.file "paymentsbot" {
+loki.source.file "paymentsbot_replay" {
   targets       = discovery.relabel.paymentsbot.output
-  tail_from_end = true
+  tail_from_end = false
   forward_to    = [loki.process.docker.receiver]
 }
 

@@ -16,7 +16,7 @@ payments with bank statements for that failure case.
 
 ## External logs with Grafana Cloud
 
-The optional Alloy service forwards new logs from the `app` container to Grafana Cloud Logs. It starts at the end of the existing Docker log file, so old entries are not uploaded on first setup. Alloy keeps its read positions in a named volume so it can resume after a restart.
+The optional Alloy service forwards logs from the `app` container to Grafana Cloud Logs. It reads the current app log from the beginning when its source is first initialized, then keeps its read positions in a named volume so it can resume after a restart. Reinitializing the source can replay the current log file.
 
 1. Create a Grafana Cloud stack and a token with permission to write logs.
 2. Add these values to the server's `.env` file (see `.env.example`):
