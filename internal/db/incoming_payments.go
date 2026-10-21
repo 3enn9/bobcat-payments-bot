@@ -2,8 +2,15 @@ package db
 
 import (
 	"database/sql"
+	"database/sql/driver"
 	"errors"
+	"io"
+	"log"
+	"net"
+	"strings"
 	"time"
+
+	"github.com/go-sql-driver/mysql"
 )
 
 type IncomingPaymentSource string
@@ -44,32 +51,55 @@ type SaveIncomingPaymentInput struct {
 	RawDocNumber  string
 }
 
-var ErrIncomingPaymentExists = errors.New("incoming_payment_exists")
+var (
+	ErrIncomingPaymentExists    = errors.New("incoming_payment_exists")
+	ErrInvalidIncomingPaymentID = errors.New("incoming_payment_id_required")
+)
+
+const incomingPaymentSaveAttempts = 3
 
 // SaveIncomingPayment сохраняет входящий платёж.
 // Возвращает ErrIncomingPaymentExists если такой (source, external_id) уже есть.
 func (d *Database) SaveIncomingPayment(inp SaveIncomingPaymentInput) (int64, error) {
+	inp.ExternalID = strings.TrimSpace(inp.ExternalID)
+	if inp.ExternalID == "" || len(inp.ExternalID) > 128 {
+		return 0, ErrInvalidIncomingPaymentID
+	}
 	if inp.Currency == "" {
 		inp.Currency = "RUB"
 	}
-	res, err := d.DB.Exec(`
-		INSERT IGNORE INTO incoming_payments
-			(source, external_id, executed_at, amount, currency,
-			 account, recipient_name, payer_name, payer_inn, purpose, raw_doc_number, match_status)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open')
-	`,
-		inp.Source,
-		inp.ExternalID,
-		inp.ExecutedAt.Format("2006-01-02"),
-		inp.Amount,
-		inp.Currency,
-		inp.Account,
-		inp.RecipientName,
-		inp.PayerName,
-		inp.PayerINN,
-		inp.Purpose,
-		inp.RawDocNumber,
-	)
+	var res sql.Result
+	var err error
+	for attempt := 1; attempt <= incomingPaymentSaveAttempts; attempt++ {
+		res, err = d.DB.Exec(`
+			INSERT IGNORE INTO incoming_payments
+				(source, external_id, executed_at, amount, currency,
+				 account, recipient_name, payer_name, payer_inn, purpose, raw_doc_number, match_status)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open')
+		`,
+			inp.Source,
+			inp.ExternalID,
+			inp.ExecutedAt.Format("2006-01-02"),
+			inp.Amount,
+			inp.Currency,
+			inp.Account,
+			inp.RecipientName,
+			inp.PayerName,
+			inp.PayerINN,
+			inp.Purpose,
+			inp.RawDocNumber,
+		)
+		if err == nil {
+			break
+		}
+		if !isRetryableIncomingPaymentError(err) || attempt == incomingPaymentSaveAttempts {
+			log.Printf("incoming payment save failed source=%s external_id=%q attempts=%d: %v", inp.Source, inp.ExternalID, attempt, err)
+			return 0, err
+		}
+
+		log.Printf("incoming payment save retry source=%s external_id=%q attempt=%d/%d: %v", inp.Source, inp.ExternalID, attempt, incomingPaymentSaveAttempts, err)
+		time.Sleep(time.Duration(attempt) * 200 * time.Millisecond)
+	}
 	if err != nil {
 		return 0, err
 	}
@@ -81,6 +111,26 @@ func (d *Database) SaveIncomingPayment(inp SaveIncomingPaymentInput) (int64, err
 		return 0, ErrIncomingPaymentExists
 	}
 	return id, nil
+}
+
+func isRetryableIncomingPaymentError(err error) bool {
+	if errors.Is(err, driver.ErrBadConn) || errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+		return true
+	}
+
+	var mysqlErr *mysql.MySQLError
+	if errors.As(err, &mysqlErr) {
+		switch mysqlErr.Number {
+		case 1205, // lock wait timeout
+			1213, // deadlock victim
+			2006, // server has gone away
+			2013: // lost connection during query
+			return true
+		}
+	}
+
+	var networkErr net.Error
+	return errors.As(err, &networkErr)
 }
 
 type IncomingPaymentsFilter struct {

@@ -1,18 +1,19 @@
 package handlers
 
 import (
-	"PaymentsBot/internal/banks"
+	"PaymentsBot/internal/db"
 	"PaymentsBot/internal/domain/payment"
+	"PaymentsBot/internal/webhookqueue"
 	"crypto/rsa"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/golang-jwt/jwt/v5"
 	"io"
 	"log"
 	"math/big"
 	"net/http"
+	"strings"
 )
 
 func jwkToPublicKey(jwk payment.JWK) (*rsa.PublicKey, error) {
@@ -38,12 +39,38 @@ func jwkToPublicKey(jwk payment.JWK) (*rsa.PublicKey, error) {
 	return pubKey, nil
 }
 
-func NewBanksHandler(service *banks.BankService) *BanksHandler {
-	return &BanksHandler{banksSvc: *service}
+func NewBanksHandler(queue *webhookqueue.Queue) *BanksHandler {
+	return &BanksHandler{queue: queue}
 }
 
 type BanksHandler struct {
-	banksSvc banks.BankService
+	queue *webhookqueue.Queue
+}
+
+func (b *BanksHandler) enqueuePayment(w http.ResponseWriter, source db.IncomingPaymentSource, externalID string, payload any) {
+	externalID = strings.TrimSpace(externalID)
+	if externalID == "" || len(externalID) > 128 {
+		http.Error(w, "payment id is required", http.StatusBadRequest)
+		return
+	}
+	if b.queue == nil {
+		log.Printf("incoming payment queue unavailable source=%s external_id=%q", source, externalID)
+		http.Error(w, "payment queue unavailable", http.StatusInternalServerError)
+		return
+	}
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		log.Printf("encode incoming payment webhook source=%s external_id=%q: %v", source, externalID, err)
+		http.Error(w, "failed to accept incoming payment", http.StatusInternalServerError)
+		return
+	}
+	if err := b.queue.Enqueue(string(source), externalID, payloadBytes); err != nil {
+		log.Printf("enqueue incoming payment failed source=%s external_id=%q: %v", source, externalID, err)
+		http.Error(w, "failed to accept incoming payment", http.StatusInternalServerError)
+		return
+	}
+	log.Printf("incoming payment webhook accepted source=%s external_id=%q", source, externalID)
+	w.WriteHeader(http.StatusOK)
 }
 
 // ModuleBankHandler обработчик веб хука Модуль банка
@@ -67,17 +94,11 @@ func (b *BanksHandler) ModuleBankHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	err = b.banksSvc.ModuleBank(modulBankPayment)
-	if err != nil {
-		if errors.Is(err, payment.ErrTypeOfOperation) {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-		log.Println(err)
-		http.Error(w, "failed to save incoming payment", http.StatusInternalServerError)
+	if modulBankPayment.Operation.Category != "Debet" {
+		w.WriteHeader(http.StatusOK)
 		return
 	}
-	w.WriteHeader(http.StatusOK)
+	b.enqueuePayment(w, db.SourceModulbank, modulBankPayment.Operation.ID, modulBankPayment)
 }
 
 // TBankHandler Обработчик веб хука Тбанка
@@ -101,18 +122,11 @@ func (b *BanksHandler) TBankHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = b.banksSvc.TBank(tBankPayment)
-	if err != nil {
-		if errors.Is(err, payment.ErrTypeOfOperation) {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-		log.Println(err)
-		http.Error(w, "failed to save incoming payment", http.StatusInternalServerError)
+	if tBankPayment.TypeOfOperation == "Debit" {
+		w.WriteHeader(http.StatusOK)
 		return
 	}
-
-	w.WriteHeader(http.StatusOK)
+	b.enqueuePayment(w, db.SourceTbank, tBankPayment.OperationID, tBankPayment)
 }
 
 func (b *BanksHandler) TochkaBankHandler(w http.ResponseWriter, r *http.Request) {
@@ -181,12 +195,5 @@ func (b *BanksHandler) TochkaBankHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	err = b.banksSvc.TochkaBank(tochkaPayment)
-	if err != nil {
-		log.Println(err)
-		http.Error(w, "failed to save incoming payment", http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
+	b.enqueuePayment(w, db.SourceTochka, tochkaPayment.PaymentId, tochkaPayment)
 }

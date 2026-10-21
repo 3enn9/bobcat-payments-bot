@@ -37,6 +37,7 @@ type Config struct {
 	SBISLogin         string
 	SBISPassword      string
 	SBISAccount       string
+	WebhookQueueDir   string
 }
 
 func NewConfig() *Config {
@@ -82,6 +83,7 @@ func NewConfig() *Config {
 		SBISLogin:         os.Getenv("SBIS_LOGIN"),
 		SBISPassword:      os.Getenv("SBIS_PASSWORD"),
 		SBISAccount:       os.Getenv("SBIS_ACCOUNT"),
+		WebhookQueueDir:   firstNonEmpty(os.Getenv("WEBHOOK_QUEUE_DIR"), "./data/incoming-webhooks"),
 	}
 }
 

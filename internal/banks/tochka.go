@@ -66,7 +66,7 @@ func (b *BankService) TochkaBank(payment payment.TochkaPayment) error {
 		return err
 	}
 
-	log.Println("tochkabank send message")
+	log.Printf("tochkabank payment processed external_id=%q", payment.PaymentId)
 
 	return nil
 }

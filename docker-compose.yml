@@ -5,10 +5,14 @@ services:
   app:
     environment:
       - TZ=Europe/Samara
+      - WEBHOOK_QUEUE_DIR=/var/lib/paymentsbot/incoming-webhooks
 
     build: .
 
     restart: unless-stopped
+
+    volumes:
+      - payment_webhook_queue:/var/lib/paymentsbot/incoming-webhooks
 
     env_file:
       - .env
@@ -99,3 +103,5 @@ volumes:
   caddy_config:
 
   alloy_data:
+
+  payment_webhook_queue:

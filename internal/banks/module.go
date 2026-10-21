@@ -72,7 +72,7 @@ func (b *BankService) ModuleBank(payload payment.ModulbankPayment) error {
 		return err
 	}
 
-	log.Println("modulebank send message")
+	log.Printf("modulebank payment processed external_id=%q", payload.Operation.ID)
 	return nil
 }
 

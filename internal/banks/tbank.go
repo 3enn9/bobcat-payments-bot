@@ -76,7 +76,7 @@ func (b *BankService) TBank(payment domainPayment.TBankPayment) error {
 		return err
 	}
 
-	log.Println("tbank incoming payment saved")
+	log.Printf("tbank payment processed external_id=%q", opID)
 
 	return nil
 }

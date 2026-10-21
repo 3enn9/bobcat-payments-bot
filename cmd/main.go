@@ -15,6 +15,7 @@ import (
 	"PaymentsBot/internal/scheduler"
 	"PaymentsBot/internal/tg"
 	"PaymentsBot/internal/usecase"
+	"PaymentsBot/internal/webhookqueue"
 	"PaymentsBot/transport"
 	"PaymentsBot/transport/http/handlers"
 	"context"
@@ -36,6 +37,10 @@ func main() {
 		log.Fatalf("DB connection failed: %v", err)
 	}
 	defer dbInstance.DB.Close()
+	incomingWebhookQueue, err := webhookqueue.New(cf.WebhookQueueDir)
+	if err != nil {
+		log.Fatalf("incoming payment queue initialization failed: %v", err)
+	}
 	paymentsService := payments.NewPaymentsService(dbInstance)
 	tgBotService, err := tg.NewTelegramService(cf.Token, paymentsService, cf.InvoicesChatID)
 	if err != nil {
@@ -53,7 +58,7 @@ func main() {
 	multiMessengers := multi.NewMultiMessenger([]usecase.SendMessanger{tgBotService, maxBotService})
 	rnCardService := rncard.NewRnCardService(multiMessengers, dbInstance)
 	banksService := banks.NewBankService(multiMessengers, dbInstance)
-	banksHandler := handlers.NewBanksHandler(banksService)
+	banksHandler := handlers.NewBanksHandler(incomingWebhookQueue)
 	telegramHandler := handlers.NewTelegramHandler(tgBotService)
 	maxHandler := handlers.NewMaxHandler(maxBotService)
 	miniAppHandler := handlers.NewMiniAppHandler(
@@ -73,6 +78,9 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	go incomingWebhookQueue.Run(ctx, func(event webhookqueue.Event) error {
+		return banksService.ProcessWebhook(event.Source, event.Payload)
+	})
 
 	go (&accountant.Importer{
 		DB: dbInstance,

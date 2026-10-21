@@ -1,4 +1,20 @@
-# External logs with Grafana Cloud
+# PaymentsBot operations
+
+## Incoming payment webhooks
+
+The app writes accepted incoming payment events to the `payment_webhook_queue`
+Docker volume before returning HTTP 200 to a bank. A background worker saves
+them to MySQL and retries failures; processed events are retained for 90 days
+for webhook deduplication. Events still waiting for processing remain in the
+volume across app container restarts.
+
+Queue retry logs include the bank source and external payment ID. If the queue
+volume cannot be written (for example, the host disk is full), the webhook
+returns HTTP 500 so the bank can retry delivery. The queue is local to the VPS,
+so it does not protect against loss of the VPS or its Docker volumes; reconcile
+payments with bank statements for that failure case.
+
+## External logs with Grafana Cloud
 
 The optional Alloy service forwards new logs from the `app` container to Grafana Cloud Logs. It starts at the end of the existing Docker log file, so old entries are not uploaded on first setup. Alloy keeps its read positions in a named volume so it can resume after a restart.
 
