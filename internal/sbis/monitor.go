@@ -22,6 +22,8 @@ const (
 	endpoint   = "https://online.sbis.ru"
 	maxChatID  = int64(-80188244966112)
 	checkEvery = time.Minute
+	bootstrap  = 10 * time.Minute
+	pageSize   = "50"
 )
 
 type Monitor struct {
@@ -72,45 +74,131 @@ func (m *Monitor) poll(ctx context.Context) error {
 		m.session = sid
 	}
 
-	from := time.Now().Add(-10 * time.Minute).Format("02.01.2006 15.04.05")
-	var response struct {
-		Document []document `json:"Документ"`
+	cursor, err := m.loadCursor(ctx)
+	if err != nil {
+		return fmt.Errorf("load cursor: %w", err)
 	}
-	filter := map[string]any{"ДатаВремяС": from, "ПолныйСертификатЭП": "Нет"}
-	// The method takes one argument, Фильтр. Навигация belongs inside it;
-	// placing it beside Фильтр makes JSON-RPC resolve the nonexistent /2 overload.
-	filter["Навигация"] = map[string]any{"РазмерСтраницы": "50"}
-	if err := m.call(ctx, "/service/?srv=1", "СБИС.СписокИзменений", map[string]any{"Фильтр": filter}, m.session, &response); err != nil {
-		m.session = ""
-		return err
+	from := time.Now().Add(-bootstrap).Format("02.01.2006 15.04.05")
+	filter := map[string]any{
+		"ДатаВремяС":         from,
+		"ПолныйСертификатЭП": "Нет",
+		"Навигация":          map[string]any{"РазмерСтраницы": pageSize},
 	}
-	for _, doc := range response.Document {
-		if !strings.EqualFold(doc.Direction, "Исходящий") {
-			continue
+	if cursor.EventID != "" {
+		filter["ИдентификаторСобытия"] = cursor.EventID
+		filter["ИдентификаторДокумента"] = cursor.DocumentID
+		filter["ДатаВремяС"] = cursor.DateTime
+	} else if cursor.DateTime != "" {
+		filter["ДатаВремяС"] = cursor.DateTime
+	}
+	var scannedDocs, sent, pages int
+	advanced := false
+	lastCursor := ""
+	for {
+		var response struct {
+			Document   []document `json:"Документ"`
+			Navigation struct {
+				HasMore string `json:"ЕстьЕще"`
+			} `json:"Навигация"`
 		}
-		for _, event := range doc.Events {
-			if event.ID == "" || !eventHasIncomingSignature(event) {
+		if err := m.call(ctx, "/service/?srv=1", "СБИС.СписокИзменений", map[string]any{"Фильтр": filter}, m.session, &response); err != nil {
+			m.session = ""
+			return err
+		}
+		pages++
+		scannedDocs += len(response.Document)
+		if len(response.Document) == 0 {
+			break
+		}
+
+		for _, doc := range response.Document {
+			if !strings.EqualFold(doc.Direction, "Исходящий") {
 				continue
 			}
-			key := eventKey(doc.ID, event.ID)
-			exists, err := m.wasNotified(ctx, key)
-			if err != nil {
-				return err
-			}
-			if exists {
-				continue
-			}
-			text := formatMessage(doc, event)
-			msg := maxbot.NewMessage().SetChat(maxChatID).SetText(text)
-			if err := m.max.Messages.Send(ctx, msg); err != nil {
-				return fmt.Errorf("MAX send document %s: %w", doc.ID, err)
-			}
-			if _, err := m.db.DB.ExecContext(ctx, `INSERT IGNORE INTO sbis_edo_notified (event_key, document_id, document_number, counterparty, signed_at) VALUES (?, ?, ?, ?, ?)`, key, doc.ID, doc.Number, doc.Counterparty.name(), parseDateTime(event.DateTime)); err != nil {
-				return fmt.Errorf("save notification: %w", err)
+			for _, event := range doc.Events {
+				if event.ID == "" || !eventHasIncomingSignature(event) {
+					continue
+				}
+				key := eventKey(doc.ID, event.ID)
+				exists, err := m.wasNotified(ctx, key)
+				if err != nil {
+					return err
+				}
+				if exists {
+					continue
+				}
+				text := formatMessage(doc, event)
+				msg := maxbot.NewMessage().SetChat(maxChatID).SetText(text)
+				if err := m.max.Messages.Send(ctx, msg); err != nil {
+					return fmt.Errorf("MAX send document %s: %w", doc.ID, err)
+				}
+				if _, err := m.db.DB.ExecContext(ctx, `INSERT IGNORE INTO sbis_edo_notified (event_key, document_id, document_number, counterparty, signed_at) VALUES (?, ?, ?, ?, ?)`, key, doc.ID, doc.Number, doc.Counterparty.name(), parseDateTime(event.DateTime)); err != nil {
+					return fmt.Errorf("save notification: %w", err)
+				}
+				sent++
 			}
 		}
+
+		lastDoc, lastEvent := lastDocumentEvent(response.Document)
+		if lastDoc == nil || lastEvent == nil {
+			return fmt.Errorf("СБИС returned a page without a usable event cursor")
+		}
+		cursorKey := eventKey(lastDoc.ID, lastEvent.ID)
+		if cursorKey == lastCursor {
+			return fmt.Errorf("СБИС pagination did not advance past event %s", lastEvent.ID)
+		}
+		lastCursor = cursorKey
+		cursor = eventCursor{DateTime: lastEvent.DateTime, EventID: lastEvent.ID, DocumentID: lastDoc.ID}
+		advanced = true
+		if strings.EqualFold(response.Navigation.HasMore, "Нет") {
+			break
+		}
+		// СБИС.СписокИзменений continues from the last event, rather than a page number.
+		filter["ИдентификаторСобытия"] = lastEvent.ID
+		filter["ИдентификаторДокумента"] = lastDoc.ID
+		filter["ДатаВремяС"] = lastEvent.DateTime
 	}
+	if !advanced {
+		// СБИС по умолчанию не возвращает события за последнюю минуту.
+		// Сохраняем небольшой перекрывающийся интервал для следующего опроса.
+		cursor = eventCursor{DateTime: time.Now().Add(-time.Minute).Format("02.01.2006 15.04.05")}
+	}
+	if err := m.saveCursor(ctx, cursor); err != nil {
+		return fmt.Errorf("save cursor: %w", err)
+	}
+	log.Printf("SBIS poll: scanned=%d pages=%d notifications_sent=%d", scannedDocs, pages, sent)
 	return nil
+}
+
+type eventCursor struct {
+	DateTime   string
+	EventID    string
+	DocumentID string
+}
+
+func (m *Monitor) loadCursor(ctx context.Context) (eventCursor, error) {
+	var cursor eventCursor
+	err := m.db.DB.QueryRowContext(ctx, `SELECT event_datetime, event_id, document_id FROM sbis_edo_cursor WHERE cursor_id = 1`).Scan(&cursor.DateTime, &cursor.EventID, &cursor.DocumentID)
+	if err == sql.ErrNoRows {
+		return eventCursor{DateTime: time.Now().Add(-bootstrap).Format("02.01.2006 15.04.05")}, nil
+	}
+	return cursor, err
+}
+
+func (m *Monitor) saveCursor(ctx context.Context, cursor eventCursor) error {
+	_, err := m.db.DB.ExecContext(ctx, `INSERT INTO sbis_edo_cursor (cursor_id, event_datetime, event_id, document_id) VALUES (1, ?, ?, ?) ON DUPLICATE KEY UPDATE event_datetime = VALUES(event_datetime), event_id = VALUES(event_id), document_id = VALUES(document_id)`, cursor.DateTime, cursor.EventID, cursor.DocumentID)
+	return err
+}
+
+func lastDocumentEvent(docs []document) (*document, *event) {
+	for i := len(docs) - 1; i >= 0; i-- {
+		for j := len(docs[i].Events) - 1; j >= 0; j-- {
+			if docs[i].Events[j].ID != "" {
+				return &docs[i], &docs[i].Events[j]
+			}
+		}
+	}
+	return nil, nil
 }
 
 func (m *Monitor) call(ctx context.Context, path, method string, params any, session string, dst any) error {
