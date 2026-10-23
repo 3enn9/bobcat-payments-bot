@@ -21,7 +21,7 @@ import (
 const (
 	endpoint   = "https://online.sbis.ru"
 	maxChatID  = int64(-80188244966112)
-	checkEvery = time.Minute
+	checkEvery = time.Hour
 	bootstrap  = 10 * time.Minute
 	pageSize   = "50"
 )
