@@ -60,6 +60,30 @@ func IsReconciliationFilename(name string) bool {
 	return strings.Contains(n, "акт сверки")
 }
 
+// ReconciliationINNs returns the two parties' INNs from the reconciliation
+// act header. INNs in the transaction table are intentionally ignored.
+func ReconciliationINNs(text string) (string, string, bool) {
+	header := text
+	if end := strings.Index(strings.ToLower(header), "мы, нижеподписавшиеся"); end >= 0 {
+		header = header[:end]
+	}
+
+	seen := make(map[string]struct{}, 2)
+	inns := make([]string, 0, 2)
+	for _, match := range reINN.FindAllStringSubmatch(header, -1) {
+		inn := match[1]
+		if _, exists := seen[inn]; exists {
+			continue
+		}
+		seen[inn] = struct{}{}
+		inns = append(inns, inn)
+		if len(inns) == 2 {
+			return inns[0], inns[1], true
+		}
+	}
+	return "", "", false
+}
+
 func IsRevisedFilename(name string) bool {
 	n := strings.ToLower(strings.TrimSpace(name))
 	return strings.Contains(n, "изм")

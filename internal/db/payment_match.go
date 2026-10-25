@@ -216,6 +216,28 @@ func (d *Database) ListOpenInvoicesForSupplier(supplierID int64, payerINN, payer
 	return result, rows.Err()
 }
 
+// OpenInvoiceBalanceBetween returns the unpaid balance for open invoices
+// issued by one of our registered firms to the other party.
+func (d *Database) OpenInvoiceBalanceBetween(innA, innB string) (float64, error) {
+	var amount float64
+	err := d.DB.QueryRow(`
+		SELECT ROUND(COALESCE(SUM(remaining), 0), 2)
+		FROM (
+		  SELECT ROUND(i.total - IFNULL(SUM(a.amount), 0), 2) AS remaining
+		  FROM invoices i
+		  INNER JOIN invoice_suppliers s ON s.id = i.supplier_id
+		  LEFT JOIN invoice_payment_allocations a ON a.invoice_id = i.id
+		  WHERE s.inn IN (?, ?)
+		    AND i.buyer_inn IN (?, ?)
+		    AND s.inn <> i.buyer_inn
+		    AND i.status = 'open'
+		  GROUP BY i.id, i.total
+		  HAVING remaining > 0
+		) open_invoices
+	`, innA, innB, innA, innB).Scan(&amount)
+	return amount, err
+}
+
 // MatchPaymentToInvoices распределяет остаток платежа по выбранным счетам по порядку.
 // Частичная оплата допускается: остаток платежа и остаток счёта сохраняются.
 func (d *Database) MatchPaymentToInvoices(paymentID int64, invoiceIDs []int64, anyPayer bool) error {

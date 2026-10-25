@@ -166,8 +166,24 @@ func (im *Importer) importAttachment(att mail.Attachment, notify, replace bool) 
 	name := strings.TrimSpace(att.Filename)
 	if invoice.IsReconciliationFilename(name) {
 		if notify {
-			im.notifyText("Акт сверки: " + name)
-			im.sendTelegramPages(name, "акт", att.Bytes)
+			caption := "Акт сверки: " + name
+			telegramCaption := caption
+			text, err := invoice.ExtractPDFText(att.Bytes)
+			if err != nil {
+				log.Printf("accountant reconciliation text: %v", err)
+				telegramCaption += "\nОткрытые счета: сумма не определена"
+			} else if innA, innB, ok := invoice.ReconciliationINNs(text); !ok {
+				telegramCaption += "\nОткрытые счета: не удалось определить ИНН сторон"
+			} else if im.DB == nil {
+				telegramCaption += "\nОткрытые счета: сумму не удалось рассчитать"
+			} else if balance, err := im.DB.OpenInvoiceBalanceBetween(innA, innB); err != nil {
+				log.Printf("accountant reconciliation open balance %s/%s: %v", innA, innB, err)
+				telegramCaption += "\nОткрытые счета: сумму не удалось рассчитать"
+			} else {
+				telegramCaption += fmt.Sprintf("\nСумма открытых неоплаченных счетов: %s ₽", formatReconciliationAmount(balance))
+			}
+			im.notifyText(caption)
+			im.sendTelegramPages(name, telegramCaption, att.Bytes)
 		}
 		return nil
 	}
@@ -254,6 +270,10 @@ func (im *Importer) notifyText(text string) {
 	if err := im.Max.SendMessageInGroupName("Invoices", text); err != nil {
 		log.Printf("accountant max text: %v", err)
 	}
+}
+
+func formatReconciliationAmount(amount float64) string {
+	return strings.ReplaceAll(fmt.Sprintf("%.2f", amount), ".", ",")
 }
 
 func toInput(data *invoice.PDFData, replace bool) db.CreateInvoiceInput {
