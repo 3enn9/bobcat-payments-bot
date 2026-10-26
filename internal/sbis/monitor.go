@@ -28,6 +28,14 @@ const (
 	pageSize  = "50"
 )
 
+var ourFirmINNs = map[string]struct{}{
+	"645401925283": {}, // ИП Архипов Николай Владимирович
+	"645407904794": {}, // ИП Архипов Данила Николаевич
+	"645499004617": {}, // ИП Архипов Николай Николаевич
+	"6454116198":   {}, // ООО «СарСтройТех»
+	"645115810154": {}, // ИП Скрипниченко Алексей Николаевич
+}
+
 type Monitor struct {
 	login, password, account string
 	db                       *db.Database
@@ -116,7 +124,7 @@ func (m *Monitor) poll(ctx context.Context) error {
 		}
 
 		for _, doc := range response.Document {
-			if !strings.EqualFold(doc.Direction, "Исходящий") {
+			if !strings.EqualFold(doc.Direction, "Исходящий") || !isOurFirm(doc.OurOrganization.inn()) {
 				continue
 			}
 			for _, event := range doc.Events {
@@ -295,22 +303,37 @@ func (m *Monitor) call(ctx context.Context, path, method string, params any, ses
 }
 
 type document struct {
-	ID           string  `json:"Идентификатор"`
-	Number       string  `json:"Номер"`
-	Title        string  `json:"Название"`
-	Direction    string  `json:"Направление"`
-	Counterparty party   `json:"Контрагент"`
-	Events       []event `json:"Событие"`
+	ID              string  `json:"Идентификатор"`
+	Number          string  `json:"Номер"`
+	Title           string  `json:"Название"`
+	Direction       string  `json:"Направление"`
+	OurOrganization party   `json:"НашаОрганизация"`
+	Counterparty    party   `json:"Контрагент"`
+	Events          []event `json:"Событие"`
 }
 type party struct {
 	Legal struct {
 		Name string `json:"Название"`
+		INN  string `json:"ИНН"`
 	} `json:"СвЮЛ"`
 	Person struct {
 		Family string `json:"Фамилия"`
 		Name   string `json:"Имя"`
 		Middle string `json:"Отчество"`
+		INN    string `json:"ИНН"`
 	} `json:"СвФЛ"`
+}
+
+func (p party) inn() string {
+	if p.Legal.INN != "" {
+		return p.Legal.INN
+	}
+	return p.Person.INN
+}
+
+func isOurFirm(inn string) bool {
+	_, ok := ourFirmINNs[strings.TrimSpace(inn)]
+	return ok
 }
 
 func (p party) name() string {
