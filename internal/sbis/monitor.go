@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -33,6 +34,7 @@ type Monitor struct {
 	max                      *maxbot.Api
 	client                   *http.Client
 	session                  string
+	lastMessageSent          time.Time
 }
 
 func NewMonitor(login, password, account string, database *db.Database, bot *maxbot.Api) *Monitor {
@@ -131,7 +133,7 @@ func (m *Monitor) poll(ctx context.Context) error {
 				}
 				text := formatMessage(doc, event)
 				msg := maxbot.NewMessage().SetChat(maxChatID).SetText(text)
-				if err := m.max.Messages.Send(ctx, msg); err != nil {
+				if err := m.sendMessage(ctx, msg); err != nil {
 					return fmt.Errorf("MAX send document %s: %w", doc.ID, err)
 				}
 				if _, err := m.db.DB.ExecContext(ctx, `INSERT IGNORE INTO sbis_edo_notified (event_key, document_id, document_number, counterparty, signed_at) VALUES (?, ?, ?, ?, ?)`, key, doc.ID, doc.Number, doc.Counterparty.name(), parseDateTime(event.DateTime)); err != nil {
@@ -170,6 +172,47 @@ func (m *Monitor) poll(ctx context.Context) error {
 	}
 	log.Printf("SBIS poll: from=%s scanned=%d pages=%d notifications_sent=%d", queryFrom, scannedDocs, pages, sent)
 	return nil
+}
+
+func (m *Monitor) sendMessage(ctx context.Context, msg *maxbot.Message) error {
+	const minInterval = 600 * time.Millisecond
+	if !m.lastMessageSent.IsZero() {
+		if wait := minInterval - time.Since(m.lastMessageSent); wait > 0 {
+			timer := time.NewTimer(wait)
+			defer timer.Stop()
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-timer.C:
+			}
+		}
+	}
+
+	backoff := time.Second
+	for {
+		if err := m.max.Messages.Send(ctx, msg); err != nil {
+			var apiErr *maxbot.APIError
+			if !errors.As(err, &apiErr) || apiErr.Code != http.StatusTooManyRequests {
+				return err
+			}
+
+			log.Printf("SBIS MAX rate limit (429); retrying in %s", backoff)
+			timer := time.NewTimer(backoff)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return ctx.Err()
+			case <-timer.C:
+			}
+			backoff *= 2
+			if backoff > 30*time.Second {
+				backoff = 30 * time.Second
+			}
+			continue
+		}
+		m.lastMessageSent = time.Now()
+		return nil
+	}
 }
 
 type eventCursor struct {
