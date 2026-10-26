@@ -22,8 +22,9 @@ const (
 	endpoint   = "https://online.sbis.ru"
 	maxChatID  = int64(-80188244966112)
 	checkEvery = time.Hour
-	bootstrap  = 10 * time.Minute
-	pageSize   = "50"
+	// Recover recent events after a cursor reset or a period when polling stalled.
+	bootstrap = 7 * 24 * time.Hour
+	pageSize  = "50"
 )
 
 type Monitor struct {
@@ -78,18 +79,19 @@ func (m *Monitor) poll(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("load cursor: %w", err)
 	}
-	from := time.Now().Add(-bootstrap).Format("02.01.2006 15.04.05")
+	fromTime := time.Now().Add(-bootstrap)
+	if cursor.EventID != "" && cursor.DateTime != "" {
+		if cursorTime, err := time.ParseInLocation("02.01.2006 15.04.05", cursor.DateTime, time.Local); err == nil {
+			// Start each poll from the last event time with a small overlap.
+			// Event IDs are only for fetching subsequent pages within this poll.
+			fromTime = cursorTime.Add(-time.Minute)
+		}
+	}
+	queryFrom := fromTime.Format("02.01.2006 15.04.05")
 	filter := map[string]any{
-		"ДатаВремяС":         from,
+		"ДатаВремяС":         queryFrom,
 		"ПолныйСертификатЭП": "Нет",
 		"Навигация":          map[string]any{"РазмерСтраницы": pageSize},
-	}
-	if cursor.EventID != "" {
-		filter["ИдентификаторСобытия"] = cursor.EventID
-		filter["ИдентификаторДокумента"] = cursor.DocumentID
-		filter["ДатаВремяС"] = cursor.DateTime
-	} else if cursor.DateTime != "" {
-		filter["ДатаВремяС"] = cursor.DateTime
 	}
 	var scannedDocs, sent, pages int
 	advanced := false
@@ -166,7 +168,7 @@ func (m *Monitor) poll(ctx context.Context) error {
 	if err := m.saveCursor(ctx, cursor); err != nil {
 		return fmt.Errorf("save cursor: %w", err)
 	}
-	log.Printf("SBIS poll: scanned=%d pages=%d notifications_sent=%d", scannedDocs, pages, sent)
+	log.Printf("SBIS poll: from=%s scanned=%d pages=%d notifications_sent=%d", queryFrom, scannedDocs, pages, sent)
 	return nil
 }
 
