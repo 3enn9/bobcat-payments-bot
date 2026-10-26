@@ -2,10 +2,13 @@ package max
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/max-messenger/max-bot-api-client-go/schemes"
 )
+
+var ErrUnsupportedUpdate = errors.New("unsupported update type")
 
 func ParseWebhookUpdate(data []byte) (schemes.UpdateInterface, error) {
 	var base schemes.Update
@@ -39,6 +42,6 @@ func ParseWebhookUpdate(data []byte) (schemes.UpdateInterface, error) {
 		}
 		return &upd, nil
 	default:
-		return nil, fmt.Errorf("unsupported update type: %s", base.UpdateType)
+		return nil, fmt.Errorf("%w: %s", ErrUnsupportedUpdate, base.UpdateType)
 	}
 }

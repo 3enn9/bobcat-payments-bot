@@ -3,6 +3,7 @@ package handlers
 import (
 	max2 "PaymentsBot/internal/max"
 	"encoding/json"
+	"errors"
 	"io"
 	"log"
 	"net/http"
@@ -42,7 +43,9 @@ func (p *MaxHandler) MaxUpdates(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if err != nil {
-			log.Printf("max webhook parse error: %v", err)
+			if !errors.Is(err, max2.ErrUnsupportedUpdate) {
+				log.Printf("max webhook parse error: %v", err)
+			}
 			w.WriteHeader(http.StatusOK)
 			return
 		}

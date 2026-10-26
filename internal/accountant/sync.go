@@ -166,24 +166,48 @@ func (im *Importer) importAttachment(att mail.Attachment, notify, replace bool) 
 	name := strings.TrimSpace(att.Filename)
 	if invoice.IsReconciliationFilename(name) {
 		if notify {
-			caption := "Акт сверки: " + name
-			telegramCaption := caption
+			caption := name
 			text, err := invoice.ExtractPDFText(att.Bytes)
 			if err != nil {
 				log.Printf("accountant reconciliation text: %v", err)
-				telegramCaption += "\nОткрытые счета: сумма не определена"
+				caption += "\nОткрытые счета: сумма не определена"
 			} else if innA, innB, ok := invoice.ReconciliationINNs(text); !ok {
-				telegramCaption += "\nОткрытые счета: не удалось определить ИНН сторон"
+				caption += "\nОткрытые счета: не удалось определить ИНН сторон"
 			} else if im.DB == nil {
-				telegramCaption += "\nОткрытые счета: сумму не удалось рассчитать"
+				caption += "\nОткрытые счета: сумму не удалось рассчитать"
 			} else if balance, err := im.DB.OpenInvoiceBalanceBetween(innA, innB); err != nil {
 				log.Printf("accountant reconciliation open balance %s/%s: %v", innA, innB, err)
-				telegramCaption += "\nОткрытые счета: сумму не удалось рассчитать"
+				caption += "\nОткрытые счета: сумму не удалось рассчитать"
 			} else {
-				telegramCaption += fmt.Sprintf("\nСумма открытых неоплаченных счетов: %s ₽", formatReconciliationAmount(balance))
+				caption += fmt.Sprintf("\nСумма открытых неоплаченных счетов: %s ₽", formatReconciliationAmount(balance))
 			}
-			im.notifyText(caption)
-			im.sendTelegramPages(name, telegramCaption, att.Bytes)
+
+			pages, err := invoice.PDFToImages(att.Bytes, 150)
+			if err != nil {
+				log.Printf("accountant reconciliation pdf->png: %v", err)
+				im.notifyText(caption)
+				if im.Max != nil {
+					if sendErr := im.Max.SendFileToGroup("Invoices", name, bytes.NewReader(att.Bytes)); sendErr != nil {
+						log.Printf("accountant reconciliation max file fallback: %v", sendErr)
+					}
+				}
+				im.sendTelegramPages(name, caption, att.Bytes)
+				return nil
+			}
+
+			if im.Max != nil {
+				photos := make([]max.PhotoUpload, 0, len(pages))
+				for i, page := range pages {
+					photos = append(photos, max.PhotoUpload{
+						Name:   fmt.Sprintf("reconciliation_%d.png", i+1),
+						Reader: bytes.NewReader(page),
+					})
+				}
+				if sendErr := im.Max.SendMessageWithPhotos("Invoices", caption, photos); sendErr != nil {
+					log.Printf("accountant reconciliation max photos: %v", sendErr)
+				}
+			}
+			im.sendTelegramPageBytes(name, caption, pages)
 		}
 		return nil
 	}
