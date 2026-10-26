@@ -131,8 +131,8 @@ func (m *Monitor) poll(ctx context.Context) error {
 				if event.ID == "" || !eventHasIncomingSignature(event) {
 					continue
 				}
-				key := eventKey(doc.ID, event.ID)
-				exists, err := m.wasNotified(ctx, key)
+				key := realizationKey(doc, event)
+				exists, err := m.wasNotified(ctx, key, doc.ID)
 				if err != nil {
 					return err
 				}
@@ -306,6 +306,8 @@ type document struct {
 	ID              string  `json:"Идентификатор"`
 	Number          string  `json:"Номер"`
 	Title           string  `json:"Название"`
+	Type            string  `json:"Тип"`
+	DocumentDate    string  `json:"ДатаВремяДокумента"`
 	Direction       string  `json:"Направление"`
 	OurOrganization party   `json:"НашаОрганизация"`
 	Counterparty    party   `json:"Контрагент"`
@@ -377,13 +379,51 @@ func eventHasIncomingSignature(e event) bool {
 	}
 	return false
 }
-func eventKey(docID, eventID string) string {
-	h := sha256.Sum256([]byte(docID + "/" + eventID))
+
+// realizationKey deduplicates signing events and document copies using their
+// business identity rather than their event or SBIS document IDs.
+func realizationKey(d document, e event) string {
+	firmINN := strings.TrimSpace(d.OurOrganization.inn())
+	number := strings.TrimSpace(d.Number)
+	if firmINN == "" || number == "" {
+		return hashKey("document/" + d.ID)
+	}
+	documentDate := strings.TrimSpace(d.DocumentDate)
+	if documentDate == "" {
+		if signedAt, err := time.ParseInLocation("02.01.2006 15.04.05", e.DateTime, time.Local); err == nil {
+			documentDate = signedAt.Format("2006")
+		}
+	}
+	counterpartyINN := strings.TrimSpace(d.Counterparty.inn())
+	if counterpartyINN == "" {
+		counterpartyINN = strings.ToLower(strings.Join(strings.Fields(d.Counterparty.name()), " "))
+	}
+	docType := strings.TrimSpace(d.Type)
+	if docType == "" {
+		docType = strings.TrimSpace(d.Title)
+	}
+	identity := strings.Join([]string{
+		firmINN,
+		docType,
+		number,
+		documentDate,
+		counterpartyINN,
+	}, "\x00")
+	return hashKey("realization/" + identity)
+}
+
+func hashKey(value string) string {
+	h := sha256.Sum256([]byte(value))
 	return hex.EncodeToString(h[:])
 }
-func (m *Monitor) wasNotified(ctx context.Context, key string) (bool, error) {
+
+func eventKey(docID, eventID string) string {
+	return hashKey("event/" + docID + "/" + eventID)
+}
+
+func (m *Monitor) wasNotified(ctx context.Context, key, documentID string) (bool, error) {
 	var n int
-	err := m.db.DB.QueryRowContext(ctx, `SELECT 1 FROM sbis_edo_notified WHERE event_key = ? LIMIT 1`, key).Scan(&n)
+	err := m.db.DB.QueryRowContext(ctx, `SELECT 1 FROM sbis_edo_notified WHERE event_key = ? OR document_id = ? LIMIT 1`, key, documentID).Scan(&n)
 	if err == nil {
 		return true, nil
 	}
@@ -394,6 +434,9 @@ func (m *Monitor) wasNotified(ctx context.Context, key string) (bool, error) {
 }
 func formatMessage(d document, e event) string {
 	parts := []string{"✅ Контрагент подписал документ в СБИС ЭДО"}
+	if d.OurOrganization.name() != "" {
+		parts = append(parts, "Наша фирма: "+d.OurOrganization.name())
+	}
 	if d.Counterparty.name() != "" {
 		parts = append(parts, "Контрагент: "+d.Counterparty.name())
 	}
