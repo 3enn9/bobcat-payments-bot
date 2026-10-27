@@ -179,7 +179,7 @@ func (im *Importer) importAttachment(att mail.Attachment, notify, replace bool) 
 				log.Printf("accountant reconciliation open balance %s/%s: %v", innA, innB, err)
 				caption += "\nОткрытые счета: сумму не удалось рассчитать"
 			} else {
-				caption += fmt.Sprintf("\nСумма открытых неоплаченных счетов: %s ₽", formatReconciliationAmount(balance))
+				caption += fmt.Sprintf("\nОстаток открытых счетов за вычетом нераспределённых входящих платежей: %s ₽", formatReconciliationAmount(balance))
 			}
 
 			pages, err := invoice.PDFToImages(att.Bytes, 150)

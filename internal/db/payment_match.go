@@ -216,25 +216,48 @@ func (d *Database) ListOpenInvoicesForSupplier(supplierID int64, payerINN, payer
 	return result, rows.Err()
 }
 
-// OpenInvoiceBalanceBetween returns the unpaid balance for open invoices
-// issued by one of our registered firms to the other party.
+// OpenInvoiceBalanceBetween returns the open invoice balance between two parties,
+// less the unallocated incoming payments from the counterparty to our firms.
 func (d *Database) OpenInvoiceBalanceBetween(innA, innB string) (float64, error) {
 	var amount float64
 	err := d.DB.QueryRow(`
-		SELECT ROUND(COALESCE(SUM(remaining), 0), 2)
+		SELECT ROUND(COALESCE(open_invoices.amount, 0) - COALESCE(unallocated_payments.amount, 0), 2)
 		FROM (
-		  SELECT ROUND(i.total - IFNULL(SUM(a.amount), 0), 2) AS remaining
-		  FROM invoices i
-		  INNER JOIN invoice_suppliers s ON s.id = i.supplier_id
-		  LEFT JOIN invoice_payment_allocations a ON a.invoice_id = i.id
-		  WHERE s.inn IN (?, ?)
-		    AND i.buyer_inn IN (?, ?)
-		    AND s.inn <> i.buyer_inn
-		    AND i.status = 'open'
-		  GROUP BY i.id, i.total
-		  HAVING remaining > 0
+		  SELECT SUM(remaining) AS amount
+		  FROM (
+		    SELECT ROUND(i.total - IFNULL(SUM(a.amount), 0), 2) AS remaining
+		    FROM invoices i
+		    INNER JOIN invoice_suppliers s ON s.id = i.supplier_id
+		    LEFT JOIN invoice_payment_allocations a ON a.invoice_id = i.id
+		    WHERE s.inn IN (?, ?)
+		      AND i.buyer_inn IN (?, ?)
+		      AND s.inn <> i.buyer_inn
+		      AND i.status = 'open'
+		    GROUP BY i.id, i.total
+		    HAVING remaining > 0
+		  ) invoice_balances
 		) open_invoices
-	`, innA, innB, innA, innB).Scan(&amount)
+		CROSS JOIN (
+		  SELECT SUM(remaining) AS amount
+		  FROM (
+		    SELECT ROUND(p.amount - IFNULL(SUM(a.amount), 0), 2) AS remaining
+		    FROM incoming_payments p
+		    LEFT JOIN invoice_payment_allocations a ON a.payment_id = p.id
+		    WHERE p.match_status = 'open'
+		      AND p.payer_inn IN (?, ?)
+		      AND EXISTS (
+		        SELECT 1
+		        FROM invoice_banks b
+		        INNER JOIN invoice_suppliers s ON s.id = b.supplier_id
+		        WHERE b.account = p.account
+		          AND s.inn IN (?, ?)
+		          AND s.inn <> p.payer_inn
+		      )
+		    GROUP BY p.id, p.amount
+		    HAVING remaining > 0
+		  ) payment_balances
+		) unallocated_payments
+	`, innA, innB, innA, innB, innA, innB, innA, innB).Scan(&amount)
 	return amount, err
 }
 
