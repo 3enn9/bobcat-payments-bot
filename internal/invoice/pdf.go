@@ -370,6 +370,9 @@ func SupplierVATRate(name, inn string) int {
 	if inn == "6454116198" {
 		return 22
 	}
+	if inn == "645401925283" || inn == "645499004617" {
+		return 5
+	}
 
 	n := strings.ToLower(strings.TrimSpace(strings.ReplaceAll(name, "\u00a0", " ")))
 	if strings.Contains(n, "архипов") && (strings.Contains(n, "данила") || strings.Contains(n, "даниил")) {

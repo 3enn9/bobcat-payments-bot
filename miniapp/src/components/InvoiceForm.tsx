@@ -201,6 +201,9 @@ function supplierVatRate(name: string, inn: string): number {
   if (inn.trim() === "6454116198") {
     return 22;
   }
+  if (inn.trim() === "645401925283" || inn.trim() === "645499004617") {
+    return 5;
+  }
   if (
     n.includes("архипов") &&
     (n.includes("данила") || n.includes("даниил"))
