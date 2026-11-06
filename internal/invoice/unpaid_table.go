@@ -9,9 +9,10 @@ import (
 )
 
 type UnpaidFirmTable struct {
-	FirmName string
-	FirmINN  string
-	Rows     []UnpaidTableRow
+	FirmName    string
+	FirmINN     string
+	SectionName string
+	Rows        []UnpaidTableRow
 }
 
 type UnpaidTableRow struct {
@@ -64,10 +65,16 @@ func GenerateUnpaidTablesPDF(firms []UnpaidFirmTable, generatedAt time.Time) ([]
 
 		pdf.SetFont("arial", "", 9)
 		pdf.SetXY(left, pdf.GetY())
-		pdf.CellFormat(contentW, 5, fmt.Sprintf("Неоплаченные счета · %s · %d шт.", generatedAt.Format("02.01.2006 15:04"), len(firm.Rows)), "", 1, "L", false, 0, "")
-		pdf.SetTextColor(165, 110, 0)
-		pdf.CellFormat(contentW, 5, "Жёлтым отмечены постоянщики", "", 1, "L", false, 0, "")
-		pdf.SetTextColor(0, 0, 0)
+		summary := fmt.Sprintf("Неоплаченные счета · %s · %d шт.", generatedAt.Format("02.01.2006 15:04"), len(firm.Rows))
+		if firm.SectionName != "" {
+			summary += " · " + firm.SectionName
+		}
+		pdf.CellFormat(contentW, 5, summary, "", 1, "L", false, 0, "")
+		if firm.SectionName == "" {
+			pdf.SetTextColor(165, 110, 0)
+			pdf.CellFormat(contentW, 5, "Жёлтым отмечены постоянщики", "", 1, "L", false, 0, "")
+			pdf.SetTextColor(0, 0, 0)
+		}
 		pdf.Ln(2)
 
 		pdf.SetFont("arial", "B", 8)

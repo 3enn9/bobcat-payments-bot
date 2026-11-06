@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"fmt"
 	"log"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -47,52 +48,90 @@ func (m *MaxService) handleInvoicesCommand(upd *schemes.MessageCreatedUpdate) {
 				Remaining:         item.RemainingAmount,
 			})
 		}
-		table := invoice.UnpaidFirmTable{
-			FirmName: firm.Name,
-			FirmINN:  firm.INN,
-			Rows:     rows,
-		}
-
-		pdfBytes, err := invoice.GenerateUnpaidTablesPDF([]invoice.UnpaidFirmTable{table}, now)
-		if err != nil {
-			log.Printf("invoices cmd: pdf firm=%s: %v", firm.Name, err)
-			continue
-		}
-
 		code := strings.ToUpper(invoice.SupplierFileCode(firm.Name, firm.INN))
-		caption := formatFirmUnpaidCaption(code, firm.Name, len(rows), now)
-
-		pages, err := invoice.PDFToImages(pdfBytes, 150)
-		if err != nil {
-			log.Printf("invoices cmd: pdf->png firm=%s: %v", firm.Name, err)
-			fileName := fmt.Sprintf("unpaid_%s.pdf", sanitizeFilePart(code))
-			if sendErr := m.SendFileToChat(chatID, fileName, bytes.NewReader(pdfBytes)); sendErr != nil {
-				log.Printf("invoices cmd: pdf fallback firm=%s: %v", firm.Name, sendErr)
-				continue
+		if strings.TrimSpace(firm.INN) == "645499004617" {
+			regular, other := make([]invoice.UnpaidTableRow, 0), make([]invoice.UnpaidTableRow, 0)
+			for _, row := range rows {
+				if row.IsRegularCustomer {
+					regular = append(regular, row)
+				} else {
+					other = append(other, row)
+				}
 			}
-			_ = m.SendMessageInGroupID(chatID, caption)
-			sent++
-			continue
-		}
-
-		photos := make([]PhotoUpload, 0, len(pages))
-		for i, p := range pages {
-			photos = append(photos, PhotoUpload{
-				Name:   fmt.Sprintf("%s_%d.png", sanitizeFilePart(code), i+1),
-				Reader: bytes.NewReader(p),
+			sort.SliceStable(regular, func(i, j int) bool {
+				return normalizedBuyerName(regular[i].BuyerName) < normalizedBuyerName(regular[j].BuyerName)
 			})
-		}
-		if err := m.SendPhotosToChat(chatID, caption, photos); err != nil {
-			log.Printf("invoices cmd: send photos firm=%s: %v", firm.Name, err)
-			_ = m.SendMessageInGroupID(chatID, fmt.Sprintf("Не удалось отправить %s", code))
+			sort.SliceStable(other, func(i, j int) bool {
+				return other[i].Number < other[j].Number
+			})
+			if len(regular) > 0 && m.sendUnpaidInvoiceTable(chatID, code, firm.Name, firm.INN, "Постоянщики", regular, now) {
+				sent++
+			}
+			if len(other) > 0 && m.sendUnpaidInvoiceTable(chatID, code, firm.Name, firm.INN, "Остальные выставленные счета", other, now) {
+				sent++
+			}
 			continue
 		}
-		sent++
+		if m.sendUnpaidInvoiceTable(chatID, code, firm.Name, firm.INN, "", rows, now) {
+			sent++
+		}
 	}
 
 	if sent == 0 {
 		_ = m.SendMessageInGroupID(chatID, formatFirmUnpaidCaption("", "", 0, now))
 	}
+}
+
+func (m *MaxService) sendUnpaidInvoiceTable(chatID int64, code, firmName, firmINN, section string, rows []invoice.UnpaidTableRow, now time.Time) bool {
+	table := invoice.UnpaidFirmTable{
+		FirmName:    firmName,
+		FirmINN:     firmINN,
+		SectionName: section,
+		Rows:        rows,
+	}
+	pdfBytes, err := invoice.GenerateUnpaidTablesPDF([]invoice.UnpaidFirmTable{table}, now)
+	if err != nil {
+		log.Printf("invoices cmd: pdf firm=%s section=%s: %v", firmName, section, err)
+		return false
+	}
+
+	captionCode := code
+	fileCode := strings.ToLower(code)
+	if section != "" {
+		captionCode += " · " + section
+		fileCode += "_" + section
+	}
+	caption := formatFirmUnpaidCaption(captionCode, firmName, len(rows), now)
+	pages, err := invoice.PDFToImages(pdfBytes, 150)
+	if err != nil {
+		log.Printf("invoices cmd: pdf->png firm=%s section=%s: %v", firmName, section, err)
+		fileName := fmt.Sprintf("unpaid_%s.pdf", sanitizeFilePart(fileCode))
+		if sendErr := m.SendFileToChat(chatID, fileName, bytes.NewReader(pdfBytes)); sendErr != nil {
+			log.Printf("invoices cmd: pdf fallback firm=%s section=%s: %v", firmName, section, sendErr)
+			return false
+		}
+		_ = m.SendMessageInGroupID(chatID, caption)
+		return true
+	}
+
+	photos := make([]PhotoUpload, 0, len(pages))
+	for i, page := range pages {
+		photos = append(photos, PhotoUpload{
+			Name:   fmt.Sprintf("%s_%d.png", sanitizeFilePart(fileCode), i+1),
+			Reader: bytes.NewReader(page),
+		})
+	}
+	if err := m.SendPhotosToChat(chatID, caption, photos); err != nil {
+		log.Printf("invoices cmd: send photos firm=%s section=%s: %v", firmName, section, err)
+		_ = m.SendMessageInGroupID(chatID, fmt.Sprintf("Не удалось отправить %s", captionCode))
+		return false
+	}
+	return true
+}
+
+func normalizedBuyerName(name string) string {
+	name = strings.ToLower(strings.TrimSpace(name))
+	return strings.ReplaceAll(name, "ё", "е")
 }
 
 func formatFirmUnpaidCaption(code, firmName string, invoices int, at time.Time) string {
