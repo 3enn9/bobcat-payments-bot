@@ -1327,15 +1327,6 @@
   line-height: 1.2;
 }
 
-.unpaid-table th.invoice-action-heading,
-.unpaid-table td.invoice-cancel-cell {
-  width: 2.8em;
-  padding-left: 3px;
-  padding-right: 3px;
-  text-align: center;
-  vertical-align: middle;
-}
-
 .invoice-cancel-button {
   display: inline-grid;
   width: 28px;
@@ -1355,6 +1346,24 @@
 .invoice-cancel-button:disabled {
   opacity: 0.55;
   cursor: wait;
+}
+
+.invoice-row-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #e5e5e5;
+}
+
+.invoice-send-button {
+  min-height: 32px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .unpaid-table td.buyer {

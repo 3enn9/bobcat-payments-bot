@@ -211,7 +211,6 @@ export default function UnpaidInvoicesTable() {
                 <th className="num">Сумма</th>
                 <th className="num">Опл.</th>
                 <th className="num">К оплате</th>
-                <th className="invoice-action-heading" aria-label="Действия" />
               </tr>
             </thead>
             <tbody>
@@ -234,25 +233,10 @@ export default function UnpaidInvoicesTable() {
                       <td className="num">{money(inv.total)}</td>
                       <td className="num">{money(inv.paidAmount)}</td>
                       <td className="num">{money(inv.remainingAmount)}</td>
-                      <td className="invoice-cancel-cell">
-                        <button
-                          type="button"
-                          className="invoice-cancel-button"
-                          title="Отменить счёт"
-                          aria-label={`Отменить счёт №${inv.number}`}
-                          disabled={cancellingId !== null}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            void cancelInvoiceRow(inv);
-                          }}
-                        >
-                          {cancellingId === inv.id ? "…" : "×"}
-                        </button>
-                      </td>
                     </tr>
                     {open && (
                       <tr className="unpaid-items-row">
-                        <td colSpan={7}>
+                        <td colSpan={6}>
                           {itemsLoading === inv.id && (
                             <p className="invoice-hint">Загрузка позиций…</p>
                           )}
@@ -274,6 +258,26 @@ export default function UnpaidInvoicesTable() {
                               ))}
                             </ul>
                           )}
+                          <div className="invoice-row-actions">
+                            <button
+                              type="button"
+                              className="secondary-button invoice-send-button"
+                              title="Отправка на почту появится позже"
+                              disabled
+                            >
+                              Отправить
+                            </button>
+                            <button
+                              type="button"
+                              className="invoice-cancel-button"
+                              title="Отменить счёт"
+                              aria-label={`Отменить счёт №${inv.number}`}
+                              disabled={cancellingId !== null}
+                              onClick={() => void cancelInvoiceRow(inv)}
+                            >
+                              {cancellingId === inv.id ? "…" : "×"}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     )}
@@ -283,7 +287,7 @@ export default function UnpaidInvoicesTable() {
             </tbody>
             <tfoot>
               <tr>
-                <td colSpan={7}>
+                <td colSpan={6}>
                   <div className="unpaid-totals">
                     <div>Итого · {invoices.length} сч.</div>
                     <div>
