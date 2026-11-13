@@ -35,6 +35,7 @@ func NewMaxService(token string, payments *payments.PaymentsService, database *d
 		"Invoices":      -78218659838688,
 		"DaysOff":       -78302034737888,
 		"Garage":        -78319159032544,
+		"Office":        -72499768411455,
 	}
 	return &MaxService{Bot: api, Chats: chats, payments: payments, db: database}, nil
 }
@@ -53,6 +54,10 @@ func (m *MaxService) SendMessageWithPhotos(groupName, text string, photos []Phot
 }
 
 func (m *MaxService) SendPhotosToChat(chatID int64, text string, photos []PhotoUpload) error {
+	return m.sendPhotosToChat(chatID, text, photos, nil)
+}
+
+func (m *MaxService) sendPhotosToChat(chatID int64, text string, photos []PhotoUpload, keyboard *maxbot.Keyboard) error {
 	ctx := context.Background()
 	msg := maxbot.NewMessage().SetChat(chatID).SetText(text)
 
@@ -62,6 +67,9 @@ func (m *MaxService) SendPhotosToChat(chatID int64, text string, photos []PhotoU
 			return fmt.Errorf("upload photo %s: %w", photo.Name, err)
 		}
 		msg.AddPhoto(tokens)
+	}
+	if keyboard != nil {
+		msg.AddKeyboard(keyboard)
 	}
 
 	if err := m.Bot.Messages.Send(ctx, msg); err != nil {
@@ -107,9 +115,9 @@ func (m *MaxService) SendMessageInGroupID(chatID int64, message string) error {
 	msg := maxbot.NewMessage().SetChat(chatID).SetText(message)
 	err := m.Bot.Messages.Send(context.Background(), msg)
 	if err != nil {
-		fmt.Printf("error send message %v", err)
+		log.Printf("error send message chatID=%d: %v", chatID, err)
 	}
-	return nil
+	return err
 }
 func (m *MaxService) SendMessageInGroupName(nameGroup string, message string) error {
 	chatID, ok := m.Chats[nameGroup]

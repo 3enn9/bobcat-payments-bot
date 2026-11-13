@@ -19,6 +19,8 @@ import (
 type Notifier interface {
 	SendFileToGroup(groupName, fileName string, reader io.Reader) error
 	SendMessageWithPhotos(groupName, text string, photos []max.PhotoUpload) error
+	SendReconciliationFile(fileName string, reader io.Reader) error
+	SendReconciliationPhotos(fileName, text string, photos []max.PhotoUpload) error
 	SendMessageInGroupName(nameGroup, message string) error
 }
 
@@ -187,7 +189,7 @@ func (im *Importer) importAttachment(att mail.Attachment, notify, replace bool) 
 				log.Printf("accountant reconciliation pdf->png: %v", err)
 				im.notifyText(caption)
 				if im.Max != nil {
-					if sendErr := im.Max.SendFileToGroup("Invoices", name, bytes.NewReader(att.Bytes)); sendErr != nil {
+					if sendErr := im.Max.SendReconciliationFile(name, bytes.NewReader(att.Bytes)); sendErr != nil {
 						log.Printf("accountant reconciliation max file fallback: %v", sendErr)
 					}
 				}
@@ -203,7 +205,7 @@ func (im *Importer) importAttachment(att mail.Attachment, notify, replace bool) 
 						Reader: bytes.NewReader(page),
 					})
 				}
-				if sendErr := im.Max.SendMessageWithPhotos("Invoices", caption, photos); sendErr != nil {
+				if sendErr := im.Max.SendReconciliationPhotos(name, caption, photos); sendErr != nil {
 					log.Printf("accountant reconciliation max photos: %v", sendErr)
 				}
 			}

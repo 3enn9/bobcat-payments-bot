@@ -43,6 +43,10 @@ func (m *MaxService) SendDaysOffApproval(item db.WorkerDaysOff, id int64) (strin
 
 func (m *MaxService) handleDaysOffCallback(upd *schemes.MessageCallbackUpdate) {
 	payload := strings.TrimSpace(upd.Callback.Payload)
+	if strings.HasPrefix(payload, reconciliationVerifiedPayloadPrefix) {
+		m.handleReconciliationCallback(upd)
+		return
+	}
 	parts := strings.Split(payload, ":")
 	if len(parts) != 3 || parts[0] != "dayoff" {
 		return
