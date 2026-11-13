@@ -128,7 +128,7 @@ func (m *Monitor) poll(ctx context.Context) error {
 				continue
 			}
 			for _, event := range doc.Events {
-				if event.ID == "" || !eventHasIncomingSignature(event) {
+				if event.ID == "" || !eventSignedByCounterparty(doc, event) {
 					continue
 				}
 				key := realizationKey(doc, event)
@@ -361,23 +361,71 @@ type signature struct {
 	Certificate struct {
 		Name    string `json:"ФИО"`
 		Company string `json:"Название"`
+		INN     string `json:"ИНН"`
 	} `json:"Сертификат"`
 }
 
-func eventHasIncomingSignature(e event) bool {
+func eventSignedByCounterparty(d document, e event) bool {
 	for _, a := range e.Attachments {
 		for _, s := range a.Signatures {
-			if strings.EqualFold(s.Direction, "Входящая") || strings.EqualFold(s.Direction, "Входящий") {
-				return true
-			}
-			// Some API versions omit signature direction in the event payload. A signature
-			// attached to an incoming service attachment still signals the counterparty action.
-			if s.Certificate.Name != "" && strings.EqualFold(a.Direction, "Входящий") {
+			if signatureBelongsToCounterparty(d, s) {
 				return true
 			}
 		}
 	}
 	return false
+}
+
+func signatureBelongsToCounterparty(d document, s signature) bool {
+	if isOurFirm(s.Certificate.INN) || isOurFirmName(s.Certificate.Company) {
+		return false
+	}
+	counterpartyINN := strings.TrimSpace(d.Counterparty.inn())
+	counterpartyName := normalizedPartyName(d.Counterparty.name())
+	if counterpartyINN == "" && counterpartyName == "" {
+		return false
+	}
+	if counterpartyINN != "" && strings.TrimSpace(s.Certificate.INN) == counterpartyINN {
+		return true
+	}
+	return counterpartyName != "" && normalizedPartyName(s.Certificate.Company) == counterpartyName
+}
+
+func isOurFirmName(name string) bool {
+	normalized := normalizedPartyName(name)
+	switch normalized {
+	case normalizedPartyName("Архипов Николай Владимирович"),
+		normalizedPartyName("ИП Архипов Николай Владимирович"),
+		normalizedPartyName("Архипов Данила Николаевич"),
+		normalizedPartyName("ИП Архипов Данила Николаевич"),
+		normalizedPartyName("Архипов Николай Николаевич"),
+		normalizedPartyName("ИП Архипов Николай Николаевич"),
+		normalizedPartyName("СарСтройТех"),
+		normalizedPartyName("ООО СарСтройТех"),
+		normalizedPartyName("Скрипниченко Алексей Николаевич"),
+		normalizedPartyName("ИП Скрипниченко Алексей Николаевич"):
+		return true
+	default:
+		return false
+	}
+}
+
+func normalizedPartyName(name string) string {
+	return strings.Map(func(r rune) rune {
+		if r >= 'a' && r <= 'z' {
+			return r - ('a' - 'A')
+		}
+		if r >= 'а' && r <= 'я' {
+			return r - ('а' - 'А')
+		}
+		if r == 'ё' {
+			return 'Ё'
+		}
+		if (r >= 'A' && r <= 'Z') || (r >= 'А' && r <= 'Я') || (r >= '0' && r <= '9') {
+			return r
+		}
+		return -1
+	}, strings.TrimSpace(name))
 }
 
 // realizationKey deduplicates signing events and document copies using their
@@ -448,13 +496,34 @@ func formatMessage(d document, e event) string {
 	if e.DateTime != "" {
 		parts = append(parts, "Время: "+e.DateTime)
 	}
+	var signers []string
+	seenSigners := make(map[string]struct{})
 	for _, a := range e.Attachments {
 		for _, s := range a.Signatures {
-			if s.Certificate.Name != "" {
-				parts = append(parts, "Подписант: "+s.Certificate.Name)
-				return strings.Join(parts, "\n")
+			if !signatureBelongsToCounterparty(d, s) {
+				continue
 			}
+			name := strings.TrimSpace(s.Certificate.Name)
+			company := strings.TrimSpace(s.Certificate.Company)
+			if name == "" && company == "" {
+				continue
+			}
+			signer := name
+			if company != "" && !strings.EqualFold(company, name) {
+				if signer != "" {
+					signer += " — "
+				}
+				signer += company
+			}
+			if _, exists := seenSigners[signer]; exists {
+				continue
+			}
+			seenSigners[signer] = struct{}{}
+			signers = append(signers, signer)
 		}
+	}
+	if len(signers) > 0 {
+		parts = append(parts, "Подписант: "+strings.Join(signers, ", "))
 	}
 	return strings.Join(parts, "\n")
 }
