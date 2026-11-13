@@ -196,6 +196,7 @@ func (m *MaxService) handleBotStarted(upd *schemes.BotStartedUpdate) {
 func (m *MaxService) handleGroupCommand(upd *schemes.MessageCreatedUpdate) {
 	chatID := upd.GetChatID()
 	ctx := context.Background()
+	_ = m.SendMessageInGroupID(chatID, fmt.Sprintf("ID этой группы: %d", chatID))
 
 	_, err := m.Bot.Chats.GetChat(ctx, chatID)
 	if err != nil {
