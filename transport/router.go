@@ -101,6 +101,11 @@ func NewRouter(
 	).Methods(http.MethodGet, http.MethodOptions)
 
 	router.HandleFunc(
+		"/api/miniapp/invoices/{id}/cancel",
+		miniApp.CancelInvoice,
+	).Methods(http.MethodPost, http.MethodOptions)
+
+	router.HandleFunc(
 		"/api/miniapp/invoices/{id}/items",
 		miniApp.ListInvoiceItems,
 	).Methods(http.MethodGet, http.MethodOptions)

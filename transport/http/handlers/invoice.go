@@ -136,6 +136,31 @@ func (h *MiniAppHandler) ListInvoiceItems(w http.ResponseWriter, r *http.Request
 	})
 }
 
+func (h *MiniAppHandler) CancelInvoice(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	id, err := strconv.ParseInt(strings.TrimSpace(mux.Vars(r)["id"]), 10, 64)
+	if err != nil || id <= 0 {
+		http.Error(w, `{"success":false,"error":"Счёт не найден"}`, http.StatusBadRequest)
+		return
+	}
+	if err := h.db.CancelOpenInvoice(id); err != nil {
+		if errors.Is(err, db.ErrInvoiceNotOpen) {
+			http.Error(w, `{"success":false,"error":"Счёт уже оплачен, отменён или не имеет остатка"}`, http.StatusConflict)
+			return
+		}
+		log.Printf("cancel invoice id=%d: %v", id, err)
+		http.Error(w, `{"success":false,"error":"Не удалось отменить счёт"}`, http.StatusInternalServerError)
+		return
+	}
+
+	_ = json.NewEncoder(w).Encode(map[string]bool{"success": true})
+}
+
 func (h *MiniAppHandler) CreateInvoice(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if r.Method == http.MethodOptions {

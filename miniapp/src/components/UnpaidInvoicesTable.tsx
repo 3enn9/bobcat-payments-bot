@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import {
+  cancelInvoice,
   listInvoiceItems,
   listUnpaidFirms,
   listUnpaidInvoices,
@@ -69,6 +70,7 @@ export default function UnpaidInvoicesTable() {
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [itemsById, setItemsById] = useState<Record<number, InvoiceLine[]>>({});
   const [itemsLoading, setItemsLoading] = useState<number | null>(null);
+  const [cancellingId, setCancellingId] = useState<number | null>(null);
 
   useEffect(() => {
     void listUnpaidFirms()
@@ -133,6 +135,41 @@ export default function UnpaidInvoicesTable() {
     }
   }
 
+  async function cancelInvoiceRow(invoice: UnpaidInvoice) {
+    if (
+      !window.confirm(
+        `Отменить счёт №${invoice.number} от ${shortDate(String(invoice.invoiceDate))}?`,
+      )
+    ) {
+      return;
+    }
+
+    setCancellingId(invoice.id);
+    setError("");
+    try {
+      await cancelInvoice(invoice.id);
+      const remainingInvoices = invoices.filter((item) => item.id !== invoice.id);
+      setInvoices(remainingInvoices);
+      if (expandedId === invoice.id) setExpandedId(null);
+
+      const nextFirms = firms
+        .map((firm) =>
+          firm.id === supplierId
+            ? { ...firm, unpaidInvoiceCount: remainingInvoices.length }
+            : firm,
+        )
+        .filter((firm) => firm.unpaidInvoiceCount > 0);
+      setFirms(nextFirms);
+      if (!nextFirms.some((firm) => firm.id === supplierId)) {
+        setSupplierId(nextFirms[0]?.id ?? null);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось отменить счёт");
+    } finally {
+      setCancellingId(null);
+    }
+  }
+
   return (
     <div className="unpaid-form">
       <label className="invoice-field">
@@ -174,6 +211,7 @@ export default function UnpaidInvoicesTable() {
                 <th className="num">Сумма</th>
                 <th className="num">Опл.</th>
                 <th className="num">К оплате</th>
+                <th className="invoice-action-heading" aria-label="Действия" />
               </tr>
             </thead>
             <tbody>
@@ -196,10 +234,25 @@ export default function UnpaidInvoicesTable() {
                       <td className="num">{money(inv.total)}</td>
                       <td className="num">{money(inv.paidAmount)}</td>
                       <td className="num">{money(inv.remainingAmount)}</td>
+                      <td className="invoice-cancel-cell">
+                        <button
+                          type="button"
+                          className="invoice-cancel-button"
+                          title="Отменить счёт"
+                          aria-label={`Отменить счёт №${inv.number}`}
+                          disabled={cancellingId !== null}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void cancelInvoiceRow(inv);
+                          }}
+                        >
+                          {cancellingId === inv.id ? "…" : "×"}
+                        </button>
+                      </td>
                     </tr>
                     {open && (
                       <tr className="unpaid-items-row">
-                        <td colSpan={6}>
+                        <td colSpan={7}>
                           {itemsLoading === inv.id && (
                             <p className="invoice-hint">Загрузка позиций…</p>
                           )}
@@ -230,7 +283,7 @@ export default function UnpaidInvoicesTable() {
             </tbody>
             <tfoot>
               <tr>
-                <td colSpan={6}>
+                <td colSpan={7}>
                   <div className="unpaid-totals">
                     <div>Итого · {invoices.length} сч.</div>
                     <div>

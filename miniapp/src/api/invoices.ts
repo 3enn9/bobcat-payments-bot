@@ -137,6 +137,11 @@ type UnpaidInvoicesResponse = {
   error?: string;
 };
 
+type CancelInvoiceResponse = {
+  success: boolean;
+  error?: string;
+};
+
 export async function listUnpaidFirms(): Promise<UnpaidFirm[]> {
   const response = await fetch("/api/miniapp/invoices/unpaid/firms");
   const data = (await response.json()) as UnpaidFirmsResponse;
@@ -156,6 +161,16 @@ export async function listUnpaidInvoices(
     throw new Error(data.error || "Не удалось загрузить счета");
   }
   return data.invoices ?? [];
+}
+
+export async function cancelInvoice(invoiceId: number): Promise<void> {
+  const response = await fetch(`/api/miniapp/invoices/${invoiceId}/cancel`, {
+    method: "POST",
+  });
+  const data = (await response.json()) as CancelInvoiceResponse;
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || "Не удалось отменить счёт");
+  }
 }
 
 export type InvoiceLine = {

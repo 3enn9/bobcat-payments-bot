@@ -9,6 +9,7 @@ import (
 )
 
 var ErrInvoiceExists = errors.New("invoice_exists")
+var ErrInvoiceNotOpen = errors.New("invoice_not_open")
 
 type InvoiceBank struct {
 	ID          int64  `json:"id"`
@@ -76,6 +77,29 @@ type CreatedInvoice struct {
 	ID       int64
 	Number   int
 	Replaced bool
+}
+
+func (d *Database) CancelOpenInvoice(id int64) error {
+	result, err := d.DB.Exec(`
+		UPDATE invoices
+		SET status = 'cancelled'
+		WHERE id = ?
+		  AND status = 'open'
+		  AND ROUND(total - IFNULL((
+		    SELECT SUM(amount) FROM invoice_payment_allocations WHERE invoice_id = ?
+		  ), 0), 2) > 0
+	`, id, id)
+	if err != nil {
+		return err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return ErrInvoiceNotOpen
+	}
+	return nil
 }
 
 func (d *Database) SearchInvoiceBanks(q string, supplierID int64, limit int) ([]InvoiceBank, error) {
