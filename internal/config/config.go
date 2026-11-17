@@ -57,6 +57,11 @@ func NewConfig() *Config {
 		imapFrom = "ratavina@mail.ru"
 	}
 
+	smtpHost := strings.TrimSpace(os.Getenv("SMTP_HOST"))
+	if smtpHost == "" && strings.EqualFold(strings.TrimSpace(imapHost), "imap.yandex.ru") {
+		smtpHost = "smtp.yandex.ru"
+	}
+
 	return &Config{
 		Port:              os.Getenv("DB_PORT"),
 		Root:              os.Getenv("DB_USER"),
@@ -66,11 +71,11 @@ func NewConfig() *Config {
 		Token:             os.Getenv("BOT_TOKEN"),
 		InvoicesChatID:    parseInt64OrDefault(os.Getenv("CHAT_ID"), defaultInvoicesChatID),
 		MaxToken:          os.Getenv("MAX_TOKEN"),
-		SMTPHost:          os.Getenv("SMTP_HOST"),
+		SMTPHost:          smtpHost,
 		SMTPPort:          os.Getenv("SMTP_PORT"),
-		SMTPUser:          os.Getenv("SMTP_USER"),
-		SMTPPass:          os.Getenv("SMTP_PASS"),
-		SMTPFrom:          os.Getenv("SMTP_FROM"),
+		SMTPUser:          firstNonEmpty(os.Getenv("SMTP_USER"), imapUser),
+		SMTPPass:          firstNonEmpty(os.Getenv("SMTP_PASS"), imapPass),
+		SMTPFrom:          firstNonEmpty(os.Getenv("SMTP_FROM"), imapFrom),
 		IMAPHost:          imapHost,
 		IMAPPort:          firstNonEmpty(os.Getenv("IMAP_PORT"), "993"),
 		IMAPUser:          imapUser,
