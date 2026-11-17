@@ -72,6 +72,7 @@ export default function UnpaidInvoicesTable() {
   const [itemsById, setItemsById] = useState<Record<number, InvoiceLine[]>>({});
   const [itemsLoading, setItemsLoading] = useState<number | null>(null);
   const [cancellingId, setCancellingId] = useState<number | null>(null);
+  const [pendingCancel, setPendingCancel] = useState<UnpaidInvoice | null>(null);
 
   useEffect(() => {
     void listUnpaidFirms()
@@ -144,19 +145,12 @@ export default function UnpaidInvoicesTable() {
     }
   }
 
-  async function cancelInvoiceRow(invoice: UnpaidInvoice) {
-    if (
-      !window.confirm(
-        `Отменить счёт №${invoice.number} от ${shortDate(String(invoice.invoiceDate))}?`,
-      )
-    ) {
-      return;
-    }
-
+  async function confirmCancelInvoiceRow(invoice: UnpaidInvoice) {
     setCancellingId(invoice.id);
     setError("");
     try {
       await cancelInvoice(invoice.id);
+      setPendingCancel(null);
       const remainingInvoices = invoices.filter((item) => item.id !== invoice.id);
       setInvoices(remainingInvoices);
       if (expandedId === invoice.id) setExpandedId(null);
@@ -174,6 +168,7 @@ export default function UnpaidInvoicesTable() {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не удалось отменить счёт");
+      setPendingCancel(null);
     } finally {
       setCancellingId(null);
     }
@@ -295,7 +290,10 @@ export default function UnpaidInvoicesTable() {
                               title="Отменить счёт"
                               aria-label={`Отменить счёт №${inv.number}`}
                               disabled={cancellingId !== null}
-                              onClick={() => void cancelInvoiceRow(inv)}
+                              onClick={() => {
+                                setError("");
+                                setPendingCancel(inv);
+                              }}
                             >
                               {cancellingId === inv.id ? "…" : "×"}
                             </button>
@@ -340,6 +338,50 @@ export default function UnpaidInvoicesTable() {
       )}
 
       {error && <p className="error">{error}</p>}
+
+      {pendingCancel && (
+        <div
+          className="invoice-confirm-backdrop"
+          role="presentation"
+          onClick={() => {
+            if (cancellingId === null) setPendingCancel(null);
+          }}
+        >
+          <section
+            className="invoice-confirm-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="invoice-confirm-title"
+            aria-describedby="invoice-confirm-description"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 id="invoice-confirm-title">Отменить счёт?</h2>
+            <p id="invoice-confirm-description">
+              Счёт №{pendingCancel.number} от{" "}
+              {shortDate(String(pendingCancel.invoiceDate))} будет помечен как
+              отменённый.
+            </p>
+            <div className="invoice-confirm-actions">
+              <button
+                type="button"
+                className="invoice-confirm-back"
+                disabled={cancellingId !== null}
+                onClick={() => setPendingCancel(null)}
+              >
+                Назад
+              </button>
+              <button
+                type="button"
+                className="invoice-confirm-submit"
+                disabled={cancellingId !== null}
+                onClick={() => void confirmCancelInvoiceRow(pendingCancel)}
+              >
+                {cancellingId === pendingCancel.id ? "Отменяем…" : "Отменить счёт"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }
