@@ -262,10 +262,10 @@ func (h *MiniAppHandler) CreateInvoice(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, `{"success":false,"error":"Укажите email для отправки"}`, http.StatusBadRequest)
 			return
 		}
-		if !mailpkg.IsValidEmail(input.Buyer.Email) {
-			http.Error(w, `{"success":false,"error":"Некорректный email"}`, http.StatusBadRequest)
-			return
-		}
+	}
+	if input.Buyer.Email != "" && !mailpkg.IsValidEmail(input.Buyer.Email) {
+		http.Error(w, `{"success":false,"error":"Некорректный email"}`, http.StatusBadRequest)
+		return
 	}
 
 	invoiceDate, err := time.Parse("2006-01-02", strings.TrimSpace(input.InvoiceDate))

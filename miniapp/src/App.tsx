@@ -5,6 +5,7 @@ import WorkerRequests from "./components/WorkerRequests";
 import InvoiceForm from "./components/InvoiceForm";
 import PaymentMatchForm from "./components/PaymentMatchForm";
 import UnpaidInvoicesTable from "./components/UnpaidInvoicesTable";
+import InvoiceEmailManager from "./components/InvoiceEmailManager";
 import DaysOffForm from "./components/DaysOffForm";
 import KopytenkovForm from "./components/KopytenkovForm";
 import CashForm from "./components/CashForm";
@@ -12,7 +13,7 @@ import FuelsForm from "./components/FuelsForm";
 import { logMiniappOpen } from "./max";
 
 type Screen = "home" | "garage" | "fuels" | "worker" | "kopytenkov" | "kosenko" | "invoices" | "daysoff" | "cash";
-type InvoiceTab = "create" | "match" | "table";
+type InvoiceTab = "create" | "match" | "table" | "email";
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>("home");
@@ -170,6 +171,13 @@ export default function App() {
             >
               Таблица
             </button>
+            <button
+              type="button"
+              className={invoiceTab === "email" ? "tab active" : "tab"}
+              onClick={() => setInvoiceTab("email")}
+            >
+              Почта
+            </button>
           </div>
 
           <div className="requests-scroll">
@@ -177,8 +185,10 @@ export default function App() {
               <InvoiceForm />
             ) : invoiceTab === "match" ? (
               <PaymentMatchForm />
-            ) : (
+            ) : invoiceTab === "table" ? (
               <UnpaidInvoicesTable />
+            ) : (
+              <InvoiceEmailManager />
             )}
           </div>
         </div>

@@ -125,6 +125,18 @@ export type UnpaidInvoice = {
   remainingAmount: number;
 };
 
+export type UnpaidBuyerFirm = {
+  id: number;
+  name: string;
+  inn: string;
+  unpaidInvoiceCount: number;
+};
+
+export type InvoiceBuyerEmail = {
+  id: number;
+  email: string;
+};
+
 type UnpaidFirmsResponse = {
   success: boolean;
   items?: UnpaidFirm[];
@@ -149,6 +161,60 @@ export async function listUnpaidFirms(): Promise<UnpaidFirm[]> {
     throw new Error(data.error || "Не удалось загрузить фирмы");
   }
   return data.items ?? [];
+}
+
+async function invoiceEmailRequest<T>(
+  path: string,
+  init?: RequestInit,
+): Promise<T> {
+  const response = await fetch(path, init);
+  const data = (await response.json()) as { success: boolean; error?: string } & T;
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || "Ошибка работы с почтой счёта");
+  }
+  return data;
+}
+
+export async function listUnpaidBuyerFirms(): Promise<UnpaidBuyerFirm[]> {
+  const data = await invoiceEmailRequest<{ items?: UnpaidBuyerFirm[] }>(
+    "/api/miniapp/invoices/email/firms",
+  );
+  return data.items ?? [];
+}
+
+export async function listBuyerEmails(buyerId: number): Promise<InvoiceBuyerEmail[]> {
+  const data = await invoiceEmailRequest<{ items?: InvoiceBuyerEmail[] }>(
+    `/api/miniapp/invoices/buyers/${buyerId}/emails`,
+  );
+  return data.items ?? [];
+}
+
+export async function addBuyerEmail(buyerId: number, email: string): Promise<void> {
+  await invoiceEmailRequest(`/api/miniapp/invoices/buyers/${buyerId}/emails`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function deleteBuyerEmail(
+  buyerId: number,
+  emailId: number,
+): Promise<void> {
+  await invoiceEmailRequest(
+    `/api/miniapp/invoices/buyers/${buyerId}/emails/${emailId}`,
+    { method: "DELETE" },
+  );
+}
+
+export async function sendInvoiceByEmail(
+  invoiceId: number,
+): Promise<{ sent: number }> {
+  const data = await invoiceEmailRequest<{ sent: number }>(
+    `/api/miniapp/invoices/${invoiceId}/send`,
+    { method: "POST" },
+  );
+  return { sent: data.sent };
 }
 
 export async function listUnpaidInvoices(

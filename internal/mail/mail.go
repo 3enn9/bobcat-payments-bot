@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"fmt"
+	"mime"
 	"net"
 	"net/smtp"
 	"strings"
@@ -51,7 +52,7 @@ func (s *Service) SendPDF(to, subject, fileName string, pdf []byte) error {
 	boundary := "paymentsbot-invoice"
 	body.WriteString("From: " + s.From + "\r\n")
 	body.WriteString("To: " + to + "\r\n")
-	body.WriteString("Subject: " + subject + "\r\n")
+	body.WriteString("Subject: " + mime.QEncoding.Encode("UTF-8", subject) + "\r\n")
 	body.WriteString("MIME-Version: 1.0\r\n")
 	body.WriteString("Content-Type: multipart/mixed; boundary=" + boundary + "\r\n\r\n")
 
@@ -62,7 +63,8 @@ func (s *Service) SendPDF(to, subject, fileName string, pdf []byte) error {
 	body.WriteString("--" + boundary + "\r\n")
 	body.WriteString("Content-Type: application/pdf\r\n")
 	body.WriteString("Content-Transfer-Encoding: base64\r\n")
-	body.WriteString("Content-Disposition: attachment; filename=\"" + fileName + "\"\r\n\r\n")
+	contentDisposition := mime.FormatMediaType("attachment", map[string]string{"filename": fileName})
+	body.WriteString("Content-Disposition: " + contentDisposition + "\r\n\r\n")
 	body.WriteString(wrapBase64(pdf))
 	body.WriteString("\r\n--" + boundary + "--\r\n")
 
@@ -132,7 +134,7 @@ func wrapBase64(data []byte) string {
 
 func IsValidEmail(email string) bool {
 	email = strings.TrimSpace(email)
-	if email == "" || len(email) > 255 {
+	if email == "" || len(email) > 255 || strings.ContainsAny(email, "\r\n\t ") {
 		return false
 	}
 	at := strings.LastIndex(email, "@")

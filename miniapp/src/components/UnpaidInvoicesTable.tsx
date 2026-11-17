@@ -4,6 +4,7 @@ import {
   listInvoiceItems,
   listUnpaidFirms,
   listUnpaidInvoices,
+  sendInvoiceByEmail,
   type InvoiceLine,
   type UnpaidFirm,
   type UnpaidInvoice,
@@ -73,6 +74,8 @@ export default function UnpaidInvoicesTable() {
   const [itemsLoading, setItemsLoading] = useState<number | null>(null);
   const [cancellingId, setCancellingId] = useState<number | null>(null);
   const [pendingCancel, setPendingCancel] = useState<UnpaidInvoice | null>(null);
+  const [sendingInvoiceId, setSendingInvoiceId] = useState<number | null>(null);
+  const [sendNotice, setSendNotice] = useState("");
 
   useEffect(() => {
     void listUnpaidFirms()
@@ -174,6 +177,20 @@ export default function UnpaidInvoicesTable() {
     }
   }
 
+  async function sendInvoiceEmail(invoice: UnpaidInvoice) {
+    setSendingInvoiceId(invoice.id);
+    setError("");
+    setSendNotice("");
+    try {
+      const result = await sendInvoiceByEmail(invoice.id);
+      setSendNotice(`Счёт № ${invoice.number} отправлен на ${result.sent} адрес(а)`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось отправить счёт на почту");
+    } finally {
+      setSendingInvoiceId(null);
+    }
+  }
+
   return (
     <div className="unpaid-form">
       <label className="invoice-field">
@@ -184,6 +201,7 @@ export default function UnpaidInvoicesTable() {
             const v = e.target.value;
             setSupplierId(v ? Number(v) : null);
             setBuyerQuery("");
+            setSendNotice("");
           }}
         >
           <option value="">Выберите фирму</option>
@@ -200,6 +218,7 @@ export default function UnpaidInvoicesTable() {
       )}
 
       {loading && <p className="invoice-hint">Загрузка…</p>}
+      {sendNotice && <p className="invoice-email-success">{sendNotice}</p>}
 
       {supplierId && !loading && invoices.length === 0 && !error && (
         <p className="invoice-hint">Нет открытых счетов</p>
@@ -279,10 +298,14 @@ export default function UnpaidInvoicesTable() {
                             <button
                               type="button"
                               className="secondary-button invoice-send-button"
-                              title="Отправка на почту появится позже"
-                              disabled
+                              title="Отправить PDF счёта на адреса фирмы"
+                              disabled={sendingInvoiceId !== null}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                void sendInvoiceEmail(inv);
+                              }}
                             >
-                              Отправить
+                              {sendingInvoiceId === inv.id ? "Отправляем…" : "Отправить"}
                             </button>
                             <button
                               type="button"

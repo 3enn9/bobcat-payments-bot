@@ -96,6 +96,26 @@ func NewRouter(
 	).Methods(http.MethodGet, http.MethodOptions)
 
 	router.HandleFunc(
+		"/api/miniapp/invoices/email/firms",
+		miniApp.ListUnpaidInvoiceEmailFirms,
+	).Methods(http.MethodGet, http.MethodOptions)
+
+	router.HandleFunc(
+		"/api/miniapp/invoices/buyers/{buyerId}/emails",
+		miniApp.ListInvoiceBuyerEmails,
+	).Methods(http.MethodGet, http.MethodOptions)
+
+	router.HandleFunc(
+		"/api/miniapp/invoices/buyers/{buyerId}/emails",
+		miniApp.AddInvoiceBuyerEmail,
+	).Methods(http.MethodPost, http.MethodOptions)
+
+	router.HandleFunc(
+		"/api/miniapp/invoices/buyers/{buyerId}/emails/{emailId}",
+		miniApp.DeleteInvoiceBuyerEmail,
+	).Methods(http.MethodDelete, http.MethodOptions)
+
+	router.HandleFunc(
 		"/api/miniapp/invoices/unpaid",
 		miniApp.ListUnpaidInvoices,
 	).Methods(http.MethodGet, http.MethodOptions)
@@ -103,6 +123,11 @@ func NewRouter(
 	router.HandleFunc(
 		"/api/miniapp/invoices/{id}/cancel",
 		miniApp.CancelInvoice,
+	).Methods(http.MethodPost, http.MethodOptions)
+
+	router.HandleFunc(
+		"/api/miniapp/invoices/{id}/send",
+		miniApp.SendOpenInvoiceEmail,
 	).Methods(http.MethodPost, http.MethodOptions)
 
 	router.HandleFunc(

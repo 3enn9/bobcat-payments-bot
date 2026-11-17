@@ -335,6 +335,14 @@ func (d *Database) CreateInvoice(input CreateInvoiceInput) (*CreatedInvoice, err
 			return nil, err
 		}
 	}
+	if email := strings.TrimSpace(input.BuyerEmail); email != "" {
+		if _, err := tx.Exec(`
+			INSERT IGNORE INTO invoice_buyer_emails (buyer_id, email)
+			VALUES (?, ?)
+		`, *buyerID, email); err != nil {
+			return nil, err
+		}
+	}
 
 	var lastNumber int
 	if err := tx.QueryRow(`
