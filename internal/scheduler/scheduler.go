@@ -6,6 +6,19 @@ import (
 	"time"
 )
 
+const retryInterval = time.Hour
+
+func runTaskWithRetries(task func() error) {
+	for {
+		if err := task(); err == nil {
+			return
+		} else {
+			log.Printf("daily scheduler task error: %v; retrying in %s", err, retryInterval)
+		}
+		time.Sleep(retryInterval)
+	}
+}
+
 func SendDailyScheduler(task func() error) {
 	go func() {
 		now := clock.Now()
@@ -19,26 +32,17 @@ func SendDailyScheduler(task func() error) {
 		delay := time.Until(nextRun)
 		log.Printf("scheduler first run at: %s", nextRun)
 
-		err := task()
-		if err != nil {
-			log.Printf("daily scheduler task error: %v", err)
-		}
+		runTaskWithRetries(task)
 		log.Printf("delay: %v", delay)
 		time.Sleep(delay)
 
-		err = task()
-		if err != nil {
-			log.Printf("daily scheduler task error: %v", err)
-		}
+		runTaskWithRetries(task)
 
 		ticker := time.NewTicker(24 * time.Hour)
 		defer ticker.Stop()
 
 		for range ticker.C {
-			err = task()
-			if err != nil {
-				log.Printf("daily scheduler task error: %v", err)
-			}
+			runTaskWithRetries(task)
 		}
 	}()
 }

@@ -80,7 +80,8 @@ func (r *RnCard) FetchAndSendTransactions() error {
 
 	reqURL := baseURL + "?" + params.Encode()
 
-	resp, err := http.Get(reqURL)
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Get(reqURL)
 	if err != nil {
 		return err
 	}
