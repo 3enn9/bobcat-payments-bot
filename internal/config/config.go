@@ -58,8 +58,12 @@ func NewConfig() *Config {
 	}
 
 	smtpHost := strings.TrimSpace(os.Getenv("SMTP_HOST"))
+	smtpPort := strings.TrimSpace(os.Getenv("SMTP_PORT"))
 	if smtpHost == "" && strings.EqualFold(strings.TrimSpace(imapHost), "imap.yandex.ru") {
 		smtpHost = "smtp.yandex.ru"
+		if smtpPort == "" {
+			smtpPort = "465"
+		}
 	}
 
 	return &Config{
@@ -72,10 +76,10 @@ func NewConfig() *Config {
 		InvoicesChatID:    parseInt64OrDefault(os.Getenv("CHAT_ID"), defaultInvoicesChatID),
 		MaxToken:          os.Getenv("MAX_TOKEN"),
 		SMTPHost:          smtpHost,
-		SMTPPort:          os.Getenv("SMTP_PORT"),
+		SMTPPort:          smtpPort,
 		SMTPUser:          firstNonEmpty(os.Getenv("SMTP_USER"), imapUser),
 		SMTPPass:          firstNonEmpty(os.Getenv("SMTP_PASS"), imapPass),
-		SMTPFrom:          firstNonEmpty(os.Getenv("SMTP_FROM"), imapFrom),
+		SMTPFrom:          firstNonEmpty(os.Getenv("SMTP_FROM"), os.Getenv("SMTP_USER"), imapUser, imapFrom),
 		IMAPHost:          imapHost,
 		IMAPPort:          firstNonEmpty(os.Getenv("IMAP_PORT"), "993"),
 		IMAPUser:          imapUser,
