@@ -29,20 +29,21 @@ func SendDailyScheduler(task func() error) {
 			nextRun = nextRun.Add(24 * time.Hour)
 		}
 
-		delay := time.Until(nextRun)
 		log.Printf("scheduler first run at: %s", nextRun)
 
 		runTaskWithRetries(task)
-		log.Printf("delay: %v", delay)
-		time.Sleep(delay)
+		for {
+			now = clock.Now()
+			for !nextRun.After(now) {
+				nextRun = nextRun.AddDate(0, 0, 1)
+			}
 
-		runTaskWithRetries(task)
+			delay := time.Until(nextRun)
+			log.Printf("scheduler next run at: %s (in %s)", nextRun, delay)
+			time.Sleep(delay)
 
-		ticker := time.NewTicker(24 * time.Hour)
-		defer ticker.Stop()
-
-		for range ticker.C {
 			runTaskWithRetries(task)
+			nextRun = nextRun.AddDate(0, 0, 1)
 		}
 	}()
 }
