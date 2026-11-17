@@ -510,6 +510,19 @@
   min-width: 0;
 }
 
+.unpaid-buyer-filter {
+  display: grid;
+  gap: 5px;
+}
+
+.unpaid-table .unpaid-buyer-filter input {
+  min-width: 0;
+  padding: 6px 7px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 400;
+}
+
 .invoice-grid-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;

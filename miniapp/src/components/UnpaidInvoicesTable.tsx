@@ -64,6 +64,7 @@ function qty(value: number): string {
 export default function UnpaidInvoicesTable() {
   const [firms, setFirms] = useState<UnpaidFirm[]>([]);
   const [supplierId, setSupplierId] = useState<number | null>(null);
+  const [buyerQuery, setBuyerQuery] = useState("");
   const [invoices, setInvoices] = useState<UnpaidInvoice[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -98,11 +99,19 @@ export default function UnpaidInvoicesTable() {
       .finally(() => setLoading(false));
   }, [supplierId]);
 
+  const visibleInvoices = useMemo(() => {
+    const query = buyerQuery.trim().toLocaleLowerCase().replace(/ё/g, "е");
+    if (!query) return invoices;
+    return invoices.filter((invoice) =>
+      invoice.buyerName.toLocaleLowerCase().replace(/ё/g, "е").includes(query),
+    );
+  }, [invoices, buyerQuery]);
+
   const totals = useMemo(() => {
     let remaining = 0;
     let total = 0;
     let paid = 0;
-    for (const inv of invoices) {
+    for (const inv of visibleInvoices) {
       remaining += inv.remainingAmount;
       total += inv.total;
       paid += inv.paidAmount;
@@ -112,7 +121,7 @@ export default function UnpaidInvoicesTable() {
       total: Math.round(total * 100) / 100,
       paid: Math.round(paid * 100) / 100,
     };
-  }, [invoices]);
+  }, [visibleInvoices]);
 
   async function toggleInvoice(id: number) {
     if (expandedId === id) {
@@ -179,6 +188,7 @@ export default function UnpaidInvoicesTable() {
           onChange={(e) => {
             const v = e.target.value;
             setSupplierId(v ? Number(v) : null);
+            setBuyerQuery("");
           }}
         >
           <option value="">Выберите фирму</option>
@@ -207,14 +217,26 @@ export default function UnpaidInvoicesTable() {
               <tr>
                 <th>№</th>
                 <th className="date">Дата</th>
-                <th>Покупатель</th>
+                <th className="buyer">
+                  <label className="unpaid-buyer-filter">
+                    <span>Получатель</span>
+                    <input
+                      type="search"
+                      value={buyerQuery}
+                      placeholder="Поиск фирмы"
+                      aria-label="Фильтр по получателю"
+                      onClick={(event) => event.stopPropagation()}
+                      onChange={(event) => setBuyerQuery(event.target.value)}
+                    />
+                  </label>
+                </th>
                 <th className="num">Сумма</th>
                 <th className="num">Опл.</th>
                 <th className="num">К оплате</th>
               </tr>
             </thead>
             <tbody>
-              {invoices.map((inv) => {
+              {visibleInvoices.map((inv) => {
                 const open = expandedId === inv.id;
                 const lines = itemsById[inv.id];
                 return (
@@ -284,12 +306,19 @@ export default function UnpaidInvoicesTable() {
                   </Fragment>
                 );
               })}
+              {visibleInvoices.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="unpaid-filter-empty">
+                    Нет совпадений по получателю
+                  </td>
+                </tr>
+              )}
             </tbody>
             <tfoot>
               <tr>
                 <td colSpan={6}>
                   <div className="unpaid-totals">
-                    <div>Итого · {invoices.length} сч.</div>
+                    <div>Итого · {visibleInvoices.length} сч.</div>
                     <div>
                       <span>Сумма</span>
                       <strong>{money(totals.total)}</strong>
