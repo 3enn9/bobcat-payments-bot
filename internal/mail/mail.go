@@ -1,6 +1,7 @@
 package mail
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/tls"
 	"encoding/base64"
@@ -9,6 +10,7 @@ import (
 	"net"
 	"net/smtp"
 	"strings"
+	"time"
 )
 
 type Service struct {
@@ -17,15 +19,34 @@ type Service struct {
 	User string
 	Pass string
 	From string
+
+	IMAPHost string
+	IMAPPort string
+	IMAPUser string
+	IMAPPass string
 }
 
-func NewService(host, port, user, pass, from string) *Service {
+type SentCopyError struct {
+	Err error
+}
+
+func (e *SentCopyError) Error() string {
+	return fmt.Sprintf("письмо отправлено, но копию не удалось сохранить в папку «Отправленные»: %v", e.Err)
+}
+
+func (e *SentCopyError) Unwrap() error { return e.Err }
+
+func NewService(host, port, user, pass, from, imapHost, imapPort, imapUser, imapPass string) *Service {
 	return &Service{
-		Host: strings.TrimSpace(host),
-		Port: strings.TrimSpace(port),
-		User: strings.TrimSpace(user),
-		Pass: pass,
-		From: strings.TrimSpace(from),
+		Host:     strings.TrimSpace(host),
+		Port:     strings.TrimSpace(port),
+		User:     strings.TrimSpace(user),
+		Pass:     pass,
+		From:     strings.TrimSpace(from),
+		IMAPHost: strings.TrimSpace(imapHost),
+		IMAPPort: strings.TrimSpace(imapPort),
+		IMAPUser: strings.TrimSpace(imapUser),
+		IMAPPass: imapPass,
 	}
 }
 
@@ -69,10 +90,128 @@ func (s *Service) SendPDF(to, subject, fileName string, pdf []byte) error {
 	body.WriteString("\r\n--" + boundary + "--\r\n")
 
 	auth := smtp.PlainAuth("", s.User, s.Pass, s.Host)
+	var sendErr error
 	if port == "465" {
-		return sendTLS(addr, s.From, []string{to}, body.Bytes(), auth)
+		sendErr = sendTLS(addr, s.From, []string{to}, body.Bytes(), auth)
+	} else {
+		sendErr = smtp.SendMail(addr, auth, s.From, []string{to}, body.Bytes())
 	}
-	return smtp.SendMail(addr, auth, s.From, []string{to}, body.Bytes())
+	if sendErr != nil {
+		return sendErr
+	}
+	if err := s.appendSentCopy(body.Bytes()); err != nil {
+		return &SentCopyError{Err: err}
+	}
+	return nil
+}
+
+func (s *Service) appendSentCopy(message []byte) error {
+	if s.IMAPHost == "" || s.IMAPUser == "" {
+		return fmt.Errorf("IMAP не настроен")
+	}
+	port := s.IMAPPort
+	if port == "" {
+		port = "993"
+	}
+	addr := net.JoinHostPort(s.IMAPHost, port)
+	conn, err := tls.DialWithDialer(
+		&net.Dialer{Timeout: 15 * time.Second},
+		"tcp",
+		addr,
+		&tls.Config{ServerName: s.IMAPHost, MinVersion: tls.VersionTLS12},
+	)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	_ = conn.SetDeadline(time.Now().Add(30 * time.Second))
+	reader := bufio.NewReader(conn)
+
+	greeting, err := reader.ReadString('\n')
+	if err != nil {
+		return err
+	}
+	if !strings.HasPrefix(strings.ToUpper(greeting), "* OK") &&
+		!strings.HasPrefix(strings.ToUpper(greeting), "* PREAUTH") {
+		return fmt.Errorf("неожиданный ответ IMAP: %s", strings.TrimSpace(greeting))
+	}
+
+	user, err := quoteIMAP(s.IMAPUser)
+	if err != nil {
+		return err
+	}
+	pass, err := quoteIMAP(s.IMAPPass)
+	if err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(conn, "A001 LOGIN %s %s\r\n", user, pass); err != nil {
+		return err
+	}
+	if err := readIMAPTaggedResponse(reader, "A001"); err != nil {
+		return err
+	}
+
+	mailbox, err := quoteIMAP("Sent")
+	if err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(conn, "A002 APPEND %s (\\Seen) {%d}\r\n", mailbox, len(message)); err != nil {
+		return err
+	}
+	continuation, err := reader.ReadString('\n')
+	if err != nil {
+		return err
+	}
+	if !strings.HasPrefix(strings.TrimSpace(continuation), "+") {
+		return fmt.Errorf("IMAP APPEND отклонён: %s", strings.TrimSpace(continuation))
+	}
+	if err := writeIMAPAll(conn, message); err != nil {
+		return err
+	}
+	if err := writeIMAPAll(conn, []byte("\r\n")); err != nil {
+		return err
+	}
+	return readIMAPTaggedResponse(reader, "A002")
+}
+
+func quoteIMAP(value string) (string, error) {
+	if strings.ContainsAny(value, "\r\n") {
+		return "", fmt.Errorf("недопустимый символ в IMAP-параметре")
+	}
+	quoted := strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(value)
+	return `"` + quoted + `"`, nil
+}
+
+func readIMAPTaggedResponse(reader *bufio.Reader, tag string) error {
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			return err
+		}
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, tag+" ") {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) < 2 || !strings.EqualFold(fields[1], "OK") {
+			return fmt.Errorf("IMAP команда отклонена: %s", line)
+		}
+		return nil
+	}
+}
+
+func writeIMAPAll(conn net.Conn, data []byte) error {
+	for len(data) > 0 {
+		written, err := conn.Write(data)
+		if err != nil {
+			return err
+		}
+		if written == 0 {
+			return fmt.Errorf("соединение IMAP закрыто")
+		}
+		data = data[written:]
+	}
+	return nil
 }
 
 func sendTLS(addr, from string, to []string, msg []byte, auth smtp.Auth) error {

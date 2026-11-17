@@ -209,12 +209,15 @@ export async function deleteBuyerEmail(
 
 export async function sendInvoiceByEmail(
   invoiceId: number,
-): Promise<{ sent: number }> {
-  const data = await invoiceEmailRequest<{ sent: number }>(
+): Promise<{ sent: number; sentCopyWarning: boolean }> {
+  const data = await invoiceEmailRequest<{
+    sent: number;
+    sentCopyWarning: boolean;
+  }>(
     `/api/miniapp/invoices/${invoiceId}/send`,
     { method: "POST" },
   );
-  return { sent: data.sent };
+  return { sent: data.sent, sentCopyWarning: data.sentCopyWarning };
 }
 
 export async function listUnpaidInvoices(

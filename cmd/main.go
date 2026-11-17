@@ -64,7 +64,17 @@ func main() {
 	miniAppHandler := handlers.NewMiniAppHandler(
 		dbInstance,
 		maxBotService,
-		mailpkg.NewService(cf.SMTPHost, cf.SMTPPort, cf.SMTPUser, cf.SMTPPass, cf.SMTPFrom),
+		mailpkg.NewService(
+			cf.SMTPHost,
+			cf.SMTPPort,
+			cf.SMTPUser,
+			cf.SMTPPass,
+			cf.SMTPFrom,
+			cf.IMAPHost,
+			cf.IMAPPort,
+			cf.IMAPUser,
+			cf.IMAPPass,
+		),
 	)
 
 	router := transport.NewRouter(

@@ -189,8 +189,16 @@ func (h *MiniAppHandler) SendOpenInvoiceEmail(w http.ResponseWriter, r *http.Req
 		data.Date.Format("02.01.2006"),
 	)
 	sent := 0
+	sentCopyWarning := false
 	for _, recipient := range data.Emails {
 		if err := h.mail.SendPDF(recipient.Email, subject, fileName, pdfBytes); err != nil {
+			var copyErr *mailpkg.SentCopyError
+			if errors.As(err, &copyErr) {
+				log.Printf("invoice email sent but Sent copy failed invoice=%d: %v", invoiceID, copyErr)
+				sent++
+				sentCopyWarning = true
+				continue
+			}
 			log.Printf("send invoice email invoice=%d recipient=%s: %v", invoiceID, recipient.Email, err)
 			http.Error(w, `{"success":false,"error":"Не удалось отправить счёт на один из адресов"}`, http.StatusBadGateway)
 			return
@@ -198,7 +206,11 @@ func (h *MiniAppHandler) SendOpenInvoiceEmail(w http.ResponseWriter, r *http.Req
 		sent++
 	}
 
-	_ = json.NewEncoder(w).Encode(map[string]any{"success": true, "sent": sent})
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"success":         true,
+		"sent":            sent,
+		"sentCopyWarning": sentCopyWarning,
+	})
 }
 
 func invoiceEmailPathID(w http.ResponseWriter, r *http.Request, key string) (int64, bool) {

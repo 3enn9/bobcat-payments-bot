@@ -183,7 +183,11 @@ export default function UnpaidInvoicesTable() {
     setSendNotice("");
     try {
       const result = await sendInvoiceByEmail(invoice.id);
-      setSendNotice(`Счёт № ${invoice.number} отправлен на ${result.sent} адрес(а)`);
+      setSendNotice(
+        result.sentCopyWarning
+          ? `Счёт № ${invoice.number} отправлен на ${result.sent} адресов, но копия не сохранилась в «Отправленных»`
+          : `Счёт № ${invoice.number} отправлен на ${result.sent} адресов и сохранён в «Отправленных»`,
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не удалось отправить счёт на почту");
     } finally {
