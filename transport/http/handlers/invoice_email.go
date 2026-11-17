@@ -183,7 +183,11 @@ func (h *MiniAppHandler) SendOpenInvoiceEmail(w http.ResponseWriter, r *http.Req
 	}
 
 	fileName := invoice.PDFFileName(data.Number, data.SupplierName, data.SupplierINN, false)
-	subject := fmt.Sprintf("Счёт № %d от %s", data.Number, data.Date.Format("02.01.2006"))
+	subject := fmt.Sprintf(
+		"Когда ожидать оплату по счёту № %d от %s?",
+		data.Number,
+		data.Date.Format("02.01.2006"),
+	)
 	sent := 0
 	for _, recipient := range data.Emails {
 		if err := h.mail.SendPDF(recipient.Email, subject, fileName, pdfBytes); err != nil {
