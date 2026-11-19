@@ -70,7 +70,7 @@ def deploy(job,stage):
                             if not dst.parent.resolve().is_relative_to(ROOT):raise ValueError('unsafe destination')
                             dst.parent.mkdir(parents=True,exist_ok=True)
                             if dst.is_symlink():raise ValueError('symlink destination')
-                            shutil.copyfile(src,dst)
+                            shutil.copyfile(src,dst);dst.chmod(0o644)
                     subprocess.run(compose('up','-d','--no-deps','--no-build','--pull','never',service),stdout=out,stderr=out,timeout=90,check=True)
                 else:subprocess.run(compose('restart',service),stdout=out,stderr=out,timeout=90,check=True)
             job['state']='done'
