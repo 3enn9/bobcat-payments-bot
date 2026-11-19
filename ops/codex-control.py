@@ -45,6 +45,13 @@ def compose(*args):
 def record(job):
     tmp=DATA/(job['id']+'.tmp');tmp.write_text(json.dumps(job));tmp.replace(DATA/(job['id']+'.json'))
 
+def host_run(command, out, timeout):
+    # A deployment gets its own systemd unit, independent of the requesting tool/session.
+    run=['systemd-run','--quiet','--wait','--pipe','--collect','--unit=paymentsbot-codex-'+uuid.uuid4().hex,
+         '--property=Type=exec','--property=RuntimeMaxSec='+str(timeout),
+         '--setenv=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin','--',*command]
+    subprocess.run(run,stdin=subprocess.DEVNULL,stdout=out,stderr=out,timeout=timeout+30,check=True,start_new_session=True)
+
 def deploy(job,stage):
     with lock:
         try:
@@ -53,7 +60,7 @@ def deploy(job,stage):
                 if job['action']=='build':
                     context=stage if service=='app' else stage/'miniapp'
                     cmd=['docker','build','-f',str(POLICY/('Dockerfile.app' if service=='app' else 'Dockerfile.miniapp')),'-t','bobcat-payments-bot-'+service,str(context)]
-                    subprocess.run(cmd,stdout=out,stderr=out,timeout=900,check=True)
+                    host_run(cmd,out,900)
                     # Publish only regular source files. Policy, env and host configuration stay immutable.
                     backup=DATA/(job['id']+'-backup');backup.mkdir()
                     tracked=subprocess.check_output(['git','-C',str(ROOT),'ls-files','-z']).decode().split('\0')
@@ -71,8 +78,8 @@ def deploy(job,stage):
                             dst.parent.mkdir(parents=True,exist_ok=True)
                             if dst.is_symlink():raise ValueError('symlink destination')
                             shutil.copyfile(src,dst);dst.chmod(0o644)
-                    subprocess.run(compose('up','-d','--no-deps','--no-build','--pull','never',service),stdout=out,stderr=out,timeout=90,check=True)
-                else:subprocess.run(compose('restart',service),stdout=out,stderr=out,timeout=90,check=True)
+                    host_run(compose('up','-d','--no-deps','--no-build','--pull','never',service),out,90)
+                else:host_run(compose('restart',service),out,90)
             job['state']='done'
         except Exception as e:job.update(state='failed',error=str(e)[:1000])
         finally:
