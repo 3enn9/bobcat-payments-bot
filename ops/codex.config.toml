@@ -2,18 +2,23 @@ forced_login_method = "chatgpt"
 model = "gpt-6-luna"
 model_reasoning_effort = "high"
 approval_policy = "never"
-sandbox_mode = "read-only"
+sandbox_mode = "danger-full-access"
 web_search = "disabled"
 [features]
-shell_tool = false
+shell_tool = true
 view_image = false
 remote_plugin = false
 skill_mcp_dependency_install = false
 [mcp_servers.paymentsbot]
 command = "/agent"
 args = ["tools"]
-env_vars = ["AGENT_DB_USER", "AGENT_DB_PASS", "AGENT_DB_ADDR", "AGENT_DB_NAME"]
+env_vars = ["AGENT_DB_USER", "AGENT_DB_PASS", "AGENT_DB_ADDR", "AGENT_DB_NAME", "CODEX_PROJECT_ADMIN"]
 required = true
-enabled_tools = ["schema", "query", "logs", "source"]
-default_tools_approval_mode = "writes"
+enabled_tools = ["schema", "query", "logs", "source", "execute_sql", "project_control"]
+default_tools_approval_mode = "approve"
 tool_timeout_sec = 10
+
+[mcp_servers.paymentsbot.tools.execute_sql]
+approval_mode = "approve"
+[mcp_servers.paymentsbot.tools.project_control]
+approval_mode = "approve"

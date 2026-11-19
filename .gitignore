@@ -5,3 +5,5 @@ data/
 .env.codex
 
 .env.codex-agent
+
+__pycache__/

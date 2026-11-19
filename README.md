@@ -34,7 +34,7 @@ The Alloy service reads Docker metadata through `/var/run/docker.sock` and tails
 vps ssh root@144.31.188.194
 ## Private Codex assistant in MAX
 
-The VPS has the optional read-only assistant enabled for the configured owner.
+The VPS has the optional project administration assistant enabled for the configured owner.
 Deploy the app using the Codex overlay so its private runtime settings are retained:
 
 ```sh

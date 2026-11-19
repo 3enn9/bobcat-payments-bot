@@ -9,8 +9,12 @@ ARG CODEX_VERSION=0.169.0
 RUN npm install -g @openai/codex@${CODEX_VERSION} && npm cache clean --force
 COPY --from=builder /agent /agent
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=builder /usr/local/go /usr/local/go
+ENV PATH=/usr/local/go/bin:$PATH
+ENV GOCACHE=/cache/go-build GOPATH=/cache/go-path GOTMPDIR=/cache/tmp npm_config_cache=/cache/npm
 COPY ops/codex.config.toml /etc/codex/config.toml
-RUN mkdir -p /workspace /state && chown -R node:node /workspace /state
+RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
+RUN mkdir -p /workspace /state /cache/tmp && chown -R node:node /workspace /state /cache
 USER node
 ENV CODEX_HOME=/state
 WORKDIR /workspace

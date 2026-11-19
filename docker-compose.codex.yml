@@ -8,7 +8,7 @@ services:
       context: .
       dockerfile: ops/Dockerfile.codex
     restart: unless-stopped
-    mem_limit: 512m
+    mem_limit: 1024m
     cpus: 0.75
     read_only: true
     tmpfs:
@@ -16,10 +16,14 @@ services:
     cap_drop: [ALL]
     env_file: .env.codex-agent
     volumes:
+      - codex_cache:/cache
       - codex_state:/state
+      - ./data/codex-workspace:/workspace
+      - ./data/codex-control:/control:ro
       - ./ops/codex.config.toml:/state/config.toml:ro
       - ./:/sources:ro
       - ./data/codex-logs:/logs:ro
     networks: [web, vnutri_net]
 volumes:
   codex_state:
+  codex_cache:

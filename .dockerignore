@@ -10,3 +10,5 @@ login.md
 miniapp/node_modules
 miniapp/dist
 data
+
+**/__pycache__
