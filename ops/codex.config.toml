@@ -1,0 +1,17 @@
+forced_login_method = "chatgpt"
+approval_policy = "never"
+sandbox_mode = "read-only"
+web_search = "disabled"
+[features]
+shell_tool = false
+view_image = false
+remote_plugin = false
+skill_mcp_dependency_install = false
+[mcp_servers.paymentsbot]
+command = "/agent"
+args = ["tools"]
+env_vars = ["AGENT_DB_USER", "AGENT_DB_PASS", "AGENT_DB_ADDR", "AGENT_DB_NAME"]
+required = true
+enabled_tools = ["schema", "query", "logs", "source"]
+default_tools_approval_mode = "auto"
+tool_timeout_sec = 10

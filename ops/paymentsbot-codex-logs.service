@@ -1,0 +1,5 @@
+[Unit]
+Description=Snapshot PaymentsBot logs for read-only Codex tools
+[Service]
+Type=oneshot
+ExecStart=/bin/sh /root/bobcat-payments-bot/ops/codex-logs.sh

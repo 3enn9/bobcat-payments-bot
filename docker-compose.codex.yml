@@ -1,0 +1,28 @@
+services:
+  app:
+    env_file:
+      - .env
+      - .env.codex
+  codex-agent:
+    build:
+      context: .
+      dockerfile: ops/Dockerfile.codex
+    restart: unless-stopped
+    init: true
+    mem_limit: 512m
+    cpus: 0.75
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+    env_file: .env.codex-agent
+    volumes:
+      - codex_state:/state
+      - ./ops/codex.config.toml:/state/config.toml:ro
+      - ./:/sources:ro
+      - /var/lib/paymentsbot-codex-logs:/logs:ro
+    networks: [web, vnutri_net]
+volumes:
+  codex_state:

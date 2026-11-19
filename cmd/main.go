@@ -4,6 +4,7 @@ import (
 	"PaymentsBot/internal/accountant"
 	"PaymentsBot/internal/banks"
 	"PaymentsBot/internal/clock"
+	"PaymentsBot/internal/codexagent"
 	"PaymentsBot/internal/config"
 	"PaymentsBot/internal/db"
 	mailpkg "PaymentsBot/internal/mail"
@@ -24,6 +25,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 )
@@ -88,6 +90,18 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	if os.Getenv("CODEX_ENABLED") == "true" {
+		owner, e := strconv.ParseInt(os.Getenv("CODEX_MAX_OWNER_ID"), 10, 64)
+		if e != nil || owner <= 0 || len(os.Getenv("MAX_WEBHOOK_SECRET")) < 32 || len(os.Getenv("CODEX_SERVICE_TOKEN")) < 32 || os.Getenv("CODEX_AGENT_URL") == "" {
+			log.Fatal("invalid Codex configuration")
+		}
+		a := &codexagent.Service{DB: dbInstance.DB, URL: os.Getenv("CODEX_AGENT_URL"), Token: os.Getenv("CODEX_SERVICE_TOKEN"), Owner: owner, Send: maxBotService.SendMessageInGroupID}
+		if e = a.Init(ctx); e != nil {
+			log.Fatalf("codex queue: %v", e)
+		}
+		maxBotService.Agent = a
+		go a.Run(ctx)
+	}
 	go incomingWebhookQueue.Run(ctx, func(event webhookqueue.Event) error {
 		return banksService.ProcessWebhook(event.Source, event.Payload)
 	})

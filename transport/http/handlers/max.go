@@ -2,11 +2,13 @@ package handlers
 
 import (
 	max2 "PaymentsBot/internal/max"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"io"
 	"log"
 	"net/http"
+	"os"
 )
 
 type MaxHandler struct {
@@ -19,6 +21,12 @@ func NewMaxHandler(useCase *max2.MaxService) *MaxHandler {
 
 func (p *MaxHandler) MaxUpdates(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
+	secret := os.Getenv("MAX_WEBHOOK_SECRET")
+	if secret != "" && subtle.ConstantTimeCompare([]byte(r.Header.Get("X-Max-Bot-Api-Secret")), []byte(secret)) != 1 {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, 1024*1024)
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil || len(body) == 0 {
@@ -58,6 +66,8 @@ func (p *MaxHandler) MaxUpdates(w http.ResponseWriter, r *http.Request) {
 
 	if err := p.max.Updates(update); err != nil {
 		log.Println(err)
+		w.WriteHeader(http.StatusServiceUnavailable)
+		return
 	}
 
 	w.WriteHeader(http.StatusOK)

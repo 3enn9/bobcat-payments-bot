@@ -1,6 +1,7 @@
 package max
 
 import (
+	"PaymentsBot/internal/codexagent"
 	"PaymentsBot/internal/db"
 	"PaymentsBot/internal/payments"
 	"context"
@@ -14,6 +15,7 @@ import (
 )
 
 type MaxService struct {
+	Agent    *codexagent.Service
 	Bot      *maxbot.Api
 	Chats    map[string]int64
 	payments *payments.PaymentsService
@@ -139,6 +141,12 @@ func (m *MaxService) Updates(update schemes.UpdateInterface) error {
 	switch upd := update.(type) {
 
 	case *schemes.MessageCreatedUpdate:
+		if m.Agent != nil && upd.Message.Recipient.ChatType == schemes.DIALOG && upd.GetUserID() == m.Agent.Owner && !upd.Message.Sender.IsBot {
+			text := strings.TrimSpace(upd.GetText())
+			if text != "" && (!strings.HasPrefix(text, "/") || text == "/new") {
+				return m.Agent.Enqueue(context.Background(), upd.Message.Body.Mid, upd.GetChatID(), text)
+			}
+		}
 		m.handleMessage(upd)
 
 	case *schemes.MessageCallbackUpdate:

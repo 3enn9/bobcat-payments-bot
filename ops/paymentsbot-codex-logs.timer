@@ -1,0 +1,7 @@
+[Unit]
+Description=Refresh PaymentsBot Codex log snapshot
+[Timer]
+OnBootSec=10s
+OnUnitActiveSec=30s
+[Install]
+WantedBy=timers.target
