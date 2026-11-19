@@ -4,6 +4,8 @@ model_reasoning_effort = "high"
 approval_policy = "never"
 sandbox_mode = "danger-full-access"
 web_search = "disabled"
+[shell_environment_policy]
+inherit = "all"
 [features]
 shell_tool = true
 view_image = false
