@@ -95,7 +95,7 @@ func main() {
 		if e != nil || owner <= 0 || len(os.Getenv("MAX_WEBHOOK_SECRET")) < 32 || len(os.Getenv("CODEX_SERVICE_TOKEN")) < 32 || os.Getenv("CODEX_AGENT_URL") == "" {
 			log.Fatal("invalid Codex configuration")
 		}
-		a := &codexagent.Service{DB: dbInstance.DB, URL: os.Getenv("CODEX_AGENT_URL"), Token: os.Getenv("CODEX_SERVICE_TOKEN"), Owner: owner, Send: maxBotService.SendMessageInGroupID}
+		a := &codexagent.Service{DB: dbInstance.DB, URL: os.Getenv("CODEX_AGENT_URL"), Token: os.Getenv("CODEX_SERVICE_TOKEN"), Owner: owner, Send: maxBotService.SendDirectMessage}
 		if e = a.Init(ctx); e != nil {
 			log.Fatalf("codex queue: %v", e)
 		}

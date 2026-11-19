@@ -114,6 +114,11 @@ func (m *MaxService) SendFileAndPhotosToGroup(groupName, fileName string, reader
 	return m.SendMessageWithPhotos(groupName, "", photos)
 }
 
+// SendDirectMessage addresses a private dialog by user ID, including updates without chat_id.
+func (m *MaxService) SendDirectMessage(userID int64, text string) error {
+	return m.Bot.Messages.Send(context.Background(), maxbot.NewMessage().SetUser(userID).SetText(text))
+}
+
 func (m *MaxService) SendMessageInGroupID(chatID int64, message string) error {
 	msg := maxbot.NewMessage().SetChat(chatID).SetText(message)
 	err := m.Bot.Messages.Send(context.Background(), msg)
@@ -147,7 +152,7 @@ func (m *MaxService) Updates(update schemes.UpdateInterface) error {
 			if text != "" && (!strings.HasPrefix(text, "/") || text == "/new") {
 				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 				defer cancel()
-				return m.Agent.Enqueue(ctx, upd.Message.Body.Mid, upd.GetChatID(), text)
+				return m.Agent.Enqueue(ctx, upd.Message.Body.Mid, upd.GetUserID(), text)
 			}
 		}
 		m.handleMessage(upd)
