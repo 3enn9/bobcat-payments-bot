@@ -1,0 +1,12 @@
+.git
+.env
+.env.*
+!.env.example
+login.md
+.aws
+.codex
+.agents
+.idea
+miniapp/node_modules
+miniapp/dist
+data

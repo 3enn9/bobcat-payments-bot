@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"strings"
+	"time"
 
 	maxbot "github.com/max-messenger/max-bot-api-client-go"
 	"github.com/max-messenger/max-bot-api-client-go/schemes"
@@ -144,7 +145,9 @@ func (m *MaxService) Updates(update schemes.UpdateInterface) error {
 		if m.Agent != nil && upd.Message.Recipient.ChatType == schemes.DIALOG && upd.GetUserID() == m.Agent.Owner && !upd.Message.Sender.IsBot {
 			text := strings.TrimSpace(upd.GetText())
 			if text != "" && (!strings.HasPrefix(text, "/") || text == "/new") {
-				return m.Agent.Enqueue(context.Background(), upd.Message.Body.Mid, upd.GetChatID(), text)
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				return m.Agent.Enqueue(ctx, upd.Message.Body.Mid, upd.GetChatID(), text)
 			}
 		}
 		m.handleMessage(upd)
