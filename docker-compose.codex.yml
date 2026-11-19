@@ -22,7 +22,7 @@ services:
       - codex_state:/state
       - ./ops/codex.config.toml:/state/config.toml:ro
       - ./:/sources:ro
-      - /var/lib/paymentsbot-codex-logs:/logs:ro
+      - ./data/codex-logs:/logs:ro
     networks: [web, vnutri_net]
 volumes:
   codex_state:
