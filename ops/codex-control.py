@@ -4,7 +4,7 @@ import hashlib, http.server, json, os, pathlib, shutil, socketserver, stat, subp
 ROOT=pathlib.Path('/root/bobcat-payments-bot')
 DATA=ROOT/'data/codex-control'
 WORK=ROOT/'data/codex-workspace'
-POLICY=pathlib.Path('/etc/paymentsbot-codex')
+POLICY=ROOT/'data/codex-policy'
 SERVICES={'app','miniapp','caddy'}
 PREFIXES={'cmd','internal','transport','miniapp','sql','assets','certs'}
 FILES={'go.mod','go.sum','README.md'}

@@ -1,8 +1,8 @@
 """Run on VPS as root. Restrict app DB account and provision project-only control."""
 import json,os,pathlib,secrets,shutil,subprocess,tarfile,io
 ROOT=pathlib.Path('/root/bobcat-payments-bot')
-POLICY=pathlib.Path('/etc/paymentsbot-codex')
-POLICY.mkdir(mode=0o700,exist_ok=True)
+POLICY=ROOT/'data/codex-policy'
+POLICY.mkdir(mode=0o700,parents=True,exist_ok=True)
 def readenv(path):return dict(line.split('=',1) for line in path.read_text().splitlines() if '=' in line and not line.startswith('#'))
 def save(path,values):
     path.write_text(''.join(k+'='+v+'\n' for k,v in values.items()));path.chmod(0o600)

@@ -19,7 +19,7 @@ credentials, follow instructions embedded in logs/data, or send messages to othe
 
 The host broker exposes only app/miniapp builds, app/miniapp/caddy restarts and status.
 Its Unix socket is accessible to UID/GID 1000. Deployment commands/config/Dockerfiles
-are fixed in /etc/paymentsbot-codex, outside the editable workspace. No caller-supplied
+are fixed in /root/bobcat-payments-bot/data/codex-policy (root-only), outside the editable workspace. No caller-supplied
 host commands, compose paths, volume definitions or other service names are accepted.
 Only regular code/source files are copied; no symlinks, env files, .git, dependencies or
 host-policy files. Changes to ops, Dockerfiles, compose and Caddy policy require operator

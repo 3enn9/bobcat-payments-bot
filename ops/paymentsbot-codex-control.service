@@ -2,7 +2,7 @@
 Description=Scoped PaymentsBot build and restart broker for Codex
 After=docker.service snap.docker.dockerd.service
 [Service]
-ExecStart=/usr/bin/python3 /etc/paymentsbot-codex/control.py
+ExecStart=/usr/bin/python3 /root/bobcat-payments-bot/data/codex-policy/control.py
 Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin
 Restart=on-failure
 UMask=0077
