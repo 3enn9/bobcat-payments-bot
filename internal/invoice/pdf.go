@@ -2,7 +2,7 @@ package invoice
 
 import (
 	"bytes"
-	_ "embed"
+	"embed"
 	"fmt"
 	"math"
 	"strings"
@@ -17,8 +17,25 @@ var fontRegular []byte
 //go:embed fonts/Arial-Bold.ttf
 var fontBold []byte
 
-//go:embed stamps/ann-print.png
-var annStamp []byte
+//go:embed stamps/*.png
+var stampFiles embed.FS
+
+// Use INN when supplied so a similar name cannot select another supplier's stamp.
+func supplierStamp(name, inn string) []byte {
+	files := map[string]string{
+		"645499004617": "ann", "645407907794": "adn",
+		"645401925283": "anv", "645115810154": "san", "6454116198": "sst",
+	}
+	code := files[strings.TrimSpace(inn)]
+	if strings.TrimSpace(inn) == "" {
+		code = map[string]string{"анн": "ann", "адн": "adn", "анв": "anv", "сан": "san", "сст": "sst"}[SupplierFileCode(name, "")]
+	}
+	if code == "" {
+		return nil
+	}
+	stamp, _ := stampFiles.ReadFile("stamps/" + code + "-print.png")
+	return stamp
+}
 
 type PDFItem struct {
 	Position int
@@ -254,15 +271,24 @@ func GeneratePDF(data PDFData) ([]byte, error) {
 	y = pdf.GetY() + 10
 
 	// Keep the signature and the complete stamp together on the same page.
-	stampANN := strings.TrimSpace(data.SupplierINN) == "645499004617" ||
-		(strings.TrimSpace(data.SupplierINN) == "" && SupplierFileCode(data.SupplierName, "") == "анн")
+	stamp := supplierStamp(data.SupplierName, data.SupplierINN)
 	signatureHeight := 10.0
-	if stampANN {
-		signatureHeight = 38
+	stampX, stampY := left+71, y-9
+	options := fpdf.ImageOptions{ImageType: "PNG"}
+	if len(stamp) > 0 {
+		info := pdf.RegisterImageOptionsReader("supplier-stamp", options, bytes.NewReader(stamp))
+		if info == nil {
+			return nil, fmt.Errorf("не удалось загрузить печать поставщика: %v", pdf.Error())
+		}
+		if !isEntrepreneurName(data.SupplierName) {
+			stampX = left + 20
+		}
+		signatureHeight = 48*info.Height()/info.Width() - 9 + 2
 	}
 	if y+signatureHeight > 283 {
 		pdf.AddPage()
 		y = 24
+		stampY = y - 9
 	}
 
 	pdf.SetFont("arial", "", 10)
@@ -274,11 +300,8 @@ func GeneratePDF(data PDFData) ([]byte, error) {
 		pdf.SetXY(left+95, y)
 		pdf.CellFormat(90, 5, "Бухгалтер ________________  Моисеенко А. Н.", "", 0, "L", false, 0, "")
 	}
-	if stampANN {
-		options := fpdf.ImageOptions{ImageType: "PNG"}
-		pdf.RegisterImageOptionsReader("ann-stamp", options, bytes.NewReader(annStamp))
-		// The signature in the image crosses the entrepreneur's signature line.
-		pdf.ImageOptions("ann-stamp", left+71, y-9, 48, 0, false, options, 0, "")
+	if len(stamp) > 0 {
+		pdf.ImageOptions("supplier-stamp", stampX, stampY, 48, 0, false, options, 0, "")
 	}
 
 	var buf bytes.Buffer
