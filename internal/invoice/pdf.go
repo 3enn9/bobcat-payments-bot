@@ -17,6 +17,9 @@ var fontRegular []byte
 //go:embed fonts/Arial-Bold.ttf
 var fontBold []byte
 
+//go:embed stamps/ann-print.png
+var annStamp []byte
+
 type PDFItem struct {
 	Position int
 	Title    string
@@ -250,6 +253,18 @@ func GeneratePDF(data PDFData) ([]byte, error) {
 	pdf.MultiCell(pageW, 4, "Оплата данного счета означает согласие с условиями поставки товара.\nУведомление об оплате обязательно, в противном случае не гарантируется наличие товара на складе.\nТовар отпускается по факту прихода денег на р/с Поставщика, самовывозом, при наличии доверенности и паспорта.", "", "L", false)
 	y = pdf.GetY() + 10
 
+	// Keep the signature and the complete stamp together on the same page.
+	stampANN := strings.TrimSpace(data.SupplierINN) == "645499004617" ||
+		(strings.TrimSpace(data.SupplierINN) == "" && SupplierFileCode(data.SupplierName, "") == "анн")
+	signatureHeight := 10.0
+	if stampANN {
+		signatureHeight = 46
+	}
+	if y+signatureHeight > 283 {
+		pdf.AddPage()
+		y = 24
+	}
+
 	pdf.SetFont("arial", "", 10)
 	if isEntrepreneurName(data.SupplierName) {
 		writeEntrepreneurSignature(pdf, left, y, pageW, data.SupplierName)
@@ -258,6 +273,12 @@ func GeneratePDF(data PDFData) ([]byte, error) {
 		pdf.CellFormat(90, 5, "Руководитель ________________  Моисеенко А. Н.", "", 0, "L", false, 0, "")
 		pdf.SetXY(left+95, y)
 		pdf.CellFormat(90, 5, "Бухгалтер ________________  Моисеенко А. Н.", "", 0, "L", false, 0, "")
+	}
+	if stampANN {
+		options := fpdf.ImageOptions{ImageType: "PNG"}
+		pdf.RegisterImageOptionsReader("ann-stamp", options, bytes.NewReader(annStamp))
+		// The signature in the image crosses the entrepreneur's signature line.
+		pdf.ImageOptions("ann-stamp", left+65, y-12, 60, 0, false, options, 0, "")
 	}
 
 	var buf bytes.Buffer

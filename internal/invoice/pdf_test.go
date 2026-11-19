@@ -1,12 +1,48 @@
 package invoice_test
 
 import (
+	"bytes"
 	"os"
 	"testing"
 	"time"
 
 	"PaymentsBot/internal/invoice"
 )
+
+func TestGeneratePDFStampOnlyANN(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		inn   string
+		stamp bool
+	}{
+		{"ИП Архипов Николай Николаевич", "645499004617", true},
+		{"ИП Архипов Николай Николаевич", "", true},
+		{"ИП Архипов Николай Владимирович", "", false},
+		{"ИП Архипов Данила Николаевич", "645401925283", false},
+		{`ООО "СарСтройТех"`, "6454116198", false},
+		{"ИП Архипов Николай Николаевич", "123456789012", false},
+	} {
+		t.Run(tc.name+tc.inn, func(t *testing.T) {
+			b, err := invoice.GeneratePDF(invoice.PDFData{
+				Number: 649, Date: time.Date(2026, 11, 19, 0, 0, 0, 0, time.UTC),
+				SupplierName: tc.name, SupplierINN: tc.inn,
+				Items: []invoice.PDFItem{{Position: 1, Title: "Услуги", Quantity: 1, Price: 1000, Amount: 1000}},
+				Total: 1000,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := bytes.Contains(b, []byte("/Subtype /Image")); got != tc.stamp {
+				t.Fatalf("PDF contains stamp = %v, want %v", got, tc.stamp)
+			}
+			if tc.inn == "645499004617" {
+				if err := os.WriteFile("/tmp/schet_ann_test.pdf", b, 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+		})
+	}
+}
 
 func TestGeneratePDF(t *testing.T) {
 	b, err := invoice.GeneratePDF(invoice.PDFData{
