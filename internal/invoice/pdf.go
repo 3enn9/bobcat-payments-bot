@@ -273,7 +273,12 @@ func GeneratePDF(data PDFData) ([]byte, error) {
 	// Keep the signature and the complete stamp together on the same page.
 	stamp := supplierStamp(data.SupplierName, data.SupplierINN)
 	signatureHeight := 10.0
-	stampX, stampY := left+71, y-9
+	stampOffsetY := -9.0
+	if isEntrepreneurName(data.SupplierName) {
+		// Raise the handwritten signature onto the entrepreneur's signature line.
+		stampOffsetY -= 7
+	}
+	stampX, stampY := left+71, y+stampOffsetY
 	options := fpdf.ImageOptions{ImageType: "PNG"}
 	if len(stamp) > 0 {
 		info := pdf.RegisterImageOptionsReader("supplier-stamp", options, bytes.NewReader(stamp))
@@ -283,12 +288,12 @@ func GeneratePDF(data PDFData) ([]byte, error) {
 		if !isEntrepreneurName(data.SupplierName) {
 			stampX = left + 20
 		}
-		signatureHeight = 48*info.Height()/info.Width() - 9 + 2
+		signatureHeight = math.Max(signatureHeight, 48*info.Height()/info.Width()+stampOffsetY+2)
 	}
 	if y+signatureHeight > 283 {
 		pdf.AddPage()
 		y = 24
-		stampY = y - 9
+		stampY = y + stampOffsetY
 	}
 
 	pdf.SetFont("arial", "", 10)
