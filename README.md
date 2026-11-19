@@ -30,3 +30,5 @@ The optional Alloy service forwards logs from the `app` container to Grafana Clo
    ```
 
 The Alloy service reads Docker metadata through `/var/run/docker.sock` and tails the Snap Docker log directory mounted read-only. Treat access to the Docker socket as privileged. Logs are sent to Grafana Cloud, so avoid logging credentials, webhook request bodies, or full payment objects.
+
+vps ssh root@144.31.188.194
