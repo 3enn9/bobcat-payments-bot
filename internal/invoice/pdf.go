@@ -258,7 +258,7 @@ func GeneratePDF(data PDFData) ([]byte, error) {
 		(strings.TrimSpace(data.SupplierINN) == "" && SupplierFileCode(data.SupplierName, "") == "анн")
 	signatureHeight := 10.0
 	if stampANN {
-		signatureHeight = 46
+		signatureHeight = 38
 	}
 	if y+signatureHeight > 283 {
 		pdf.AddPage()
@@ -278,7 +278,7 @@ func GeneratePDF(data PDFData) ([]byte, error) {
 		options := fpdf.ImageOptions{ImageType: "PNG"}
 		pdf.RegisterImageOptionsReader("ann-stamp", options, bytes.NewReader(annStamp))
 		// The signature in the image crosses the entrepreneur's signature line.
-		pdf.ImageOptions("ann-stamp", left+65, y-12, 60, 0, false, options, 0, "")
+		pdf.ImageOptions("ann-stamp", left+71, y-9, 48, 0, false, options, 0, "")
 	}
 
 	var buf bytes.Buffer
