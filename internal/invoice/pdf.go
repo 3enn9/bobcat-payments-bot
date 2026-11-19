@@ -278,6 +278,14 @@ func GeneratePDF(data PDFData) ([]byte, error) {
 		// Raise the handwritten signature onto the entrepreneur's signature line.
 		stampOffsetY -= 7
 	}
+	stampWidth := 48.0
+	isANN := strings.TrimSpace(data.SupplierINN) == "645499004617" ||
+		(strings.TrimSpace(data.SupplierINN) == "" && SupplierFileCode(data.SupplierName, "") == "анн")
+	if !isANN {
+		stampWidth *= 0.8
+		// Scale around the signature line to keep the handwritten signature aligned.
+		stampOffsetY = 5.5 + (stampOffsetY-5.5)*0.8
+	}
 	stampX, stampY := left+71, y+stampOffsetY
 	options := fpdf.ImageOptions{ImageType: "PNG"}
 	if len(stamp) > 0 {
@@ -288,7 +296,8 @@ func GeneratePDF(data PDFData) ([]byte, error) {
 		if !isEntrepreneurName(data.SupplierName) {
 			stampX = left + 20
 		}
-		signatureHeight = math.Max(signatureHeight, 48*info.Height()/info.Width()+stampOffsetY+2)
+		stampX += (48 - stampWidth) / 2
+		signatureHeight = math.Max(signatureHeight, stampWidth*info.Height()/info.Width()+stampOffsetY+2)
 	}
 	if y+signatureHeight > 283 {
 		pdf.AddPage()
@@ -306,7 +315,7 @@ func GeneratePDF(data PDFData) ([]byte, error) {
 		pdf.CellFormat(90, 5, "Бухгалтер ________________  Моисеенко А. Н.", "", 0, "L", false, 0, "")
 	}
 	if len(stamp) > 0 {
-		pdf.ImageOptions("supplier-stamp", stampX, stampY, 48, 0, false, options, 0, "")
+		pdf.ImageOptions("supplier-stamp", stampX, stampY, stampWidth, 0, false, options, 0, "")
 	}
 
 	var buf bytes.Buffer
