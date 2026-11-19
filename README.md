@@ -32,3 +32,13 @@ The optional Alloy service forwards logs from the `app` container to Grafana Clo
 The Alloy service reads Docker metadata through `/var/run/docker.sock` and tails the Snap Docker log directory mounted read-only. Treat access to the Docker socket as privileged. Logs are sent to Grafana Cloud, so avoid logging credentials, webhook request bodies, or full payment objects.
 
 vps ssh root@144.31.188.194
+## Private Codex assistant in MAX
+
+The VPS has the optional read-only assistant enabled for the configured owner.
+Deploy the app using the Codex overlay so its private runtime settings are retained:
+
+```sh
+docker compose -f docker-compose.yml -f docker-compose.codex.yml up -d --build app codex-agent
+```
+
+See [Codex operations](ops/CODEX.md) for login, permissions, limits, and rollback.
