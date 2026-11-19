@@ -13,5 +13,5 @@ args = ["tools"]
 env_vars = ["AGENT_DB_USER", "AGENT_DB_PASS", "AGENT_DB_ADDR", "AGENT_DB_NAME"]
 required = true
 enabled_tools = ["schema", "query", "logs", "source"]
-default_tools_approval_mode = "auto"
+default_tools_approval_mode = "writes"
 tool_timeout_sec = 10

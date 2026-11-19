@@ -141,7 +141,7 @@ func tools() {
 				if t.Arg != "" {
 					props[t.Arg] = map[string]string{"type": "string"}
 				}
-				list = append(list, map[string]any{"name": t.Name, "description": t.Desc, "inputSchema": map[string]any{"type": "object", "properties": props, "additionalProperties": false}})
+				list = append(list, map[string]any{"name": t.Name, "description": t.Desc, "annotations": map[string]bool{"readOnlyHint": true, "destructiveHint": false, "openWorldHint": false}, "inputSchema": map[string]any{"type": "object", "properties": props, "additionalProperties": false}})
 			}
 			result = map[string]any{"tools": list}
 		case "tools/call":
