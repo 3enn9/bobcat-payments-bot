@@ -23,7 +23,7 @@ var stampFiles embed.FS
 // Use INN when supplied so a similar name cannot select another supplier's stamp.
 func supplierStamp(name, inn string) []byte {
 	files := map[string]string{
-		"645499004617": "ann", "645407907794": "adn",
+		"645499004617": "ann", "645407904794": "adn",
 		"645401925283": "anv", "645115810154": "san", "6454116198": "sst",
 	}
 	code := files[strings.TrimSpace(inn)]
