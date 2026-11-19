@@ -59,9 +59,9 @@ def deploy(job,stage):
             with (DATA/(job['id']+'.log')).open('w') as out:
                 if job['action']=='build':
                     context=stage if service=='app' else stage/'miniapp'
-                    build_config=DATA/(job['id']+'-build.json')
-                    build_config.write_text(json.dumps({'services':{service:{'image':'bobcat-payments-bot-'+service,'build':{'context':str(context),'dockerfile':str(POLICY/('Dockerfile.app' if service=='app' else 'Dockerfile.miniapp'))}}}}))
-                    cmd=['docker','compose','--project-name','paymentsbot-codex-build','-f',str(build_config),'build',service]
+                    cmd=['docker','buildx','build','--builder','paymentsbot-codex-builder','--load',
+                         '-f',str(POLICY/('Dockerfile.app' if service=='app' else 'Dockerfile.miniapp')),
+                         '-t','bobcat-payments-bot-'+service,str(context)]
                     host_run(cmd,out,900)
                     # Publish only regular source files. Policy, env and host configuration stay immutable.
                     backup=DATA/(job['id']+'-backup');backup.mkdir()

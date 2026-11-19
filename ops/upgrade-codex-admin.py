@@ -44,4 +44,6 @@ overlay=(ROOT/'docker-compose.codex.yml').read_text().replace('      - .env\n','
 shutil.copyfile(ROOT/'ops/paymentsbot-codex-control.service','/etc/systemd/system/paymentsbot-codex-control.service')
 subprocess.run(['systemctl','daemon-reload'],check=True)
 subprocess.run(['systemctl','enable','--now','paymentsbot-codex-control.service'],check=True)
+if subprocess.run(['docker','buildx','inspect','paymentsbot-codex-builder'],capture_output=True).returncode != 0:
+    subprocess.run(['docker','buildx','create','--name','paymentsbot-codex-builder','--driver','docker-container','--bootstrap'],check=True)
 print('Project-only DB accounts, private workspace and scoped deployment broker installed.')
