@@ -62,7 +62,14 @@ def deploy(job,stage):
                     cmd=['docker','buildx','build','--builder','paymentsbot-codex-builder','--load',
                          '-f',str(POLICY/('Dockerfile.app' if service=='app' else 'Dockerfile.miniapp')),
                          '-t','bobcat-payments-bot-'+service,str(context)]
-                    host_run(cmd,out,900)
+                    for attempt in range(3):
+                        try:
+                            host_run(cmd,out,900)
+                            break
+                        except subprocess.CalledProcessError as error:
+                            if error.returncode != 130 or attempt == 2:raise
+                            out.write('\nTransient BuildKit session cancellation; retrying build before publication.\n');out.flush()
+                            time.sleep(2)
                     # Publish only regular source files. Policy, env and host configuration stay immutable.
                     backup=DATA/(job['id']+'-backup');backup.mkdir()
                     tracked=subprocess.check_output(['git','-C',str(ROOT),'ls-files','-z']).decode().split('\0')
