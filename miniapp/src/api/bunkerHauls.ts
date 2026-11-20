@@ -2,7 +2,11 @@ export type BunkerHaulMessage = {
   id: number;
   sentAt: string;
   text: string;
+  annotationKind?: BunkerHaulAnnotationKind;
+  annotationAmount?: number;
 };
+
+export type BunkerHaulAnnotationKind = "vector" | "dubki" | "cash";
 
 type BunkerHaulMessagesResponse = {
   success: boolean;
@@ -21,4 +25,20 @@ export async function listBunkerHaulMessages(
     throw new Error(data.error || "Не удалось загрузить сообщения");
   }
   return data.items ?? [];
+}
+
+export async function saveBunkerHaulAnnotation(
+  id: number,
+  kind: BunkerHaulAnnotationKind,
+  value: number,
+): Promise<void> {
+  const response = await fetch(`/api/miniapp/bunker-hauls/${id}/annotation`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ kind, value }),
+  });
+  const data = (await response.json()) as { success: boolean; error?: string };
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || "Не удалось сохранить отметку");
+  }
 }

@@ -25,3 +25,12 @@ CREATE TABLE IF NOT EXISTS bunker_haul_senders (
   PRIMARY KEY (sender_id),
   KEY idx_bunker_haul_senders_surname (surname)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS bunker_haul_annotations (
+  haul_id BIGINT UNSIGNED NOT NULL,
+  kind ENUM('vector', 'dubki', 'cash') NOT NULL,
+  value DECIMAL(12,3) NOT NULL,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (haul_id),
+  CONSTRAINT fk_bunker_haul_annotations_haul FOREIGN KEY (haul_id) REFERENCES bunker_hauls(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

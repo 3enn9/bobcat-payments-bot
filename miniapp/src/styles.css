@@ -292,6 +292,51 @@
   flex-shrink: 0;
 }
 
+.bunker-message-body {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.bunker-message-body:focus-visible {
+  outline: 2px solid #777;
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+.bunker-annotation {
+  display: block;
+  padding-top: 8px;
+  border-top: 1px solid #e5e5e5;
+  color: #1b5e20;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.bunker-annotation-editor {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e6e6e6;
+}
+
+.bunker-method-buttons {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.bunker-save-annotation {
+  justify-self: start;
+}
+
 .assign-form {
   display: grid;
   gap: 12px;

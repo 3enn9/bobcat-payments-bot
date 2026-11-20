@@ -166,6 +166,11 @@ func NewRouter(
 	).Methods(http.MethodGet, http.MethodOptions)
 
 	router.HandleFunc(
+		"/api/miniapp/bunker-hauls/{id}/annotation",
+		miniApp.SaveBunkerHaulAnnotation,
+	).Methods(http.MethodPost, http.MethodOptions)
+
+	router.HandleFunc(
 		"/api/miniapp/fuels",
 		miniApp.ListFuelEntries,
 	).Methods(http.MethodGet, http.MethodOptions)
