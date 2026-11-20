@@ -23,6 +23,8 @@ type MaxService struct {
 	db       *db.Database
 }
 
+const bunkerHaulsChatID int64 = -72500542391615
+
 func NewMaxService(token string, payments *payments.PaymentsService, database *db.Database) (*MaxService, error) {
 	api, err := maxbot.New(token)
 	if err != nil {
@@ -147,6 +149,11 @@ func (m *MaxService) Updates(update schemes.UpdateInterface) error {
 	switch upd := update.(type) {
 
 	case *schemes.MessageCreatedUpdate:
+		if upd.GetChatID() == bunkerHaulsChatID {
+			if err := m.saveBunkerHaulMessage(upd); err != nil {
+				return err
+			}
+		}
 		if m.Agent != nil && upd.Message.Recipient.ChatType == schemes.DIALOG && upd.GetUserID() == m.Agent.Owner && !upd.Message.Sender.IsBot {
 			text := strings.TrimSpace(upd.GetText())
 			if text != "" && (!strings.HasPrefix(text, "/") || text == "/new") {

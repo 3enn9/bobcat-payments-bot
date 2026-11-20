@@ -39,6 +39,9 @@ func main() {
 		log.Fatalf("DB connection failed: %v", err)
 	}
 	defer dbInstance.DB.Close()
+	if err := dbInstance.EnsureBunkerHaulsTable(); err != nil {
+		log.Printf("bunker_hauls table initialization failed: %v", err)
+	}
 	incomingWebhookQueue, err := webhookqueue.New(cf.WebhookQueueDir)
 	if err != nil {
 		log.Fatalf("incoming payment queue initialization failed: %v", err)

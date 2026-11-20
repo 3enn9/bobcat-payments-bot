@@ -5,11 +5,14 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 )
 
 type Database struct {
-	DB *sql.DB
+	DB                     *sql.DB
+	bunkerHaulsSchemaMu    sync.Mutex
+	bunkerHaulsSchemaReady bool
 }
 
 func (d *Database) UpdateBalance(chatID int64, title string, amount float64) error {
@@ -194,18 +197,18 @@ func (d *Database) SaveRogatkaRequest(
 }
 
 type RogatkaRequest struct {
-	ID                      int64     `json:"id"`
-	MaxChatID               int64     `json:"maxChatId"`
-	MaxUserID               int64     `json:"maxUserId"`
-	MaxUsername             string    `json:"maxUsername"`
-	MaxUserName             string    `json:"maxUserName"`
-	MaxMessageID            string    `json:"maxMessageId"`
-	DriverRequestMessageID  *string   `json:"driverRequestMessageId"`
-	Message                 string    `json:"message"`
-	DriverName              *string   `json:"driverName"`
-	IsCompleted             bool      `json:"isCompleted"`
-	DriverComment           *string   `json:"driverComment"`
-	CreatedAt               time.Time `json:"createdAt"`
+	ID                     int64     `json:"id"`
+	MaxChatID              int64     `json:"maxChatId"`
+	MaxUserID              int64     `json:"maxUserId"`
+	MaxUsername            string    `json:"maxUsername"`
+	MaxUserName            string    `json:"maxUserName"`
+	MaxMessageID           string    `json:"maxMessageId"`
+	DriverRequestMessageID *string   `json:"driverRequestMessageId"`
+	Message                string    `json:"message"`
+	DriverName             *string   `json:"driverName"`
+	IsCompleted            bool      `json:"isCompleted"`
+	DriverComment          *string   `json:"driverComment"`
+	CreatedAt              time.Time `json:"createdAt"`
 }
 
 func scanRogatkaRequest(scanner interface {
