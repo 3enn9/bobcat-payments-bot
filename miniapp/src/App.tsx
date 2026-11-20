@@ -300,19 +300,6 @@ export default function App() {
         <button
           type="button"
           className="role-button"
-          onClick={() => setScreen("kosenko")}
-        >
-          <span className="role-icon">📋</span>
-
-          <span>
-            <strong>Косенко</strong>
-            <small>Заявки Рогатка</small>
-          </span>
-        </button>
-
-        <button
-          type="button"
-          className="role-button"
           onClick={() => setScreen("invoices")}
         >
           <span className="role-icon">🧾</span>
