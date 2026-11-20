@@ -153,8 +153,8 @@ func (d *Database) SuggestFuelHolders(query string, limit int) ([]string, error)
 		if err := rows.Scan(&holder, &picked); err != nil {
 			return nil, err
 		}
-		for _, name := range append(SplitFuelHolders(holder), strings.TrimSpace(picked)) {
-			name = strings.TrimSpace(name)
+		for _, fullName := range append(SplitFuelHolders(holder), strings.TrimSpace(picked)) {
+			name := fuelHolderSurname(fullName)
 			if name == "" {
 				continue
 			}
@@ -172,6 +172,14 @@ func (d *Database) SuggestFuelHolders(query string, limit int) ([]string, error)
 		}
 	}
 	return result, rows.Err()
+}
+
+func fuelHolderSurname(holder string) string {
+	fields := strings.Fields(strings.TrimSpace(holder))
+	if len(fields) == 0 {
+		return ""
+	}
+	return fields[0]
 }
 
 func escapeLike(value string) string {

@@ -287,7 +287,7 @@ export default function FuelsForm() {
           <div className="autocomplete">
             <input
               value={holderQuery}
-              placeholder="Фамилия или имя на карте"
+              placeholder="Фамилия"
               autoComplete="off"
               onChange={(e) => setHolderQuery(e.target.value)}
               onFocus={() => {
