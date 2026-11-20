@@ -288,6 +288,10 @@
   word-break: break-word;
 }
 
+.bunker-message-list {
+  flex-shrink: 0;
+}
+
 .assign-form {
   display: grid;
   gap: 12px;

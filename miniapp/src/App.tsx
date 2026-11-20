@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import GarageForm from "./components/GarageForm";
-import WorkerCabinet from "./components/WorkerCabinet";
+import WorkerMessages from "./components/WorkerMessages";
 import WorkerRequests from "./components/WorkerRequests";
 import InvoiceForm from "./components/InvoiceForm";
 import PaymentMatchForm from "./components/PaymentMatchForm";
@@ -110,7 +110,9 @@ export default function App() {
             <h1>Работник</h1>
           </div>
 
-          <WorkerCabinet />
+          <div className="requests-scroll">
+            <WorkerMessages />
+          </div>
         </div>
       </div>
     );
