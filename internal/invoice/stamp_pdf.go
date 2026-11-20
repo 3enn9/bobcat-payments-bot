@@ -13,6 +13,7 @@ import (
 // StampSupplierPDF overlays the supplier's transparent stamp on the last page
 // and keeps the original PDF pages and text intact.
 func StampSupplierPDF(raw []byte, data *PDFData) ([]byte, error) {
+	api.DisableConfigDir()
 	if len(raw) == 0 {
 		return nil, fmt.Errorf("пустой PDF")
 	}
@@ -39,7 +40,11 @@ func StampSupplierPDF(raw []byte, data *PDFData) ([]byte, error) {
 		(strings.TrimSpace(data.SupplierINN) == "" && SupplierFileCode(data.SupplierName, "") == "анн") {
 		scale = 0.23
 	}
-	description := fmt.Sprintf("scale:%.3f rel, pos:bl, off:32 55, rot:0, op:1", scale)
+	offsetX, offsetY := 32, 55
+	if isEntrepreneurName(data.SupplierName) {
+		offsetX, offsetY = 83, 105
+	}
+	description := fmt.Sprintf("scale:%.3f rel, pos:bl, off:%d %d, rot:0, op:1", scale, offsetX, offsetY)
 	watermark, err := api.ImageWatermarkForReader(bytes.NewReader(stamp), description, true, false, types.MILLIMETRES)
 	if err != nil {
 		return nil, fmt.Errorf("не удалось подготовить печать: %w", err)
