@@ -66,20 +66,21 @@ func main() {
 	banksHandler := handlers.NewBanksHandler(incomingWebhookQueue)
 	telegramHandler := handlers.NewTelegramHandler(tgBotService)
 	maxHandler := handlers.NewMaxHandler(maxBotService)
+	mailService := mailpkg.NewService(
+		cf.SMTPHost,
+		cf.SMTPPort,
+		cf.SMTPUser,
+		cf.SMTPPass,
+		cf.SMTPFrom,
+		cf.IMAPHost,
+		cf.IMAPPort,
+		cf.IMAPUser,
+		cf.IMAPPass,
+	)
 	miniAppHandler := handlers.NewMiniAppHandler(
 		dbInstance,
 		maxBotService,
-		mailpkg.NewService(
-			cf.SMTPHost,
-			cf.SMTPPort,
-			cf.SMTPUser,
-			cf.SMTPPass,
-			cf.SMTPFrom,
-			cf.IMAPHost,
-			cf.IMAPPort,
-			cf.IMAPUser,
-			cf.IMAPPass,
-		),
+		mailService,
 	)
 
 	router := transport.NewRouter(
@@ -122,6 +123,7 @@ func main() {
 		},
 		Max:           maxBotService,
 		Telegram:      tgBotService,
+		Drafts:        mailService,
 		BackfillSince: cf.IMAPBackfillSince,
 	}).Run(ctx)
 

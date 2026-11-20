@@ -28,11 +28,16 @@ type TelegramInvoiceNotifier interface {
 	SendInvoicePages(filename, caption string, pages [][]byte) error
 }
 
+type DraftWriter interface {
+	SaveDraftPDF(subject, fileName string, pdf []byte) error
+}
+
 type Importer struct {
 	DB            *db.Database
 	IMAP          mail.IMAPConfig
 	Max           Notifier
 	Telegram      TelegramInvoiceNotifier
+	Drafts        DraftWriter
 	BackfillSince time.Time // если задано — один тихий прогон с этой даты при старте
 }
 
@@ -233,6 +238,14 @@ func (im *Importer) importAttachment(att mail.Attachment, notify, replace bool) 
 	}
 	if err != nil {
 		return err
+	}
+	if notify && im.Drafts != nil {
+		stampedPDF, stampErr := invoice.StampSupplierPDF(att.Bytes, data)
+		if stampErr != nil {
+			log.Printf("accountant draft stamp invoice=%d file=%s: %v", data.Number, name, stampErr)
+		} else if draftErr := im.Drafts.SaveDraftPDF(name, name, stampedPDF); draftErr != nil {
+			log.Printf("accountant draft save invoice=%d file=%s: %v", data.Number, name, draftErr)
+		}
 	}
 
 	if notify {

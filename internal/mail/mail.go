@@ -99,13 +99,46 @@ func (s *Service) SendPDF(to, subject, fileName string, pdf []byte) error {
 	if sendErr != nil {
 		return sendErr
 	}
-	if err := s.appendSentCopy(body.Bytes()); err != nil {
+	if err := s.appendToIMAP("Sent", "(\\Seen)", body.Bytes()); err != nil {
 		return &SentCopyError{Err: err}
 	}
 	return nil
 }
 
-func (s *Service) appendSentCopy(message []byte) error {
+// SaveDraftPDF appends an unsent message with one PDF attachment to Drafts.
+// It deliberately omits the To header so the draft has no recipient.
+func (s *Service) SaveDraftPDF(subject, fileName string, pdf []byte) error {
+	if s == nil || s.IMAPHost == "" || s.IMAPUser == "" || s.IMAPPass == "" {
+		return fmt.Errorf("IMAP не настроен для сохранения черновиков")
+	}
+	subject = strings.TrimSpace(strings.NewReplacer("\r", " ", "\n", " ").Replace(subject))
+	fileName = strings.TrimSpace(fileName)
+	if fileName == "" || len(pdf) == 0 {
+		return fmt.Errorf("пустое имя файла или PDF")
+	}
+	from := s.From
+	if from == "" {
+		from = s.IMAPUser
+	}
+	boundary := fmt.Sprintf("paymentsbot-draft-%d", time.Now().UnixNano())
+	var message bytes.Buffer
+	message.WriteString("From: " + from + "\r\n")
+	message.WriteString("Subject: " + mime.QEncoding.Encode("UTF-8", subject) + "\r\n")
+	message.WriteString("Date: " + time.Now().Format(time.RFC1123Z) + "\r\n")
+	message.WriteString("MIME-Version: 1.0\r\n")
+	message.WriteString("Content-Type: multipart/mixed; boundary=\"" + boundary + "\"\r\n\r\n")
+	message.WriteString("--" + boundary + "\r\n")
+	message.WriteString("Content-Type: application/pdf\r\n")
+	message.WriteString("Content-Transfer-Encoding: base64\r\n")
+	contentDisposition := mime.FormatMediaType("attachment", map[string]string{"filename": fileName})
+	message.WriteString("Content-Disposition: " + contentDisposition + "\r\n\r\n")
+	message.WriteString(wrapBase64(pdf))
+	message.WriteString("\r\n--" + boundary + "--\r\n")
+
+	return s.appendToIMAP("Drafts", "(\\Draft)", message.Bytes())
+}
+
+func (s *Service) appendToIMAP(folder, flags string, message []byte) error {
 	if s.IMAPHost == "" || s.IMAPUser == "" {
 		return fmt.Errorf("IMAP не настроен")
 	}
@@ -151,11 +184,11 @@ func (s *Service) appendSentCopy(message []byte) error {
 		return err
 	}
 
-	mailbox, err := quoteIMAP("Sent")
+	mailbox, err := quoteIMAP(folder)
 	if err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintf(conn, "A002 APPEND %s (\\Seen) {%d}\r\n", mailbox, len(message)); err != nil {
+	if _, err := fmt.Fprintf(conn, "A002 APPEND %s %s {%d}\r\n", mailbox, flags, len(message)); err != nil {
 		return err
 	}
 	continuation, err := reader.ReadString('\n')
