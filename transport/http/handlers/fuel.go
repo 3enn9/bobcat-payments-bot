@@ -34,7 +34,7 @@ func (h *MiniAppHandler) ListFuelEntries(w http.ResponseWriter, r *http.Request)
 		http.Error(w, `{"success":false,"error":"Укажите месяц в формате YYYY-MM"}`, http.StatusBadRequest)
 		return
 	}
-	items, err := h.db.ListFuelEntriesByHolder(holder, selectedMonth)
+	items, err := h.db.ListFuelEntriesBySearch(holder, selectedMonth)
 	if err != nil {
 		log.Printf("list fuels error: %v", err)
 		http.Error(w, `{"success":false,"error":"Ошибка загрузки заправок"}`, http.StatusInternalServerError)

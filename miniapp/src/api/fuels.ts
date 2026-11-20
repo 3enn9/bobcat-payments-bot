@@ -39,7 +39,7 @@ type HoldersResponse = {
 
 export async function suggestFuelHolders(query: string): Promise<string[]> {
   const q = query.trim();
-  if (q.length < 2) {
+  if (q.length < 2 || /^\d{4}$/.test(q)) {
     return [];
   }
   const params = new URLSearchParams({ q });

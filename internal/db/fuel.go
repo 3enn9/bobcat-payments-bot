@@ -91,21 +91,35 @@ func (d *Database) SaveFuelEntriesIfNewDate(day time.Time, entries []FuelEntryIn
 	return true, nil
 }
 
-func (d *Database) ListFuelEntriesByHolder(holder string, month time.Time) ([]FuelEntry, error) {
-	holder = strings.TrimSpace(holder)
-	if holder == "" {
+func (d *Database) ListFuelEntriesBySearch(query string, month time.Time) ([]FuelEntry, error) {
+	query = strings.TrimSpace(query)
+	if query == "" {
 		return []FuelEntry{}, nil
 	}
 
 	monthStart := time.Date(month.Year(), month.Month(), 1, 0, 0, 0, 0, month.Location())
 	monthEnd := monthStart.AddDate(0, 1, 0)
-	rows, err := d.DB.Query(`
+	var (
+		rows *sql.Rows
+		err  error
+	)
+	if isLastFourDigits(query) {
+		rows, err = d.DB.Query(`
+		SELECT id, DATE_FORMAT(fueled_at, '%Y-%m-%dT%H:%i:%s'), equipment_number, fuel_kind, card_number, amount, holder, holder_picked
+		FROM fuel_entries
+		WHERE fueled_date >= ? AND fueled_date < ?
+		  AND RIGHT(card_number, 4) = ?
+		ORDER BY fueled_at DESC, id DESC
+		`, monthStart.Format("2006-01-02"), monthEnd.Format("2006-01-02"), query)
+	} else {
+		rows, err = d.DB.Query(`
 		SELECT id, DATE_FORMAT(fueled_at, '%Y-%m-%dT%H:%i:%s'), equipment_number, fuel_kind, card_number, amount, holder, holder_picked
 		FROM fuel_entries
 		WHERE fueled_date >= ? AND fueled_date < ?
 		  AND holder LIKE CONCAT('%', ?, '%')
 		ORDER BY fueled_at DESC, id DESC
-	`, monthStart.Format("2006-01-02"), monthEnd.Format("2006-01-02"), holder)
+		`, monthStart.Format("2006-01-02"), monthEnd.Format("2006-01-02"), query)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -123,9 +137,21 @@ func (d *Database) ListFuelEntriesByHolder(holder string, month time.Time) ([]Fu
 	return result, rows.Err()
 }
 
+func isLastFourDigits(query string) bool {
+	if len(query) != 4 {
+		return false
+	}
+	for _, digit := range query {
+		if digit < '0' || digit > '9' {
+			return false
+		}
+	}
+	return true
+}
+
 func (d *Database) SuggestFuelHolders(query string, limit int) ([]string, error) {
 	query = strings.TrimSpace(query)
-	if query == "" {
+	if query == "" || isLastFourDigits(query) {
 		return []string{}, nil
 	}
 	if limit <= 0 {
