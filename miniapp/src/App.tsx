@@ -10,17 +10,43 @@ import DaysOffForm from "./components/DaysOffForm";
 import KopytenkovForm from "./components/KopytenkovForm";
 import CashForm from "./components/CashForm";
 import FuelsForm from "./components/FuelsForm";
-import { logMiniappOpen } from "./max";
+import { getMaxUser, logMiniappOpen } from "./max";
 
 type Screen = "home" | "garage" | "fuels" | "worker" | "kopytenkov" | "kosenko" | "invoices" | "daysoff" | "cash";
 type InvoiceTab = "create" | "match" | "table" | "email";
+const invoiceOwnerMaxId = "242575328";
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>("home");
   const [invoiceTab, setInvoiceTab] = useState<InvoiceTab>("create");
+  const [canSeeInvoices, setCanSeeInvoices] = useState(false);
 
   useEffect(() => {
     logMiniappOpen();
+
+    const checkUser = () => {
+      const user = getMaxUser();
+      const userId = String(user?.id ?? user?.user_id ?? "").trim();
+      if (!userId) {
+        return false;
+      }
+      setCanSeeInvoices(userId === invoiceOwnerMaxId);
+      return true;
+    };
+
+    if (checkUser()) {
+      return;
+    }
+
+    let attempts = 0;
+    const timer = window.setInterval(() => {
+      attempts += 1;
+      if (checkUser() || attempts >= 25) {
+        window.clearInterval(timer);
+      }
+    }, 200);
+
+    return () => window.clearInterval(timer);
   }, []);
 
   if (screen === "garage") {
@@ -284,18 +310,20 @@ export default function App() {
           </span>
         </button>
 
-        <button
-          type="button"
-          className="role-button"
-          onClick={() => setScreen("invoices")}
-        >
-          <span className="role-icon">🧾</span>
+        {canSeeInvoices && (
+          <button
+            type="button"
+            className="role-button"
+            onClick={() => setScreen("invoices")}
+          >
+            <span className="role-icon">🧾</span>
 
-          <span>
-            <strong>Счета</strong>
-            <small>Конструктор счетов</small>
-          </span>
-        </button>
+            <span>
+              <strong>Счета</strong>
+              <small>Конструктор счетов</small>
+            </span>
+          </button>
+        )}
 
         <button
           type="button"
