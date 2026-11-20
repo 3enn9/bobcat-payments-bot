@@ -255,17 +255,41 @@ func parseItems(text string) ([]PDFItem, error) {
 	body = body[:end]
 
 	var items []PDFItem
+	pending := ""
+	flushPending := func() {
+		if pending == "" {
+			return
+		}
+		if item, ok := parseItemLine(pending); ok {
+			items = append(items, item)
+		}
+		pending = ""
+	}
+
 	for _, line := range strings.Split(body, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "№") || strings.Contains(line, "Товары (работы") {
 			continue
 		}
-		item, ok := parseItemLine(line)
-		if !ok {
+		if reItemLine.MatchString(line) {
+			flushPending()
+			pending = line
+			if item, ok := parseItemLine(pending); ok {
+				items = append(items, item)
+				pending = ""
+			}
 			continue
 		}
-		items = append(items, item)
+		if pending == "" {
+			continue
+		}
+		pending = collapseSpace(pending + " " + line)
+		if item, ok := parseItemLine(pending); ok {
+			items = append(items, item)
+			pending = ""
+		}
 	}
+	flushPending()
 	if len(items) == 0 {
 		return nil, fmt.Errorf("позиции не распознаны")
 	}
