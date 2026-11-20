@@ -42,3 +42,19 @@ export async function saveBunkerHaulAnnotation(
     throw new Error(data.error || "Не удалось сохранить отметку");
   }
 }
+
+export async function sendBunkerHaulReport(
+  surname: string,
+  date: string,
+  comments: string,
+): Promise<void> {
+  const response = await fetch("/api/miniapp/bunker-hauls/send", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ surname: surname.trim(), date, comments }),
+  });
+  const data = (await response.json()) as { success: boolean; error?: string };
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || "Не удалось отправить отчёт");
+  }
+}

@@ -337,6 +337,11 @@
   justify-self: start;
 }
 
+.bunker-report-success {
+  color: #1b5e20;
+  font-size: 13px;
+}
+
 .assign-form {
   display: grid;
   gap: 12px;

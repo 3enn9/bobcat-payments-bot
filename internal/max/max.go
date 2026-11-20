@@ -24,6 +24,7 @@ type MaxService struct {
 }
 
 const bunkerHaulsChatID int64 = -72500542391615
+const bunkerHaulReportsChatID int64 = -81463756864224
 
 func NewMaxService(token string, payments *payments.PaymentsService, database *db.Database) (*MaxService, error) {
 	api, err := maxbot.New(token)
@@ -60,6 +61,10 @@ func (m *MaxService) SendMessageWithPhotos(groupName, text string, photos []Phot
 
 func (m *MaxService) SendPhotosToChat(chatID int64, text string, photos []PhotoUpload) error {
 	return m.sendPhotosToChat(chatID, text, photos, nil)
+}
+
+func (m *MaxService) SendBunkerHaulReport(caption string, photos []PhotoUpload) error {
+	return m.SendPhotosToChat(bunkerHaulReportsChatID, caption, photos)
 }
 
 func (m *MaxService) sendPhotosToChat(chatID int64, text string, photos []PhotoUpload, keyboard *maxbot.Keyboard) error {

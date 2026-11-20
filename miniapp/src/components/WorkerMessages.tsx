@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   listBunkerHaulMessages,
+  sendBunkerHaulReport,
   saveBunkerHaulAnnotation,
   type BunkerHaulAnnotationKind,
   type BunkerHaulMessage,
@@ -42,6 +43,9 @@ export default function WorkerMessages() {
   const [annotationValue, setAnnotationValue] = useState("");
   const [savingAnnotation, setSavingAnnotation] = useState(false);
   const [annotationError, setAnnotationError] = useState("");
+  const [sendingReport, setSendingReport] = useState(false);
+  const [reportError, setReportError] = useState("");
+  const [reportSent, setReportSent] = useState(false);
 
   useEffect(() => {
     const normalizedSurname = surname.trim();
@@ -113,6 +117,20 @@ export default function WorkerMessages() {
       setAnnotationError(err instanceof Error ? err.message : "Не удалось сохранить отметку");
     } finally {
       setSavingAnnotation(false);
+    }
+  };
+
+  const sendReport = async () => {
+    setSendingReport(true);
+    setReportError("");
+    setReportSent(false);
+    try {
+      await sendBunkerHaulReport(surname, date, comments);
+      setReportSent(true);
+    } catch (err) {
+      setReportError(err instanceof Error ? err.message : "Не удалось отправить отчёт");
+    } finally {
+      setSendingReport(false);
     }
   };
 
@@ -216,17 +234,27 @@ export default function WorkerMessages() {
         <span>Комментарии</span>
         <textarea
           value={comments}
-          onChange={(event) => setComments(event.target.value)}
+          onChange={(event) => {
+            setComments(event.target.value);
+            setReportError("");
+            setReportSent(false);
+          }}
           placeholder="Введите комментарий"
           maxLength={2000}
           rows={3}
         />
       </label>
 
-      <button type="button" className="fuels-search-btn" disabled>
-        Отправить
+      {reportError && <div className="error">{reportError}</div>}
+      {reportSent && <small className="bunker-report-success">Отчёт отправлен в группу MAX.</small>}
+      <button
+        type="button"
+        className="fuels-search-btn"
+        disabled={sendingReport || loading || messages.length === 0}
+        onClick={() => void sendReport()}
+      >
+        {sendingReport ? "Отправляю…" : "Отправить"}
       </button>
-      <small className="invoice-hint">Отправка пока не настроена.</small>
     </div>
   );
 }
