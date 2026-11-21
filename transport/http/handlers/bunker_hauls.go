@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"PaymentsBot/internal/clock"
+	"PaymentsBot/internal/db"
 	"PaymentsBot/internal/invoice"
 	max2 "PaymentsBot/internal/max"
 
@@ -98,16 +99,28 @@ func (h *MiniAppHandler) SendBunkerHaulReport(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	balance, err := h.db.GetWorkerCashBalance(input.Surname)
+	if err != nil {
+		log.Printf("load worker cash balance surname=%q: %v", input.Surname, err)
+		http.Error(w, `{"success":false,"error":"Не удалось загрузить кассу работника"}`, http.StatusInternalServerError)
+		return
+	}
 	reportMessages := make([]invoice.BunkerHaulReportMessage, 0, len(items))
 	for _, item := range items {
-		reportMessages = append(reportMessages, invoice.BunkerHaulReportMessage{
-			SentAt:         item.SentAt,
-			Text:           item.Text,
-			AnnotationKind: item.AnnotationKind,
-			Amount:         item.AnnotationAmount,
-		})
+		reportMessage := invoice.BunkerHaulReportMessage{
+			SentAt:      item.SentAt,
+			Text:        item.Text,
+			Annotations: make([]invoice.BunkerHaulReportAnnotation, 0, len(item.Annotations)),
+		}
+		for _, annotation := range item.Annotations {
+			reportMessage.Annotations = append(reportMessage.Annotations, invoice.BunkerHaulReportAnnotation{
+				Kind:   annotation.Kind,
+				Amount: annotation.Amount,
+			})
+		}
+		reportMessages = append(reportMessages, reportMessage)
 	}
-	pdf, err := invoice.GenerateBunkerHaulReportPDF(input.Surname, date, reportMessages, input.Comments)
+	pdf, err := invoice.GenerateBunkerHaulReportPDF(input.Surname, date, reportMessages, input.Comments, balance)
 	if err != nil {
 		log.Printf("generate bunker haul report surname=%q date=%s: %v", input.Surname, input.Date, err)
 		http.Error(w, `{"success":false,"error":"Не удалось сформировать отчёт"}`, http.StatusInternalServerError)
@@ -150,23 +163,46 @@ func (h *MiniAppHandler) SaveBunkerHaulAnnotation(w http.ResponseWriter, r *http
 	}
 
 	var input struct {
-		Kind  string  `json:"kind"`
-		Value float64 `json:"value"`
+		Surname     string                    `json:"surname"`
+		Date        string                    `json:"date"`
+		Annotations []db.BunkerHaulAnnotation `json:"annotations"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		http.Error(w, `{"success":false,"error":"Некорректные данные"}`, http.StatusBadRequest)
 		return
 	}
-	if input.Kind != "vector" && input.Kind != "dubki" && input.Kind != "cash" {
-		http.Error(w, `{"success":false,"error":"Выберите способ"}`, http.StatusBadRequest)
+	input.Surname = strings.TrimSpace(input.Surname)
+	if input.Surname == "" || len([]rune(input.Surname)) > 128 {
+		http.Error(w, `{"success":false,"error":"Укажите корректную фамилию"}`, http.StatusBadRequest)
 		return
 	}
-	if input.Value <= 0 || input.Value > 999999999.999 || math.IsNaN(input.Value) || math.IsInf(input.Value, 0) {
-		http.Error(w, `{"success":false,"error":"Введите корректное значение"}`, http.StatusBadRequest)
+	date, err := time.ParseInLocation("2006-01-02", input.Date, clock.Now().Location())
+	if err != nil || date.Format("2006-01-02") != input.Date {
+		http.Error(w, `{"success":false,"error":"Укажите корректную дату"}`, http.StatusBadRequest)
 		return
+	}
+	if len(input.Annotations) > 3 {
+		http.Error(w, `{"success":false,"error":"Можно выбрать не более трёх отметок"}`, http.StatusBadRequest)
+		return
+	}
+	seen := make(map[string]struct{}, len(input.Annotations))
+	for _, annotation := range input.Annotations {
+		if annotation.Kind != "vector" && annotation.Kind != "dubki" && annotation.Kind != "cash" {
+			http.Error(w, `{"success":false,"error":"Выберите корректные отметки"}`, http.StatusBadRequest)
+			return
+		}
+		if annotation.Amount <= 0 || annotation.Amount > 999999999.999 || math.IsNaN(annotation.Amount) || math.IsInf(annotation.Amount, 0) {
+			http.Error(w, `{"success":false,"error":"Значение отметки должно быть больше нуля"}`, http.StatusBadRequest)
+			return
+		}
+		if _, ok := seen[annotation.Kind]; ok {
+			http.Error(w, `{"success":false,"error":"Отметки не должны повторяться"}`, http.StatusBadRequest)
+			return
+		}
+		seen[annotation.Kind] = struct{}{}
 	}
 
-	if err := h.db.SaveBunkerHaulAnnotation(haulID, input.Kind, input.Value); err != nil {
+	if err := h.db.SaveBunkerHaulAnnotations(haulID, input.Surname, date, input.Annotations); err != nil {
 		log.Printf("save bunker haul annotation id=%d: %v", haulID, err)
 		http.Error(w, `{"success":false,"error":"Не удалось сохранить отметку"}`, http.StatusInternalServerError)
 		return

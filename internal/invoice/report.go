@@ -10,13 +10,17 @@ import (
 )
 
 type BunkerHaulReportMessage struct {
-	SentAt         string
-	Text           string
-	AnnotationKind string
-	Amount         float64
+	SentAt      string
+	Text        string
+	Annotations []BunkerHaulReportAnnotation
 }
 
-func GenerateBunkerHaulReportPDF(surname string, date time.Time, messages []BunkerHaulReportMessage, comment string) ([]byte, error) {
+type BunkerHaulReportAnnotation struct {
+	Kind   string
+	Amount float64
+}
+
+func GenerateBunkerHaulReportPDF(surname string, date time.Time, messages []BunkerHaulReportMessage, comment string, cashBalance float64) ([]byte, error) {
 	pdf := fpdf.New("P", "mm", "A4", "")
 	pdf.SetMargins(14, 14, 14)
 	pdf.SetAutoPageBreak(true, 14)
@@ -35,7 +39,11 @@ func GenerateBunkerHaulReportPDF(surname string, date time.Time, messages []Bunk
 		pdf.MultiCell(0, 6, fmt.Sprintf("%d. %s", i+1, message.SentAt), "", "L", false)
 		pdf.SetFont("arial", "", 11)
 		pdf.MultiCell(0, 5.5, message.Text, "", "L", false)
-		if label := bunkerAnnotationLabel(message.AnnotationKind, message.Amount); label != "" {
+		for _, annotation := range message.Annotations {
+			label := bunkerAnnotationLabel(annotation.Kind, annotation.Amount)
+			if label == "" {
+				continue
+			}
 			pdf.SetFont("arial", "B", 10)
 			pdf.MultiCell(0, 5.5, "Отметка: "+label, "", "L", false)
 		}
@@ -53,6 +61,9 @@ func GenerateBunkerHaulReportPDF(surname string, date time.Time, messages []Bunk
 		comment = "—"
 	}
 	pdf.MultiCell(0, 5.5, comment, "", "L", false)
+	pdf.Ln(3)
+	pdf.SetFont("arial", "B", 12)
+	pdf.CellFormat(0, 7, "Касса: "+formatPDFMoney(cashBalance)+" ₽", "", 1, "L", false, 0, "")
 
 	var output bytes.Buffer
 	if err := pdf.Output(&output); err != nil {

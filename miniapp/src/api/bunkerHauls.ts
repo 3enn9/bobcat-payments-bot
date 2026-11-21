@@ -2,11 +2,15 @@ export type BunkerHaulMessage = {
   id: number;
   sentAt: string;
   text: string;
-  annotationKind?: BunkerHaulAnnotationKind;
-  annotationAmount?: number;
+  annotations: BunkerHaulAnnotation[];
 };
 
 export type BunkerHaulAnnotationKind = "vector" | "dubki" | "cash";
+
+export type BunkerHaulAnnotation = {
+  kind: BunkerHaulAnnotationKind;
+  amount: number;
+};
 
 type BunkerHaulMessagesResponse = {
   success: boolean;
@@ -29,13 +33,14 @@ export async function listBunkerHaulMessages(
 
 export async function saveBunkerHaulAnnotation(
   id: number,
-  kind: BunkerHaulAnnotationKind,
-  value: number,
+  surname: string,
+  date: string,
+  annotations: BunkerHaulAnnotation[],
 ): Promise<void> {
   const response = await fetch(`/api/miniapp/bunker-hauls/${id}/annotation`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ kind, value }),
+    body: JSON.stringify({ surname: surname.trim(), date, annotations }),
   });
   const data = (await response.json()) as { success: boolean; error?: string };
   if (!response.ok || !data.success) {

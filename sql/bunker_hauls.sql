@@ -31,6 +31,16 @@ CREATE TABLE IF NOT EXISTS bunker_haul_annotations (
   kind ENUM('vector', 'dubki', 'cash') NOT NULL,
   value DECIMAL(12,3) NOT NULL,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (haul_id),
+  PRIMARY KEY (haul_id, kind),
   CONSTRAINT fk_bunker_haul_annotations_haul FOREIGN KEY (haul_id) REFERENCES bunker_hauls(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS bunker_haul_cash_entries (
+  haul_id BIGINT UNSIGNED NOT NULL,
+  kind ENUM('dubki', 'cash') NOT NULL,
+  cash_entry_id BIGINT UNSIGNED NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (haul_id, kind),
+  UNIQUE KEY uq_bunker_haul_cash_entry (cash_entry_id),
+  CONSTRAINT fk_bunker_haul_cash_entry_haul FOREIGN KEY (haul_id) REFERENCES bunker_hauls(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

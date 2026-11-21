@@ -14,13 +14,14 @@ const annotationMethods: { kind: BunkerHaulAnnotationKind; label: string }[] = [
 ];
 
 function annotationLabel(message: BunkerHaulMessage): string {
-  if (!message.annotationKind || message.annotationAmount === undefined) return "";
-  const amount = new Intl.NumberFormat("ru-RU", {
-    maximumFractionDigits: 3,
-  }).format(message.annotationAmount);
-  if (message.annotationKind === "vector") return `Вектор — вес: ${amount}`;
-  if (message.annotationKind === "dubki") return `Дубки — сумма: ${amount} ₽`;
-  return `Нал — сумма: ${amount} ₽`;
+  return message.annotations.map((annotation) => {
+    const amount = new Intl.NumberFormat("ru-RU", {
+      maximumFractionDigits: 3,
+    }).format(annotation.amount);
+    if (annotation.kind === "vector") return `Вектор — вес: ${amount}`;
+    if (annotation.kind === "dubki") return `Дубки — сумма: ${amount} ₽`;
+    return `Нал — сумма: ${amount} ₽`;
+  }).join(" · ");
 }
 
 function todayISO(): string {
@@ -39,8 +40,8 @@ export default function WorkerMessages() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [activeMessageID, setActiveMessageID] = useState<number | null>(null);
-  const [selectedMethod, setSelectedMethod] = useState<BunkerHaulAnnotationKind | null>(null);
-  const [annotationValue, setAnnotationValue] = useState("");
+  const [selectedMethods, setSelectedMethods] = useState<BunkerHaulAnnotationKind[]>([]);
+  const [annotationValues, setAnnotationValues] = useState<Partial<Record<BunkerHaulAnnotationKind, string>>>({});
   const [savingAnnotation, setSavingAnnotation] = useState(false);
   const [annotationError, setAnnotationError] = useState("");
   const [sendingReport, setSendingReport] = useState(false);
@@ -89,30 +90,36 @@ export default function WorkerMessages() {
   }, [surname, date]);
 
   const chooseMessage = (id: number) => {
-    setActiveMessageID((current) => (current === id ? null : id));
-    setSelectedMethod(null);
-    setAnnotationValue("");
+    const current = messages.find((item) => item.id === id);
+    setActiveMessageID((activeID) => (activeID === id ? null : id));
+    setSelectedMethods(current?.annotations.map((annotation) => annotation.kind) ?? []);
+    setAnnotationValues(Object.fromEntries(
+      (current?.annotations ?? []).map((annotation) => [annotation.kind, String(annotation.amount)]),
+    ));
     setAnnotationError("");
   };
 
   const saveAnnotation = async (message: BunkerHaulMessage) => {
-    const value = Number(annotationValue.replace(",", "."));
-    if (!selectedMethod || !Number.isFinite(value) || value <= 0) return;
+    const annotations = selectedMethods.map((kind) => ({
+      kind,
+      amount: Number(annotationValues[kind]?.replace(",", ".")),
+    }));
+    if (annotations.some((annotation) => !Number.isFinite(annotation.amount) || annotation.amount <= 0)) return;
 
     setSavingAnnotation(true);
     setAnnotationError("");
     try {
-      await saveBunkerHaulAnnotation(message.id, selectedMethod, value);
+      await saveBunkerHaulAnnotation(message.id, surname, date, annotations);
       setMessages((current) =>
         current.map((item) =>
           item.id === message.id
-            ? { ...item, annotationKind: selectedMethod, annotationAmount: value }
+            ? { ...item, annotations }
             : item,
         ),
       );
       setActiveMessageID(null);
-      setSelectedMethod(null);
-      setAnnotationValue("");
+      setSelectedMethods([]);
+      setAnnotationValues({});
     } catch (err) {
       setAnnotationError(err instanceof Error ? err.message : "Не удалось сохранить отметку");
     } finally {
@@ -176,7 +183,7 @@ export default function WorkerMessages() {
                 onClick={() => chooseMessage(message.id)}
               >
                 <span className="request-item-message bunker-message-text">{message.text}</span>
-                {message.annotationKind && (
+                {message.annotations.length > 0 && (
                   <span className="bunker-annotation">{annotationLabel(message)}</span>
                 )}
               </button>
@@ -187,10 +194,19 @@ export default function WorkerMessages() {
                       <button
                         key={method.kind}
                         type="button"
-                        className={`fuels-filter-btn${selectedMethod === method.kind ? " active" : ""}`}
+                        className={`fuels-filter-btn${selectedMethods.includes(method.kind) ? " active" : ""}`}
                         onClick={() => {
-                          setSelectedMethod(method.kind);
-                          setAnnotationValue("");
+                          setSelectedMethods((current) => current.includes(method.kind)
+                            ? current.filter((kind) => kind !== method.kind)
+                            : [...current, method.kind]);
+                          if (!selectedMethods.includes(method.kind)) {
+                            const existing = messages.find((item) => item.id === message.id)
+                              ?.annotations.find((annotation) => annotation.kind === method.kind);
+                            setAnnotationValues((current) => ({
+                              ...current,
+                              [method.kind]: existing ? String(existing.amount) : "",
+                            }));
+                          }
                           setAnnotationError("");
                         }}
                       >
@@ -198,25 +214,33 @@ export default function WorkerMessages() {
                       </button>
                     ))}
                   </div>
-                  {selectedMethod && (
+                  {selectedMethods.map((kind) => (
+                    <label className="invoice-field" key={kind}>
+                      <span>{kind === "vector" ? "Вес Вектор" : `Сумма ${kind === "dubki" ? "Дубки" : "Нал"}`}</span>
+                      <input
+                        type="number"
+                        min="0.001"
+                        step={kind === "vector" ? "0.001" : "0.01"}
+                        inputMode="decimal"
+                        value={annotationValues[kind] ?? ""}
+                        onChange={(event) => setAnnotationValues((current) => ({
+                          ...current,
+                          [kind]: event.target.value,
+                        }))}
+                        placeholder={kind === "vector" ? "Введите вес" : "Введите сумму"}
+                      />
+                    </label>
+                  ))}
+                  {(selectedMethods.length > 0 || message.annotations.length > 0) && (
                     <>
-                      <label className="invoice-field">
-                        <span>{selectedMethod === "vector" ? "Вес" : "Сумма"}</span>
-                        <input
-                          type="number"
-                          min="0.001"
-                          step={selectedMethod === "vector" ? "0.001" : "0.01"}
-                          inputMode="decimal"
-                          value={annotationValue}
-                          onChange={(event) => setAnnotationValue(event.target.value)}
-                          placeholder={selectedMethod === "vector" ? "Введите вес" : "Введите сумму"}
-                        />
-                      </label>
                       {annotationError && <div className="error">{annotationError}</div>}
                       <button
                         type="button"
                         className="fuels-search-btn bunker-save-annotation"
-                        disabled={savingAnnotation || !annotationValue || Number(annotationValue.replace(",", ".")) <= 0}
+                        disabled={savingAnnotation || selectedMethods.some((kind) => {
+                          const value = Number(annotationValues[kind]?.replace(",", "."));
+                          return !Number.isFinite(value) || value <= 0;
+                        })}
                         onClick={() => void saveAnnotation(message)}
                       >
                         {savingAnnotation ? "Сохраняю…" : "✓ Сохранить"}
