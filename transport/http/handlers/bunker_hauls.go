@@ -98,6 +98,13 @@ func (h *MiniAppHandler) SendBunkerHaulReport(w http.ResponseWriter, r *http.Req
 		http.Error(w, `{"success":false,"error":"За выбранную дату нет сообщений"}`, http.StatusBadRequest)
 		return
 	}
+	for _, item := range items {
+		if err := h.db.SaveBunkerHaulAnnotations(item.ID, input.Surname, date, item.Annotations); err != nil {
+			log.Printf("sync bunker haul cash entries id=%d surname=%q date=%s: %v", item.ID, input.Surname, input.Date, err)
+			http.Error(w, `{"success":false,"error":"Не удалось сохранить операции в кассу"}`, http.StatusInternalServerError)
+			return
+		}
+	}
 
 	balance, err := h.db.GetWorkerCashBalance(input.Surname)
 	if err != nil {
