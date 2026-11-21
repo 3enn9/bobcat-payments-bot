@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/pdfcpu/pdfcpu/pkg/api"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
@@ -34,11 +33,13 @@ func StampSupplierPDF(raw []byte, data *PDFData) ([]byte, error) {
 	}
 
 	// Match the sizes used in generated invoices: 48 mm for ANN and 80% for
-	// other stamps. Relative scaling keeps the stamp proportional on A4 variants.
+	// other stamps. ADN, SAN and SST are enlarged by 20% from that size.
 	scale := 0.184
-	if strings.TrimSpace(data.SupplierINN) == "645499004617" ||
-		(strings.TrimSpace(data.SupplierINN) == "" && SupplierFileCode(data.SupplierName, "") == "анн") {
+	stampCode := supplierStampCode(data.SupplierName, data.SupplierINN)
+	if stampCode == "ann" {
 		scale = 0.23
+	} else if isStamp20PercentLarger(stampCode) {
+		scale *= 1.2
 	}
 	offsetX, offsetY := 32, 55
 	if isEntrepreneurName(data.SupplierName) {

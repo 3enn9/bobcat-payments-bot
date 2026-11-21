@@ -22,6 +22,15 @@ var stampFiles embed.FS
 
 // Use INN when supplied so a similar name cannot select another supplier's stamp.
 func supplierStamp(name, inn string) []byte {
+	code := supplierStampCode(name, inn)
+	if code == "" {
+		return nil
+	}
+	stamp, _ := stampFiles.ReadFile("stamps/" + code + "-print.png")
+	return stamp
+}
+
+func supplierStampCode(name, inn string) string {
 	files := map[string]string{
 		"645499004617": "ann", "645407904794": "adn",
 		"645401925283": "anv", "645115810154": "san", "6454116198": "sst",
@@ -30,11 +39,11 @@ func supplierStamp(name, inn string) []byte {
 	if strings.TrimSpace(inn) == "" {
 		code = map[string]string{"анн": "ann", "адн": "adn", "анв": "anv", "сан": "san", "сст": "sst"}[SupplierFileCode(name, "")]
 	}
-	if code == "" {
-		return nil
-	}
-	stamp, _ := stampFiles.ReadFile("stamps/" + code + "-print.png")
-	return stamp
+	return code
+}
+
+func isStamp20PercentLarger(code string) bool {
+	return code == "adn" || code == "san" || code == "sst"
 }
 
 type PDFItem struct {
@@ -279,10 +288,13 @@ func GeneratePDF(data PDFData) ([]byte, error) {
 		stampOffsetY -= 7
 	}
 	stampWidth := 48.0
-	isANN := strings.TrimSpace(data.SupplierINN) == "645499004617" ||
-		(strings.TrimSpace(data.SupplierINN) == "" && SupplierFileCode(data.SupplierName, "") == "анн")
+	stampCode := supplierStampCode(data.SupplierName, data.SupplierINN)
+	isANN := stampCode == "ann"
 	if !isANN {
 		stampWidth *= 0.8
+		if isStamp20PercentLarger(stampCode) {
+			stampWidth *= 1.2
+		}
 		// Scale around the signature line to keep the handwritten signature aligned.
 		stampOffsetY = 5.5 + (stampOffsetY-5.5)*0.8
 	}
