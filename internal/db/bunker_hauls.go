@@ -250,11 +250,11 @@ func (d *Database) SaveBunkerHaulAnnotations(
 			continue
 		}
 
-		entryType, label := "income", "Нал"
+		entryType := "income"
 		if kind == "dubki" {
-			entryType, label = "expense", "Дубки"
+			entryType = "expense"
 		}
-		description := truncateCashDescription(label + ": " + strings.TrimSpace(text))
+		description := truncateCashDescription(strings.TrimSpace(text))
 		cashEntryExists := false
 		if linkExists {
 			err := tx.QueryRow(`SELECT id FROM worker_cash_entries WHERE id = ? FOR UPDATE`, cashID).Scan(&cashID)

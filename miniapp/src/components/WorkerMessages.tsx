@@ -19,8 +19,8 @@ function annotationLabel(message: BunkerHaulMessage): string {
       maximumFractionDigits: 3,
     }).format(annotation.amount);
     if (annotation.kind === "vector") return `Вектор — вес: ${amount}`;
-    if (annotation.kind === "dubki") return `Дубки — сумма: ${amount} ₽`;
-    return `Нал — сумма: ${amount} ₽`;
+    if (annotation.kind === "dubki") return `Дубки — ${amount} ₽`;
+    return `Нал — ${amount} ₽`;
   }).join(" · ");
 }
 

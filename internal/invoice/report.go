@@ -81,9 +81,9 @@ func bunkerAnnotationLabel(kind string, amount float64) string {
 	case "vector":
 		return "Вектор — вес: " + value
 	case "dubki":
-		return "Дубки — сумма: " + value + " ₽"
+		return "Дубки — " + value + " ₽"
 	case "cash":
-		return "Нал — сумма: " + value + " ₽"
+		return "Нал — " + value + " ₽"
 	default:
 		return ""
 	}
