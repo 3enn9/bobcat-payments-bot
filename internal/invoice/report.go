@@ -36,16 +36,17 @@ func GenerateBunkerHaulReportPDF(surname string, date time.Time, messages []Bunk
 
 	for i, message := range messages {
 		pdf.SetFont("arial", "B", 11)
-		pdf.MultiCell(0, 6, fmt.Sprintf("%d. %s", i+1, message.SentAt), "", "L", false)
+		pdf.Write(5.5, fmt.Sprintf("%d. %s ", i+1, message.SentAt))
 		pdf.SetFont("arial", "", 11)
-		pdf.MultiCell(0, 5.5, message.Text, "", "L", false)
+		pdf.Write(5.5, message.Text)
+		pdf.Ln(5.5)
 		for _, annotation := range message.Annotations {
 			label := bunkerAnnotationLabel(annotation.Kind, annotation.Amount)
 			if label == "" {
 				continue
 			}
 			pdf.SetFont("arial", "B", 10)
-			pdf.MultiCell(0, 5.5, "Отметка: "+label, "", "L", false)
+			pdf.MultiCell(0, 5.5, label, "", "L", false)
 		}
 		pdf.SetDrawColor(220, 220, 220)
 		y := pdf.GetY() + 2
