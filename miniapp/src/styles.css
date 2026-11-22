@@ -337,6 +337,36 @@
   justify-self: start;
 }
 
+.bunker-cash-operations {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid #e6e6e6;
+  border-radius: 10px;
+}
+
+.bunker-cash-operation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.bunker-cash-operation {
+  display: grid;
+  gap: 10px;
+  padding: 12px 0;
+  border-top: 1px solid #e6e6e6;
+}
+
+.bunker-cash-operation-saved {
+  margin: 0;
+}
+
+.bunker-cash-operation-saved small {
+  color: #1b5e20;
+}
+
 .bunker-report-success {
   color: #1b5e20;
   font-size: 13px;

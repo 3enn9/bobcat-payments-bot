@@ -6,6 +6,17 @@ import {
   type BunkerHaulAnnotationKind,
   type BunkerHaulMessage,
 } from "../api/bunkerHauls";
+import { createCashEntry, deleteCashEntry, type CashEntryType } from "../api/cash";
+
+type ReportCashOperation = {
+  localID: number;
+  entryType: CashEntryType;
+  amount: string;
+  description: string;
+  cashEntryID?: number;
+  saving: boolean;
+  error: string;
+};
 
 const annotationMethods: { kind: BunkerHaulAnnotationKind; label: string }[] = [
   { kind: "vector", label: "Вектор" },
@@ -47,6 +58,11 @@ export default function WorkerMessages() {
   const [sendingReport, setSendingReport] = useState(false);
   const [reportError, setReportError] = useState("");
   const [reportSent, setReportSent] = useState(false);
+  const [cashOperations, setCashOperations] = useState<ReportCashOperation[]>([]);
+  const [nextCashOperationID, setNextCashOperationID] = useState(1);
+
+  const hasSavedCashOperations = cashOperations.some((operation) => operation.cashEntryID !== undefined);
+  const hasUnsavedCashOperations = cashOperations.some((operation) => operation.cashEntryID === undefined);
 
   useEffect(() => {
     const normalizedSurname = surname.trim();
@@ -128,6 +144,10 @@ export default function WorkerMessages() {
   };
 
   const sendReport = async () => {
+    if (hasUnsavedCashOperations) {
+      setReportError("Сначала добавьте все операции в кассу или удалите незаполненные строки.");
+      return;
+    }
     setSendingReport(true);
     setReportError("");
     setReportSent(false);
@@ -141,6 +161,73 @@ export default function WorkerMessages() {
     }
   };
 
+  const addCashOperation = (entryType: CashEntryType) => {
+    setCashOperations((current) => [
+      ...current,
+      {
+        localID: nextCashOperationID,
+        entryType,
+        amount: "",
+        description: "",
+        saving: false,
+        error: "",
+      },
+    ]);
+    setNextCashOperationID((current) => current + 1);
+    setReportError("");
+    setReportSent(false);
+  };
+
+  const updateCashOperation = (localID: number, changes: Partial<ReportCashOperation>) => {
+    setCashOperations((current) => current.map((operation) =>
+      operation.localID === localID ? { ...operation, ...changes } : operation,
+    ));
+    setReportError("");
+    setReportSent(false);
+  };
+
+  const saveCashOperation = async (operation: ReportCashOperation) => {
+    const amount = Number(operation.amount.replace(",", "."));
+    if (!surname.trim() || !Number.isFinite(amount) || amount <= 0) {
+      updateCashOperation(operation.localID, { error: "Укажите фамилию и сумму больше нуля." });
+      return;
+    }
+
+    updateCashOperation(operation.localID, { saving: true, error: "" });
+    try {
+      const result = await createCashEntry({
+        workerName: surname.trim(),
+        entryType: operation.entryType,
+        amount,
+        description: operation.description.trim(),
+        entryDate: date,
+      });
+      updateCashOperation(operation.localID, { cashEntryID: result.id, saving: false });
+    } catch (err) {
+      updateCashOperation(operation.localID, {
+        saving: false,
+        error: err instanceof Error ? err.message : "Не удалось добавить операцию в кассу.",
+      });
+    }
+  };
+
+  const removeCashOperation = async (operation: ReportCashOperation) => {
+    if (operation.cashEntryID !== undefined) {
+      updateCashOperation(operation.localID, { saving: true, error: "" });
+      try {
+        await deleteCashEntry(operation.cashEntryID, surname.trim());
+      } catch (err) {
+        updateCashOperation(operation.localID, {
+          saving: false,
+          error: err instanceof Error ? err.message : "Не удалось удалить операцию из кассы.",
+        });
+        return;
+      }
+    }
+    setCashOperations((current) => current.filter((item) => item.localID !== operation.localID));
+    setReportSent(false);
+  };
+
   return (
     <div className="worker-requests bunker-worker">
       <label className="invoice-field">
@@ -151,6 +238,7 @@ export default function WorkerMessages() {
           placeholder="Введите фамилию"
           autoComplete="off"
           maxLength={128}
+          disabled={hasSavedCashOperations}
         />
       </label>
 
@@ -160,8 +248,88 @@ export default function WorkerMessages() {
           type="date"
           value={date}
           onChange={(event) => setDate(event.target.value)}
+          disabled={hasSavedCashOperations}
         />
       </label>
+
+      <section className="bunker-cash-operations">
+        <strong>Операции по кассе</strong>
+        <div className="bunker-cash-operation-actions">
+          <button
+            type="button"
+            className="fuels-filter-btn"
+            disabled={!surname.trim()}
+            onClick={() => addCashOperation("income")}
+          >
+            + Приход
+          </button>
+          <button
+            type="button"
+            className="fuels-filter-btn"
+            disabled={!surname.trim()}
+            onClick={() => addCashOperation("expense")}
+          >
+            + Расход
+          </button>
+        </div>
+        {cashOperations.map((operation) => (
+          <div className="bunker-cash-operation" key={operation.localID}>
+            <strong>{operation.entryType === "income" ? "Приход" : "Расход"}</strong>
+            {operation.cashEntryID === undefined ? (
+              <>
+                <label className="invoice-field">
+                  <span>Сумма</span>
+                  <input
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    inputMode="decimal"
+                    value={operation.amount}
+                    onChange={(event) => updateCashOperation(operation.localID, { amount: event.target.value })}
+                    placeholder="Введите сумму"
+                  />
+                </label>
+                <label className="invoice-field">
+                  <span>Описание</span>
+                  <input
+                    value={operation.description}
+                    maxLength={500}
+                    onChange={(event) => updateCashOperation(operation.localID, { description: event.target.value })}
+                    placeholder="Введите описание"
+                  />
+                </label>
+              </>
+            ) : (
+              <p className="bunker-cash-operation-saved">
+                {new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 2 }).format(Number(operation.amount.replace(",", ".")))} ₽
+                {operation.description.trim() && ` — ${operation.description.trim()}`}
+                <small> добавлено в кассу</small>
+              </p>
+            )}
+            {operation.error && <div className="error">{operation.error}</div>}
+            <div className="bunker-cash-operation-actions">
+              {operation.cashEntryID === undefined && (
+                <button
+                  type="button"
+                  className="fuels-search-btn bunker-save-annotation"
+                  disabled={operation.saving || Number(operation.amount.replace(",", ".")) <= 0}
+                  onClick={() => void saveCashOperation(operation)}
+                >
+                  {operation.saving ? "Добавляю…" : "Добавить в кассу"}
+                </button>
+              )}
+              <button
+                type="button"
+                className="fuels-filter-btn"
+                disabled={operation.saving}
+                onClick={() => void removeCashOperation(operation)}
+              >
+                {operation.cashEntryID === undefined ? "Убрать" : "Удалить из кассы"}
+              </button>
+            </div>
+          </div>
+        ))}
+      </section>
 
       {loading && <p className="placeholder">Загружаю сообщения…</p>}
       {!loading && error && <div className="error">{error}</div>}
@@ -274,7 +442,7 @@ export default function WorkerMessages() {
       <button
         type="button"
         className="fuels-search-btn"
-        disabled={sendingReport || loading || messages.length === 0}
+        disabled={sendingReport || loading || messages.length === 0 || hasUnsavedCashOperations}
         onClick={() => void sendReport()}
       >
         {sendingReport ? "Отправляю…" : "Отправить"}
