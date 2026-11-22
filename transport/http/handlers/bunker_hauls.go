@@ -248,18 +248,22 @@ func (h *MiniAppHandler) SaveBunkerHaulAnnotation(w http.ResponseWriter, r *http
 		http.Error(w, `{"success":false,"error":"Укажите корректную дату"}`, http.StatusBadRequest)
 		return
 	}
-	if len(input.Annotations) > 3 {
-		http.Error(w, `{"success":false,"error":"Можно выбрать не более трёх отметок"}`, http.StatusBadRequest)
+	if len(input.Annotations) > 5 {
+		http.Error(w, `{"success":false,"error":"Можно выбрать не более пяти отметок"}`, http.StatusBadRequest)
 		return
 	}
 	seen := make(map[string]struct{}, len(input.Annotations))
 	for _, annotation := range input.Annotations {
-		if annotation.Kind != "vector" && annotation.Kind != "dubki" && annotation.Kind != "cash" {
+		if annotation.Kind != "vector" && annotation.Kind != "dubki" && annotation.Kind != "cash" && annotation.Kind != "base" && annotation.Kind != "rsm" {
 			http.Error(w, `{"success":false,"error":"Выберите корректные отметки"}`, http.StatusBadRequest)
 			return
 		}
 		if annotation.Amount <= 0 || annotation.Amount > 999999999.999 || math.IsNaN(annotation.Amount) || math.IsInf(annotation.Amount, 0) {
 			http.Error(w, `{"success":false,"error":"Значение отметки должно быть больше нуля"}`, http.StatusBadRequest)
+			return
+		}
+		if (annotation.Kind == "base" || annotation.Kind == "rsm") && annotation.Amount != 1 {
+			http.Error(w, `{"success":false,"error":"Отметки База и РСМ принимают только значение да"}`, http.StatusBadRequest)
 			return
 		}
 		if _, ok := seen[annotation.Kind]; ok {

@@ -23,10 +23,14 @@ const annotationMethods: { kind: BunkerHaulAnnotationKind; label: string }[] = [
   { kind: "vector", label: "Вектор" },
   { kind: "dubki", label: "Дубки" },
   { kind: "cash", label: "Нал" },
+  { kind: "base", label: "База" },
+  { kind: "rsm", label: "РСМ" },
 ];
 
 function annotationLabel(message: BunkerHaulMessage): string {
   return message.annotations.map((annotation) => {
+    if (annotation.kind === "base") return "База";
+    if (annotation.kind === "rsm") return "РСМ";
     const amount = new Intl.NumberFormat("ru-RU", {
       maximumFractionDigits: 3,
     }).format(annotation.amount);
@@ -146,7 +150,9 @@ export default function WorkerMessages() {
   const saveAnnotation = async (message: BunkerHaulMessage) => {
     const annotations = selectedMethods.map((kind) => ({
       kind,
-      amount: Number(annotationValues[kind]?.replace(",", ".")),
+      amount: kind === "base" || kind === "rsm"
+        ? 1
+        : Number(annotationValues[kind]?.replace(",", ".")),
     }));
     if (annotations.some((annotation) => !Number.isFinite(annotation.amount) || annotation.amount <= 0)) return;
 
@@ -445,7 +451,7 @@ export default function WorkerMessages() {
                       </button>
                     ))}
                   </div>
-                  {selectedMethods.map((kind) => (
+                  {selectedMethods.filter((kind) => kind !== "base" && kind !== "rsm").map((kind) => (
                     <label className="invoice-field" key={kind}>
                       <span>{kind === "vector" ? "Вес Вектор" : `Сумма ${kind === "dubki" ? "Дубки" : "Нал"}`}</span>
                       <input
@@ -469,6 +475,7 @@ export default function WorkerMessages() {
                         type="button"
                         className="fuels-search-btn bunker-save-annotation"
                         disabled={savingAnnotation || selectedMethods.some((kind) => {
+                          if (kind === "base" || kind === "rsm") return false;
                           const value = Number(annotationValues[kind]?.replace(",", "."));
                           return !Number.isFinite(value) || value <= 0;
                         })}

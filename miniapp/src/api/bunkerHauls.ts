@@ -5,7 +5,7 @@ export type BunkerHaulMessage = {
   annotations: BunkerHaulAnnotation[];
 };
 
-export type BunkerHaulAnnotationKind = "vector" | "dubki" | "cash";
+export type BunkerHaulAnnotationKind = "vector" | "dubki" | "cash" | "base" | "rsm";
 
 export type BunkerHaulAnnotation = {
   kind: BunkerHaulAnnotationKind;

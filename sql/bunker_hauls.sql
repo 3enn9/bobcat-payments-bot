@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS bunker_haul_senders (
 
 CREATE TABLE IF NOT EXISTS bunker_haul_annotations (
   haul_id BIGINT UNSIGNED NOT NULL,
-  kind ENUM('vector', 'dubki', 'cash') NOT NULL,
+  kind ENUM('vector', 'dubki', 'cash', 'base', 'rsm') NOT NULL,
   value DECIMAL(12,3) NOT NULL,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (haul_id, kind),

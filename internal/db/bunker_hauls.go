@@ -33,7 +33,7 @@ const bunkerHaulSendersSchema = `CREATE TABLE IF NOT EXISTS bunker_haul_senders 
 
 const bunkerHaulAnnotationsSchema = `CREATE TABLE IF NOT EXISTS bunker_haul_annotations (
 	haul_id BIGINT UNSIGNED NOT NULL,
-	kind ENUM('vector', 'dubki', 'cash') NOT NULL,
+	kind ENUM('vector', 'dubki', 'cash', 'base', 'rsm') NOT NULL,
 	value DECIMAL(12,3) NOT NULL,
 	updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 	PRIMARY KEY (haul_id, kind),
@@ -65,8 +65,32 @@ func (d *Database) EnsureBunkerHaulsTable() error {
 	if err := d.ensureBunkerHaulAnnotationKey(); err != nil {
 		return err
 	}
+	if err := d.ensureBunkerHaulAnnotationKinds(); err != nil {
+		return err
+	}
 	d.bunkerHaulsSchemaReady = true
 	return nil
+}
+
+func (d *Database) ensureBunkerHaulAnnotationKinds() error {
+	var columnType string
+	if err := d.DB.QueryRow(`
+		SELECT COLUMN_TYPE
+		FROM information_schema.COLUMNS
+		WHERE TABLE_SCHEMA = DATABASE()
+		  AND TABLE_NAME = 'bunker_haul_annotations'
+		  AND COLUMN_NAME = 'kind'
+	`).Scan(&columnType); err != nil {
+		return err
+	}
+	if strings.Contains(columnType, "'base'") && strings.Contains(columnType, "'rsm'") {
+		return nil
+	}
+	_, err := d.DB.Exec(`
+		ALTER TABLE bunker_haul_annotations
+		MODIFY COLUMN kind ENUM('vector', 'dubki', 'cash', 'base', 'rsm') NOT NULL
+	`)
+	return err
 }
 
 func (d *Database) ensureBunkerHaulAnnotationKey() error {
@@ -234,8 +258,11 @@ func (d *Database) SaveBunkerHaulAnnotations(
 
 	selected := make(map[string]float64, len(annotations))
 	for _, annotation := range annotations {
-		if annotation.Kind != "vector" && annotation.Kind != "dubki" && annotation.Kind != "cash" {
+		if annotation.Kind != "vector" && annotation.Kind != "dubki" && annotation.Kind != "cash" && annotation.Kind != "base" && annotation.Kind != "rsm" {
 			return fmt.Errorf("unknown bunker haul annotation kind %q", annotation.Kind)
+		}
+		if (annotation.Kind == "base" || annotation.Kind == "rsm") && annotation.Amount != 1 {
+			return fmt.Errorf("checkbox annotation %q must have value 1", annotation.Kind)
 		}
 		if annotation.Amount <= 0 || annotation.Amount > 999999999.999 {
 			return fmt.Errorf("invalid amount for bunker haul annotation %q", annotation.Kind)

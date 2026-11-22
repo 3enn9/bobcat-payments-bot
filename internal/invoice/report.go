@@ -105,6 +105,12 @@ func GenerateBunkerHaulReportPDF(
 }
 
 func bunkerAnnotationLabel(kind string, amount float64) string {
+	if kind == "base" {
+		return "База"
+	}
+	if kind == "rsm" {
+		return "РСМ"
+	}
 	if kind == "" || amount <= 0 {
 		return ""
 	}
