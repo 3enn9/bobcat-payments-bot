@@ -6,12 +6,34 @@ import (
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	"log"
+	"net/url"
+	"strings"
 	"time"
 )
 
 func NewConnectionDB(c *config.Config) (*Database, error) {
+	locationName := strings.TrimSpace(c.Timezone)
+	if locationName == "" {
+		locationName = "Europe/Samara"
+	}
+	location, err := time.LoadLocation(locationName)
+	if err != nil {
+		return nil, fmt.Errorf("load database timezone %q: %w", locationName, err)
+	}
+	_, offset := time.Now().In(location).Zone()
+	zoneSign := "+"
+	if offset < 0 {
+		zoneSign = "-"
+		offset = -offset
+	}
+	serverTimeZone := fmt.Sprintf("'%s%02d:%02d'", zoneSign, offset/3600, offset%3600/60)
 
-	dataSourceName := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&timeout=3s", c.Root, c.Password, c.Host, c.Port, c.Dbname)
+	query := url.Values{}
+	query.Set("parseTime", "true")
+	query.Set("timeout", "3s")
+	query.Set("loc", locationName)
+	query.Set("time_zone", serverTimeZone)
+	dataSourceName := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?%s", c.Root, c.Password, c.Host, c.Port, c.Dbname, query.Encode())
 	db, err := sql.Open("mysql", dataSourceName)
 	if err != nil {
 		return nil, fmt.Errorf("open DB connection: %w", err)
