@@ -173,7 +173,7 @@ func (m *MaxService) Updates(update schemes.UpdateInterface) error {
 		m.handleDaysOffCallback(upd)
 
 	case *schemes.MessageEditedUpdate:
-		m.handleRogatkaMessageEdited(upd)
+		// Rogatka group message import is paused.
 
 	case *schemes.BotStartedUpdate:
 		m.handleBotStarted(upd)
@@ -213,10 +213,6 @@ func (m *MaxService) handleMessage(upd *schemes.MessageCreatedUpdate) {
 	if strings.HasPrefix(cmd, "/") {
 		log.Println("max: unknown command received")
 		return
-	}
-
-	if upd.GetChatID() == m.Chats["Rogatka"] {
-		m.saveRogatkaRequest(upd, text)
 	}
 }
 

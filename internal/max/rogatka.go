@@ -4,11 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 
 	maxbot "github.com/max-messenger/max-bot-api-client-go"
-	"github.com/max-messenger/max-bot-api-client-go/schemes"
 )
 
 const rogatkaStatusSeparator = "\n---\n"
@@ -61,68 +59,4 @@ func (m *MaxService) MarkDriverRequestCompleted(messageID, driverName, message s
 	}
 
 	return nil
-}
-
-func (m *MaxService) saveRogatkaRequest(upd *schemes.MessageCreatedUpdate, text string) {
-	if upd.Message.Sender.IsBot {
-		return
-	}
-
-	m.upsertRogatkaRequest(
-		upd.GetChatID(),
-		upd.Message.Sender.UserId,
-		upd.Message.Sender.Username,
-		upd.Message.Sender.Name,
-		upd.Message.Body.Mid,
-		text,
-		"created",
-	)
-}
-
-func (m *MaxService) handleRogatkaMessageEdited(upd *schemes.MessageEditedUpdate) {
-	if upd.GetChatID() != m.Chats["Rogatka"] {
-		return
-	}
-	if upd.Message.Sender.IsBot {
-		return
-	}
-
-	text := strings.TrimSpace(upd.Message.Body.Text)
-	if text == "" {
-		return
-	}
-
-	m.upsertRogatkaRequest(
-		upd.GetChatID(),
-		upd.Message.Sender.UserId,
-		upd.Message.Sender.Username,
-		upd.Message.Sender.Name,
-		upd.Message.Body.Mid,
-		text,
-		"edited",
-	)
-}
-
-func (m *MaxService) upsertRogatkaRequest(
-	chatID, userID int64,
-	username, userName, messageID, message, action string,
-) {
-	_, created, err := m.db.SaveRogatkaRequest(
-		chatID,
-		userID,
-		username,
-		userName,
-		messageID,
-		message,
-	)
-	if err != nil {
-		log.Printf("max rogatka: save error: %v", err)
-		return
-	}
-
-	if created {
-		log.Println("max rogatka: request created")
-		return
-	}
-	log.Printf("max rogatka: request updated action=%s", action)
 }
