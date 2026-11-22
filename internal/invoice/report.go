@@ -20,7 +20,20 @@ type BunkerHaulReportAnnotation struct {
 	Amount float64
 }
 
-func GenerateBunkerHaulReportPDF(surname string, date time.Time, messages []BunkerHaulReportMessage, comment string, cashBalance float64) ([]byte, error) {
+type BunkerHaulReportCashOperation struct {
+	EntryType   string
+	Amount      float64
+	Description string
+}
+
+func GenerateBunkerHaulReportPDF(
+	surname string,
+	date time.Time,
+	messages []BunkerHaulReportMessage,
+	cashOperations []BunkerHaulReportCashOperation,
+	comment string,
+	cashBalance float64,
+) ([]byte, error) {
 	pdf := fpdf.New("P", "mm", "A4", "")
 	pdf.SetMargins(14, 14, 14)
 	pdf.SetAutoPageBreak(true, 14)
@@ -52,6 +65,24 @@ func GenerateBunkerHaulReportPDF(surname string, date time.Time, messages []Bunk
 		y := pdf.GetY() + 2
 		pdf.Line(14, y, 196, y)
 		pdf.SetY(y + 4)
+	}
+
+	if len(cashOperations) > 0 {
+		pdf.Ln(2)
+		pdf.SetFont("arial", "B", 12)
+		pdf.CellFormat(0, 7, "Операции кассы", "", 1, "L", false, 0, "")
+		for i, operation := range cashOperations {
+			kind := "Приход"
+			if operation.EntryType == "expense" {
+				kind = "Расход"
+			}
+			line := fmt.Sprintf("%d. %s — %s ₽", i+1, kind, formatPDFMoney(operation.Amount))
+			if description := strings.TrimSpace(operation.Description); description != "" {
+				line += " — " + description
+			}
+			pdf.SetFont("arial", "", 11)
+			pdf.MultiCell(0, 5.5, line, "", "L", false)
+		}
 	}
 
 	pdf.Ln(2)

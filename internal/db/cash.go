@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"sort"
 	"strings"
@@ -127,6 +128,43 @@ func (d *Database) GetWorkerCashBalance(workerName string) (float64, error) {
 		return 0, nil
 	}
 	return balance.Float64, nil
+}
+
+func (d *Database) ListWorkerCashEntriesByIDs(workerName string, entryDate time.Time, ids []int64) ([]WorkerCashEntry, error) {
+	if len(ids) == 0 {
+		return []WorkerCashEntry{}, nil
+	}
+
+	placeholders := strings.TrimSuffix(strings.Repeat("?,", len(ids)), ",")
+	args := make([]any, 0, len(ids)+2)
+	args = append(args, strings.TrimSpace(workerName), entryDate.Format("2006-01-02"))
+	for _, id := range ids {
+		args = append(args, id)
+	}
+
+	rows, err := d.DB.Query(fmt.Sprintf(`
+		SELECT id, worker_name, entry_type, amount, description,
+		       DATE_FORMAT(entry_date, '%%Y-%%m-%%d') AS entry_date, created_at
+		FROM worker_cash_entries
+		WHERE LOWER(worker_name) = LOWER(?)
+		  AND entry_date = ?
+		  AND id IN (%s)
+		ORDER BY id
+	`, placeholders), args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	entries := make([]WorkerCashEntry, 0, len(ids))
+	for rows.Next() {
+		entry, err := scanWorkerCashEntry(rows)
+		if err != nil {
+			return nil, err
+		}
+		entries = append(entries, entry)
+	}
+	return entries, rows.Err()
 }
 
 func scanWorkerCashEntry(scanner interface {

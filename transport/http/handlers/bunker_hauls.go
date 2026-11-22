@@ -64,9 +64,10 @@ func (h *MiniAppHandler) SendBunkerHaulReport(w http.ResponseWriter, r *http.Req
 	}
 
 	var input struct {
-		Surname  string `json:"surname"`
-		Date     string `json:"date"`
-		Comments string `json:"comments"`
+		Surname      string  `json:"surname"`
+		Date         string  `json:"date"`
+		Comments     string  `json:"comments"`
+		CashEntryIDs []int64 `json:"cashEntryIds"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		http.Error(w, `{"success":false,"error":"Некорректные данные"}`, http.StatusBadRequest)
@@ -81,6 +82,22 @@ func (h *MiniAppHandler) SendBunkerHaulReport(w http.ResponseWriter, r *http.Req
 	if len([]rune(input.Comments)) > 2000 {
 		http.Error(w, `{"success":false,"error":"Комментарий слишком длинный"}`, http.StatusBadRequest)
 		return
+	}
+	if len(input.CashEntryIDs) > 50 {
+		http.Error(w, `{"success":false,"error":"Слишком много операций кассы"}`, http.StatusBadRequest)
+		return
+	}
+	seenCashEntries := make(map[int64]struct{}, len(input.CashEntryIDs))
+	for _, id := range input.CashEntryIDs {
+		if id <= 0 {
+			http.Error(w, `{"success":false,"error":"Некорректная операция кассы"}`, http.StatusBadRequest)
+			return
+		}
+		if _, exists := seenCashEntries[id]; exists {
+			http.Error(w, `{"success":false,"error":"Операции кассы не должны повторяться"}`, http.StatusBadRequest)
+			return
+		}
+		seenCashEntries[id] = struct{}{}
 	}
 	date, err := time.ParseInLocation("2006-01-02", input.Date, clock.Now().Location())
 	if err != nil || date.Format("2006-01-02") != input.Date {
@@ -105,6 +122,16 @@ func (h *MiniAppHandler) SendBunkerHaulReport(w http.ResponseWriter, r *http.Req
 			return
 		}
 	}
+	cashEntries, err := h.db.ListWorkerCashEntriesByIDs(input.Surname, date, input.CashEntryIDs)
+	if err != nil {
+		log.Printf("load report cash entries surname=%q date=%s: %v", input.Surname, input.Date, err)
+		http.Error(w, `{"success":false,"error":"Не удалось загрузить операции кассы"}`, http.StatusInternalServerError)
+		return
+	}
+	if len(cashEntries) != len(input.CashEntryIDs) {
+		http.Error(w, `{"success":false,"error":"Операция кассы не найдена для выбранной фамилии и даты"}`, http.StatusBadRequest)
+		return
+	}
 
 	balance, err := h.db.GetWorkerCashBalance(input.Surname)
 	if err != nil {
@@ -127,7 +154,15 @@ func (h *MiniAppHandler) SendBunkerHaulReport(w http.ResponseWriter, r *http.Req
 		}
 		reportMessages = append(reportMessages, reportMessage)
 	}
-	pdf, err := invoice.GenerateBunkerHaulReportPDF(input.Surname, date, reportMessages, input.Comments, balance)
+	reportCashOperations := make([]invoice.BunkerHaulReportCashOperation, 0, len(cashEntries))
+	for _, entry := range cashEntries {
+		reportCashOperations = append(reportCashOperations, invoice.BunkerHaulReportCashOperation{
+			EntryType:   entry.EntryType,
+			Amount:      entry.Amount,
+			Description: entry.Description,
+		})
+	}
+	pdf, err := invoice.GenerateBunkerHaulReportPDF(input.Surname, date, reportMessages, reportCashOperations, input.Comments, balance)
 	if err != nil {
 		log.Printf("generate bunker haul report surname=%q date=%s: %v", input.Surname, input.Date, err)
 		http.Error(w, `{"success":false,"error":"Не удалось сформировать отчёт"}`, http.StatusInternalServerError)

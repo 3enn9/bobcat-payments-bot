@@ -63,6 +63,7 @@ export default function WorkerMessages() {
 
   const hasSavedCashOperations = cashOperations.some((operation) => operation.cashEntryID !== undefined);
   const hasUnsavedCashOperations = cashOperations.some((operation) => operation.cashEntryID === undefined);
+  const hasSavingCashOperations = cashOperations.some((operation) => operation.saving);
 
   useEffect(() => {
     const normalizedSurname = surname.trim();
@@ -152,7 +153,10 @@ export default function WorkerMessages() {
     setReportError("");
     setReportSent(false);
     try {
-      await sendBunkerHaulReport(surname, date, comments);
+      const cashEntryIDs = cashOperations.flatMap((operation) =>
+        operation.cashEntryID === undefined ? [] : [operation.cashEntryID],
+      );
+      await sendBunkerHaulReport(surname, date, comments, cashEntryIDs);
       setReportSent(true);
     } catch (err) {
       setReportError(err instanceof Error ? err.message : "Не удалось отправить отчёт");
@@ -442,7 +446,7 @@ export default function WorkerMessages() {
       <button
         type="button"
         className="fuels-search-btn"
-        disabled={sendingReport || loading || messages.length === 0 || hasUnsavedCashOperations}
+        disabled={sendingReport || loading || messages.length === 0 || hasUnsavedCashOperations || hasSavingCashOperations}
         onClick={() => void sendReport()}
       >
         {sendingReport ? "Отправляю…" : "Отправить"}
