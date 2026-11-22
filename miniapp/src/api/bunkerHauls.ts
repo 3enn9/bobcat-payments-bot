@@ -18,6 +18,22 @@ type BunkerHaulMessagesResponse = {
   error?: string;
 };
 
+type BunkerHaulSurnamesResponse = {
+  success: boolean;
+  surnames?: string[];
+  error?: string;
+};
+
+export async function suggestBunkerHaulSurnames(query: string): Promise<string[]> {
+  const params = new URLSearchParams({ q: query.trim() });
+  const response = await fetch(`/api/miniapp/bunker-hauls/surnames?${params}`);
+  const data = (await response.json()) as BunkerHaulSurnamesResponse;
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || "Не удалось загрузить фамилии");
+  }
+  return data.surnames ?? [];
+}
+
 export async function listBunkerHaulMessages(
   surname: string,
   date: string,

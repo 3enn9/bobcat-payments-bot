@@ -3,6 +3,7 @@ import {
   listBunkerHaulMessages,
   sendBunkerHaulReport,
   saveBunkerHaulAnnotation,
+  suggestBunkerHaulSurnames,
   type BunkerHaulAnnotationKind,
   type BunkerHaulMessage,
 } from "../api/bunkerHauls";
@@ -45,6 +46,8 @@ function todayISO(): string {
 
 export default function WorkerMessages() {
   const [surname, setSurname] = useState("");
+  const [surnameSuggestions, setSurnameSuggestions] = useState<string[]>([]);
+  const [showSurnameSuggestions, setShowSurnameSuggestions] = useState(false);
   const [date, setDate] = useState(todayISO);
   const [messages, setMessages] = useState<BunkerHaulMessage[]>([]);
   const [comments, setComments] = useState("");
@@ -64,6 +67,30 @@ export default function WorkerMessages() {
   const hasSavedCashOperations = cashOperations.some((operation) => operation.cashEntryID !== undefined);
   const hasUnsavedCashOperations = cashOperations.some((operation) => operation.cashEntryID === undefined);
   const hasSavingCashOperations = cashOperations.some((operation) => operation.saving);
+
+  useEffect(() => {
+    const query = surname.trim();
+    if (!showSurnameSuggestions || !query || hasSavedCashOperations) {
+      setSurnameSuggestions([]);
+      return;
+    }
+
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void suggestBunkerHaulSurnames(query)
+        .then((items) => {
+          if (!cancelled) setSurnameSuggestions(items);
+        })
+        .catch(() => {
+          if (!cancelled) setSurnameSuggestions([]);
+        });
+    }, 180);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [surname, showSurnameSuggestions, hasSavedCashOperations]);
 
   useEffect(() => {
     const normalizedSurname = surname.trim();
@@ -234,17 +261,49 @@ export default function WorkerMessages() {
 
   return (
     <div className="worker-requests bunker-worker">
-      <label className="invoice-field">
-        <span>Фамилия работника</span>
-        <input
-          value={surname}
-          onChange={(event) => setSurname(event.target.value)}
-          placeholder="Введите фамилию"
-          autoComplete="off"
-          maxLength={128}
-          disabled={hasSavedCashOperations}
-        />
-      </label>
+      <div className="worker-surname-autocomplete">
+        <label className="invoice-field">
+          <span>Фамилия работника</span>
+          <input
+            value={surname}
+            onChange={(event) => {
+              setSurname(event.target.value);
+              setShowSurnameSuggestions(true);
+            }}
+            onFocus={() => setShowSurnameSuggestions(true)}
+            onBlur={() => window.setTimeout(() => setShowSurnameSuggestions(false), 120)}
+            placeholder="Введите фамилию"
+            autoComplete="off"
+            maxLength={128}
+            disabled={hasSavedCashOperations}
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded={showSurnameSuggestions && surnameSuggestions.length > 0}
+            aria-controls="worker-surname-suggestions"
+          />
+        </label>
+        {showSurnameSuggestions && surnameSuggestions.length > 0 && !hasSavedCashOperations && (
+          <ul className="worker-surname-suggestions" id="worker-surname-suggestions" role="listbox">
+            {surnameSuggestions.map((suggestion) => (
+              <li key={suggestion} role="presentation">
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={suggestion === surname}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => {
+                    setSurname(suggestion);
+                    setSurnameSuggestions([]);
+                    setShowSurnameSuggestions(false);
+                  }}
+                >
+                  {suggestion}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       <label className="invoice-field">
         <span>Дата</span>

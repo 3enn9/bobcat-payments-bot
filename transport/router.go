@@ -161,6 +161,11 @@ func NewRouter(
 	).Methods(http.MethodGet, http.MethodOptions)
 
 	router.HandleFunc(
+		"/api/miniapp/bunker-hauls/surnames",
+		miniApp.SuggestBunkerHaulSurnames,
+	).Methods(http.MethodGet, http.MethodOptions)
+
+	router.HandleFunc(
 		"/api/miniapp/bunker-hauls",
 		miniApp.ListBunkerHaulMessages,
 	).Methods(http.MethodGet, http.MethodOptions)

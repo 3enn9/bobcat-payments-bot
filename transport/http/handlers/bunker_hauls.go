@@ -19,6 +19,31 @@ import (
 	"github.com/gorilla/mux"
 )
 
+func (h *MiniAppHandler) SuggestBunkerHaulSurnames(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	query := strings.TrimSpace(r.URL.Query().Get("q"))
+	if len([]rune(query)) > 128 {
+		http.Error(w, `{"success":false,"error":"Фамилия слишком длинная"}`, http.StatusBadRequest)
+		return
+	}
+
+	surnames, err := h.db.SuggestBunkerHaulSurnames(query)
+	if err != nil {
+		log.Printf("suggest bunker haul surnames query=%q: %v", query, err)
+		http.Error(w, `{"success":false,"error":"Ошибка загрузки фамилий"}`, http.StatusInternalServerError)
+		return
+	}
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":  true,
+		"surnames": surnames,
+	})
+}
+
 func (h *MiniAppHandler) ListBunkerHaulMessages(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if r.Method == http.MethodOptions {

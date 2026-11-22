@@ -119,6 +119,39 @@ type BunkerHaulTextMessage struct {
 	Annotations []BunkerHaulAnnotation `json:"annotations"`
 }
 
+func (d *Database) SuggestBunkerHaulSurnames(query string) ([]string, error) {
+	query = strings.TrimSpace(query)
+	if query == "" {
+		return []string{}, nil
+	}
+	if err := d.EnsureBunkerHaulsTable(); err != nil {
+		return nil, err
+	}
+
+	rows, err := d.DB.Query(`
+		SELECT DISTINCT TRIM(surname)
+		FROM bunker_haul_senders
+		WHERE TRIM(surname) <> ''
+		  AND LOWER(surname) LIKE LOWER(CONCAT(?, '%'))
+		ORDER BY TRIM(surname)
+		LIMIT 10
+	`, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	surnames := make([]string, 0)
+	for rows.Next() {
+		var surname string
+		if err := rows.Scan(&surname); err != nil {
+			return nil, err
+		}
+		surnames = append(surnames, surname)
+	}
+	return surnames, rows.Err()
+}
+
 func (d *Database) ListBunkerHaulMessagesBySurname(surname string, date time.Time) ([]BunkerHaulTextMessage, error) {
 	surname = strings.TrimSpace(surname)
 	if surname == "" {
