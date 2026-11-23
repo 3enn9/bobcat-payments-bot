@@ -118,7 +118,7 @@ func stampPositionFromText(raw []byte, entrepreneur bool) (int, int, bool) {
 			}
 			// Lower company stamps so their center aligns with the signature label
 			// instead of covering the invoice terms immediately above it.
-			return int(xMM + 20), int(yFromBottomMM - 13), true
+			return int(xMM + 20), int(yFromBottomMM - 23), true
 		}
 	}
 	return 0, 0, false
