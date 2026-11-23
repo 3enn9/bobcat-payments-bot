@@ -116,8 +116,9 @@ func stampPositionFromText(raw []byte, entrepreneur bool) (int, int, bool) {
 				// ANN placement (83 mm X, 105 mm Y on the supplied invoice).
 				return int(xMM + 70), int(yFromBottomMM - 25), true
 			}
-			// Place company stamps over the signature area to the right of its label.
-			return int(xMM + 20), int(yFromBottomMM - 3), true
+			// Lower company stamps so their center aligns with the signature label
+			// instead of covering the invoice terms immediately above it.
+			return int(xMM + 20), int(yFromBottomMM - 13), true
 		}
 	}
 	return 0, 0, false
