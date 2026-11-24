@@ -61,38 +61,35 @@ func StampSupplierPDF(raw []byte, data *PDFData) ([]byte, error) {
 	if err := api.AddWatermarks(bytes.NewReader(raw), &stamped, []string{strconv.Itoa(pageCount)}, watermark, nil); err != nil {
 		return nil, fmt.Errorf("не удалось наложить печать на PDF: %w", err)
 	}
+
+	if stampCode == "sst" {
+		painting, err := stampFiles.ReadFile("stamps/painting.png")
+		if err != nil {
+			return nil, fmt.Errorf("не удалось прочитать подпись бухгалтера: %w", err)
+		}
+		if x, y, ok := paintingPositionFromText(raw); ok {
+			description := fmt.Sprintf("scale:0.130 rel, pos:bl, off:%d %d, rot:0, op:1", x, y)
+			paintingWatermark, err := api.ImageWatermarkForReader(bytes.NewReader(painting), description, true, false, types.MILLIMETRES)
+			if err != nil {
+				return nil, fmt.Errorf("не удалось подготовить подпись бухгалтера: %w", err)
+			}
+			var signed bytes.Buffer
+			if err := api.AddWatermarks(bytes.NewReader(stamped.Bytes()), &signed, []string{strconv.Itoa(pageCount)}, paintingWatermark, nil); err != nil {
+				return nil, fmt.Errorf("не удалось наложить подпись бухгалтера на PDF: %w", err)
+			}
+			return signed.Bytes(), nil
+		}
+	}
 	return stamped.Bytes(), nil
 }
 
 // stampPositionFromText locates a signature label on the last page and keeps
 // the stamp aligned with it when invoice line items change the document layout.
 func stampPositionFromText(raw []byte, entrepreneur bool) (int, int, bool) {
-	path, err := exec.LookPath("pdftotext")
-	if err != nil {
+	page, ok := lastPDFTextPage(raw)
+	if !ok {
 		return 0, 0, false
 	}
-	cmd := exec.Command(path, "-bbox", "-", "-")
-	cmd.Stdin = bytes.NewReader(raw)
-	out, err := cmd.Output()
-	if err != nil {
-		return 0, 0, false
-	}
-
-	var doc struct {
-		Pages []struct {
-			Width  float64 `xml:"width,attr"`
-			Height float64 `xml:"height,attr"`
-			Words  []struct {
-				XMin float64 `xml:"xMin,attr"`
-				YMax float64 `xml:"yMax,attr"`
-				Text string  `xml:",chardata"`
-			} `xml:"word"`
-		} `xml:"body>doc>page"`
-	}
-	if err := xml.Unmarshal(out, &doc); err != nil || len(doc.Pages) == 0 {
-		return 0, 0, false
-	}
-	page := doc.Pages[len(doc.Pages)-1]
 	if page.Width <= 0 || page.Height <= 0 {
 		return 0, 0, false
 	}
@@ -103,8 +100,7 @@ func stampPositionFromText(raw []byte, entrepreneur bool) (int, int, bool) {
 	}
 	const pointsPerMM = 72.0 / 25.4
 	for _, word := range page.Words {
-		text := strings.ToLower(strings.TrimSpace(word.Text))
-		text = strings.Trim(text, ":.,;()")
+		text := normalizedPDFWord(word.Text)
 		for _, anchor := range anchors {
 			if text != anchor {
 				continue
@@ -122,4 +118,59 @@ func stampPositionFromText(raw []byte, entrepreneur bool) (int, int, bool) {
 		}
 	}
 	return 0, 0, false
+}
+
+func paintingPositionFromText(raw []byte) (int, int, bool) {
+	page, ok := lastPDFTextPage(raw)
+	if !ok || page.Width <= 0 || page.Height <= 0 {
+		return 0, 0, false
+	}
+	const pointsPerMM = 72.0 / 25.4
+	for _, word := range page.Words {
+		if normalizedPDFWord(word.Text) != "бухгалтер" {
+			continue
+		}
+		xMM := word.XMin / pointsPerMM
+		yFromBottomMM := (page.Height - word.YMax) / pointsPerMM
+		// Position the autograph over the accountant's signature line, just
+		// after the label. Its width is about 27 mm on an A4 page.
+		return int(xMM + 18), int(yFromBottomMM - 7), true
+	}
+	return 0, 0, false
+}
+
+type pdfTextPage struct {
+	Width  float64 `xml:"width,attr"`
+	Height float64 `xml:"height,attr"`
+	Words  []struct {
+		XMin float64 `xml:"xMin,attr"`
+		YMax float64 `xml:"yMax,attr"`
+		Text string  `xml:",chardata"`
+	} `xml:"word"`
+}
+
+func lastPDFTextPage(raw []byte) (pdfTextPage, bool) {
+	path, err := exec.LookPath("pdftotext")
+	if err != nil {
+		return pdfTextPage{}, false
+	}
+	cmd := exec.Command(path, "-bbox", "-", "-")
+	cmd.Stdin = bytes.NewReader(raw)
+	out, err := cmd.Output()
+	if err != nil {
+		return pdfTextPage{}, false
+	}
+
+	var doc struct {
+		Pages []pdfTextPage `xml:"body>doc>page"`
+	}
+	if err := xml.Unmarshal(out, &doc); err != nil || len(doc.Pages) == 0 {
+		return pdfTextPage{}, false
+	}
+	return doc.Pages[len(doc.Pages)-1], true
+}
+
+func normalizedPDFWord(word string) string {
+	text := strings.ToLower(strings.TrimSpace(word))
+	return strings.Trim(text, ":.,;()")
 }
