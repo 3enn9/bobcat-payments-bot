@@ -319,6 +319,10 @@
   font-weight: 650;
 }
 
+.bunker-annotation-dubki {
+  color: #a51d1d;
+}
+
 .bunker-annotation-editor {
   display: grid;
   gap: 10px;

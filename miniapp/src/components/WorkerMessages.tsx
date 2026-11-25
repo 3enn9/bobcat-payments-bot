@@ -52,17 +52,15 @@ const annotationMethods: { kind: BunkerHaulAnnotationKind; label: string }[] = [
   { kind: "rsm", label: "РСМ" },
 ];
 
-function annotationLabel(message: BunkerHaulMessage): string {
-  return message.annotations.map((annotation) => {
-    if (annotation.kind === "base") return "База";
-    if (annotation.kind === "rsm") return "РСМ";
-    const amount = new Intl.NumberFormat("ru-RU", {
-      maximumFractionDigits: 3,
-    }).format(annotation.amount);
-    if (annotation.kind === "vector") return `Вектор — вес: ${amount}`;
-    if (annotation.kind === "dubki") return `Дубки — ${amount} ₽`;
-    return `Нал — ${amount} ₽`;
-  }).join(" · ");
+function annotationLabel(annotation: BunkerHaulMessage["annotations"][number]): string {
+  if (annotation.kind === "base") return "База";
+  if (annotation.kind === "rsm") return "РСМ";
+  const amount = new Intl.NumberFormat("ru-RU", {
+    maximumFractionDigits: 3,
+  }).format(annotation.amount);
+  if (annotation.kind === "vector") return `Вектор — вес: ${amount}`;
+  if (annotation.kind === "dubki") return `Дубки — ${amount} ₽`;
+  return `Нал — ${amount} ₽`;
 }
 
 function todayISO(): string {
@@ -687,7 +685,16 @@ export default function WorkerMessages() {
               >
                 <span className="request-item-message bunker-message-text">{message.text}</span>
                 {message.annotations.length > 0 && (
-                  <span className="bunker-annotation">{annotationLabel(message)}</span>
+                  <span className="bunker-annotation">
+                    {message.annotations.map((annotation, index) => (
+                      <span key={annotation.kind}>
+                        {index > 0 && " · "}
+                        <span className={annotation.kind === "dubki" ? "bunker-annotation-dubki" : undefined}>
+                          {annotationLabel(annotation)}
+                        </span>
+                      </span>
+                    ))}
+                  </span>
                 )}
               </button>
               {activeMessageID === message.id && (
