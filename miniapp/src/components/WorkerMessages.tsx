@@ -14,6 +14,7 @@ import {
   deleteCashEntry,
   fetchWorkerCashEntriesByDate,
   updateCashEntry,
+  type CashEntry,
   type CashEntryType,
 } from "../api/cash";
 
@@ -28,6 +29,20 @@ type ReportCashOperation = {
   saving: boolean;
   error: string;
 };
+
+function toReportCashOperation(entry: CashEntry): ReportCashOperation {
+  return {
+    localID: -entry.id,
+    entryType: entry.entryType,
+    amount: String(entry.amount),
+    description: entry.description,
+    cashEntryID: entry.id,
+    linkedKind: entry.linkedKind,
+    dirty: false,
+    saving: false,
+    error: "",
+  };
+}
 
 const annotationMethods: { kind: BunkerHaulAnnotationKind; label: string }[] = [
   { kind: "vector", label: "Вектор" },
@@ -100,6 +115,31 @@ export default function WorkerMessages() {
   const hasUnsavedCashOperations = cashOperations.some((operation) => operation.cashEntryID === undefined);
   const hasSavingCashOperations = cashOperations.some((operation) => operation.saving);
   const hasReportContent = messages.length > 0 || comments.trim() !== "" || hasSavedCashOperations;
+
+  const refreshReportCashOperations = async () => {
+    const normalizedSurname = surname.trim();
+    if (!normalizedSurname) return;
+
+    setCashOperationsLoading(true);
+    try {
+      const entries = await fetchWorkerCashEntriesByDate(normalizedSurname, date);
+      setCashOperations((current) => {
+        const previousByID = new Map(
+          current.flatMap((operation) => operation.cashEntryID === undefined
+            ? []
+            : [[operation.cashEntryID, operation] as const]),
+        );
+        const saved = entries.map((entry) => {
+          const previous = previousByID.get(entry.id);
+          return previous?.dirty ? previous : toReportCashOperation(entry);
+        });
+        const unsaved = current.filter((operation) => operation.cashEntryID === undefined);
+        return [...saved, ...unsaved];
+      });
+    } finally {
+      setCashOperationsLoading(false);
+    }
+  };
 
   useEffect(() => {
     const query = surname.trim();
@@ -181,17 +221,7 @@ export default function WorkerMessages() {
     void fetchWorkerCashEntriesByDate(normalizedSurname, date)
       .then((entries) => {
         if (!cancelled) {
-          setCashOperations(entries.map((entry, index) => ({
-            localID: index + 1,
-            entryType: entry.entryType,
-            amount: String(entry.amount),
-            description: entry.description,
-            cashEntryID: entry.id,
-            linkedKind: entry.linkedKind,
-            dirty: false,
-            saving: false,
-            error: "",
-          })));
+          setCashOperations(entries.map(toReportCashOperation));
           setNextCashOperationID(entries.length + 1);
         }
       })
@@ -274,6 +304,17 @@ export default function WorkerMessages() {
             : item,
         ),
       );
+      if (
+        message.annotations.some((annotation) => annotation.kind === "dubki" || annotation.kind === "cash") ||
+        annotations.some((annotation) => annotation.kind === "dubki" || annotation.kind === "cash")
+      ) {
+        try {
+          await refreshReportCashOperations();
+          setCashOperationsError("");
+        } catch (err) {
+          setCashOperationsError(err instanceof Error ? err.message : "Не удалось обновить операции кассы");
+        }
+      }
       setActiveMessageID(null);
       setSelectedMethods([]);
       setAnnotationValues({});
@@ -387,6 +428,14 @@ export default function WorkerMessages() {
       if (operation.cashEntryID !== undefined) {
         await updateCashEntry(operation.cashEntryID, payload);
         updateCashOperation(operation.localID, { saving: false, dirty: false });
+        if (operation.linkedKind) {
+          try {
+            const refreshedMessages = await listBunkerHaulMessages(surname.trim(), date);
+            setMessages(refreshedMessages);
+          } catch {
+            setReportError("Операция сохранена, но не удалось обновить метку в сообщении.");
+          }
+        }
       } else {
         const result = await createCashEntry(payload);
         updateCashOperation(operation.localID, { cashEntryID: result.id, saving: false });
