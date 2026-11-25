@@ -518,7 +518,6 @@ export default function WorkerMessages() {
                       <time dateTime={date}>{formatCashOperationDate(date)}</time>
                     </div>
                     {operation.description && <p className="cash-list-desc">{operation.description}</p>}
-                    <small>Нажмите, чтобы редактировать</small>
                   </div>
                 </div>
               </button>

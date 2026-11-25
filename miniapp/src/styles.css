@@ -399,12 +399,16 @@
 
 .bunker-cash-operation-summary {
   display: grid;
-  gap: 4px;
+  gap: 0;
   width: 100%;
-  padding: 8px 0;
+  padding: 4px 0;
   background: transparent;
   color: inherit;
   text-align: left;
+}
+
+.bunker-cash-operation-summary .cash-list-desc {
+  margin-top: 4px;
 }
 
 .bunker-cash-operation-summary small {
