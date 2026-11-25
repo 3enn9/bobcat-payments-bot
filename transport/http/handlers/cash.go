@@ -115,6 +115,23 @@ func (h *MiniAppHandler) ListWorkerCash(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, `{"success":false,"error":"Укажите фамилию"}`, http.StatusBadRequest)
 		return
 	}
+	if dateText := strings.TrimSpace(r.URL.Query().Get("date")); dateText != "" {
+		if _, err := time.Parse("2006-01-02", dateText); err != nil {
+			http.Error(w, `{"success":false,"error":"Некорректная дата"}`, http.StatusBadRequest)
+			return
+		}
+		entries, err := h.db.ListWorkerCashEntriesByDate(workerName, dateText)
+		if err != nil {
+			log.Printf("list worker cash entries by date error: %v", err)
+			http.Error(w, `{"success":false,"error":"Ошибка загрузки"}`, http.StatusInternalServerError)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": true,
+			"entries": entries,
+		})
+		return
+	}
 
 	limit := parseCashEntryLimit(r.URL.Query().Get("limit"))
 

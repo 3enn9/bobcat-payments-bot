@@ -73,6 +73,16 @@ export async function fetchWorkerCash(workerName: string): Promise<{
   };
 }
 
+export async function fetchWorkerCashEntriesByDate(workerName: string, date: string): Promise<CashEntry[]> {
+  const params = new URLSearchParams({ worker: workerName, date });
+  const response = await fetch(`/api/miniapp/cash?${params.toString()}`);
+  const data = (await response.json()) as ListCashResponse;
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || "Не удалось загрузить операции кассы");
+  }
+  return data.entries ?? [];
+}
+
 export async function createCashEntry(payload: {
   workerName: string;
   entryType: CashEntryType;

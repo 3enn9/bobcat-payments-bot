@@ -59,6 +59,32 @@ func (d *Database) ListWorkerCashEntries(workerName string, limit int) ([]Worker
 	return items, rows.Err()
 }
 
+func (d *Database) ListWorkerCashEntriesByDate(workerName, entryDate string) ([]WorkerCashEntry, error) {
+	workerName = strings.TrimSpace(workerName)
+	rows, err := d.DB.Query(`
+		SELECT id, worker_name, entry_type, amount, description,
+		       DATE_FORMAT(entry_date, '%Y-%m-%d') AS entry_date, created_at
+		FROM worker_cash_entries
+		WHERE LOWER(worker_name) = LOWER(?)
+		  AND entry_date = ?
+		ORDER BY id
+	`, workerName, entryDate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]WorkerCashEntry, 0)
+	for rows.Next() {
+		item, err := scanWorkerCashEntry(rows)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
 func (d *Database) CountWorkerCashEntries(workerName string) (int, error) {
 	workerName = strings.TrimSpace(workerName)
 	var count int
