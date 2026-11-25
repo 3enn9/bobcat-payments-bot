@@ -583,28 +583,30 @@ export default function WorkerMessages() {
               </>
             )}
             {operation.error && <div className="error">{operation.error}</div>}
-            <div className="bunker-cash-operation-actions">
-              {(operation.cashEntryID === undefined || operation.dirty) && (
-                <button
-                  type="button"
-                  className="fuels-search-btn bunker-save-annotation"
-                  disabled={operation.saving || Number(operation.amount.replace(",", ".")) <= 0 || (operation.cashEntryID !== undefined && !operation.dirty)}
-                  onClick={() => void saveCashOperation(operation)}
-                >
-                  {operation.saving ? "Сохраняю…" : operation.cashEntryID === undefined ? "Добавить в кассу" : "Сохранить изменения"}
-                </button>
-              )}
-              {(operation.cashEntryID === undefined || editCashOperationID === operation.localID) && (
-                <button
-                  type="button"
-                  className="fuels-filter-btn"
-                  disabled={operation.saving}
-                  onClick={() => void removeCashOperation(operation)}
-                >
-                  {operation.cashEntryID === undefined ? "Убрать" : "Удалить из кассы"}
-                </button>
-              )}
-            </div>
+            {(operation.cashEntryID === undefined || operation.dirty || editCashOperationID === operation.localID) && (
+              <div className="bunker-cash-operation-actions">
+                {(operation.cashEntryID === undefined || operation.dirty) && (
+                  <button
+                    type="button"
+                    className="fuels-search-btn bunker-save-annotation"
+                    disabled={operation.saving || Number(operation.amount.replace(",", ".")) <= 0 || (operation.cashEntryID !== undefined && !operation.dirty)}
+                    onClick={() => void saveCashOperation(operation)}
+                  >
+                    {operation.saving ? "Сохраняю…" : operation.cashEntryID === undefined ? "Добавить в кассу" : "Сохранить изменения"}
+                  </button>
+                )}
+                {(operation.cashEntryID === undefined || editCashOperationID === operation.localID) && (
+                  <button
+                    type="button"
+                    className="fuels-filter-btn"
+                    disabled={operation.saving}
+                    onClick={() => void removeCashOperation(operation)}
+                  >
+                    {operation.cashEntryID === undefined ? "Убрать" : "Удалить из кассы"}
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         ))}
       </section>
