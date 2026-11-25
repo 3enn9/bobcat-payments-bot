@@ -80,6 +80,7 @@ export default function WorkerMessages() {
   const [cashOperationsLoading, setCashOperationsLoading] = useState(false);
   const [cashOperationsError, setCashOperationsError] = useState("");
   const [nextCashOperationID, setNextCashOperationID] = useState(1);
+  const [editCashOperationID, setEditCashOperationID] = useState<number | null>(null);
 
   const hasSavedCashOperations = cashOperations.some((operation) => operation.cashEntryID !== undefined);
   const hasUnsavedCashOperations = cashOperations.some((operation) => operation.cashEntryID === undefined);
@@ -155,6 +156,7 @@ export default function WorkerMessages() {
     const normalizedSurname = surname.trim();
     let cancelled = false;
     setCashOperations([]);
+    setEditCashOperationID(null);
     setCashOperationsError("");
     if (!normalizedSurname || !date) {
       setCashOperationsLoading(false);
@@ -314,10 +316,11 @@ export default function WorkerMessages() {
   };
 
   const addCashOperation = (entryType: CashEntryType) => {
+    const localID = nextCashOperationID;
     setCashOperations((current) => [
       ...current,
       {
-        localID: nextCashOperationID,
+        localID,
         entryType,
         amount: "",
         description: "",
@@ -325,6 +328,7 @@ export default function WorkerMessages() {
         error: "",
       },
     ]);
+    setEditCashOperationID(localID);
     setNextCashOperationID((current) => current + 1);
     setReportError("");
     setReportSent(false);
@@ -372,6 +376,7 @@ export default function WorkerMessages() {
         const result = await createCashEntry(payload);
         updateCashOperation(operation.localID, { cashEntryID: result.id, saving: false });
       }
+      setEditCashOperationID(null);
     } catch (err) {
       updateCashOperation(operation.localID, {
         saving: false,
@@ -394,6 +399,7 @@ export default function WorkerMessages() {
       }
     }
     setCashOperations((current) => current.filter((item) => item.localID !== operation.localID));
+    setEditCashOperationID((current) => current === operation.localID ? null : current);
     setReportSent(false);
   };
 
@@ -480,37 +486,64 @@ export default function WorkerMessages() {
         </div>
         {cashOperations.map((operation) => (
           <div className="bunker-cash-operation" key={operation.localID}>
-            <label className="invoice-field">
-              <span>Тип операции</span>
-              <select
-                value={operation.entryType}
-                onChange={(event) => updateCashOperation(operation.localID, { entryType: event.target.value as CashEntryType })}
+            {operation.cashEntryID !== undefined && editCashOperationID !== operation.localID ? (
+              <button
+                type="button"
+                className="bunker-cash-operation-summary"
+                aria-expanded="false"
+                onClick={() => setEditCashOperationID(operation.localID)}
               >
-                <option value="income">Приход</option>
-                <option value="expense">Расход</option>
-              </select>
-            </label>
-            <label className="invoice-field">
-              <span>Сумма</span>
-              <input
-                type="number"
-                min="0.01"
-                step="0.01"
-                inputMode="decimal"
-                value={operation.amount}
-                onChange={(event) => updateCashOperation(operation.localID, { amount: event.target.value })}
-                placeholder="Введите сумму"
-              />
-            </label>
-            <label className="invoice-field">
-              <span>Описание</span>
-              <input
-                value={operation.description}
-                maxLength={500}
-                onChange={(event) => updateCashOperation(operation.localID, { description: event.target.value })}
-                placeholder="Введите описание"
-              />
-            </label>
+                <strong>{operation.entryType === "income" ? "Приход" : "Расход"} · {new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 2 }).format(Number(operation.amount.replace(",", ".")))} ₽</strong>
+                {operation.description && <span>{operation.description}</span>}
+                <small>Нажмите, чтобы редактировать</small>
+              </button>
+            ) : (
+              <>
+                {operation.cashEntryID !== undefined && (
+                  <button
+                    type="button"
+                    className="bunker-cash-operation-summary"
+                    aria-expanded="true"
+                    disabled={operation.dirty || operation.saving}
+                    onClick={() => setEditCashOperationID(null)}
+                  >
+                    <strong>{operation.entryType === "income" ? "Приход" : "Расход"} · {new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 2 }).format(Number(operation.amount.replace(",", ".")))} ₽</strong>
+                    <small>Свернуть</small>
+                  </button>
+                )}
+                <label className="invoice-field">
+                  <span>Тип операции</span>
+                  <select
+                    value={operation.entryType}
+                    onChange={(event) => updateCashOperation(operation.localID, { entryType: event.target.value as CashEntryType })}
+                  >
+                    <option value="income">Приход</option>
+                    <option value="expense">Расход</option>
+                  </select>
+                </label>
+                <label className="invoice-field">
+                  <span>Сумма</span>
+                  <input
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    inputMode="decimal"
+                    value={operation.amount}
+                    onChange={(event) => updateCashOperation(operation.localID, { amount: event.target.value })}
+                    placeholder="Введите сумму"
+                  />
+                </label>
+                <label className="invoice-field">
+                  <span>Описание</span>
+                  <input
+                    value={operation.description}
+                    maxLength={500}
+                    onChange={(event) => updateCashOperation(operation.localID, { description: event.target.value })}
+                    placeholder="Введите описание"
+                  />
+                </label>
+              </>
+            )}
             {operation.error && <div className="error">{operation.error}</div>}
             <div className="bunker-cash-operation-actions">
               {(operation.cashEntryID === undefined || operation.dirty) && (

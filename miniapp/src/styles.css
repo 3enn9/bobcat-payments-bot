@@ -397,6 +397,22 @@
   border-top: 1px solid #e6e6e6;
 }
 
+.bunker-cash-operation-summary {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 8px 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.bunker-cash-operation-summary small {
+  color: #666;
+  font-size: 12px;
+  font-weight: 500;
+}
+
 .bunker-cash-operation-saved {
   margin: 0;
 }
