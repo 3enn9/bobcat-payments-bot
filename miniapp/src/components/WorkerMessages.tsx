@@ -129,7 +129,7 @@ export default function WorkerMessages() {
             ? []
             : [[operation.cashEntryID, operation] as const]),
         );
-        const saved = entries.map((entry) => {
+      const saved = entries.filter((entry) => !entry.linkedKind).map((entry) => {
           const previous = previousByID.get(entry.id);
           return previous?.dirty ? previous : toReportCashOperation(entry);
         });
@@ -221,7 +221,7 @@ export default function WorkerMessages() {
     void fetchWorkerCashEntriesByDate(normalizedSurname, date)
       .then((entries) => {
         if (!cancelled) {
-          setCashOperations(entries.map(toReportCashOperation));
+          setCashOperations(entries.filter((entry) => !entry.linkedKind).map(toReportCashOperation));
           setNextCashOperationID(entries.length + 1);
         }
       })
