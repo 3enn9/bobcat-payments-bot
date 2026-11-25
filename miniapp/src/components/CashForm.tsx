@@ -100,6 +100,7 @@ export default function CashForm() {
   const [editError, setEditError] = useState("");
   const [editSaving, setEditSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [workers, setWorkers] = useState<string[]>([]);
   const [workersLoading, setWorkersLoading] = useState(false);
   const [workersError, setWorkersError] = useState("");
@@ -312,10 +313,6 @@ export default function CashForm() {
   }
 
   async function removeEntry(id: number) {
-    if (!window.confirm("Удалить эту операцию?")) {
-      return;
-    }
-
     setDeletingId(id);
     setSuccess("");
     try {
@@ -327,6 +324,7 @@ export default function CashForm() {
       if (editingId === id) {
         cancelEdit();
       }
+      setConfirmDeleteId(null);
       setSuccess("Запись удалена");
     } catch (err) {
       setFormError(
@@ -647,14 +645,39 @@ export default function CashForm() {
                           >
                             Изменить
                           </button>
-                          <button
-                            type="button"
-                            className="cash-delete-button"
-                            disabled={busy}
-                            onClick={() => void removeEntry(item.id)}
-                          >
-                            {deletingId === item.id ? "..." : "Удалить"}
-                          </button>
+                          {confirmDeleteId === item.id ? (
+                            <div className="cash-delete-confirm" role="group" aria-label="Подтверждение удаления">
+                              <span>Удалить?</span>
+                              <button
+                                type="button"
+                                className="cash-delete-confirm-yes"
+                                disabled={busy}
+                                onClick={() => void removeEntry(item.id)}
+                              >
+                                {deletingId === item.id ? "Удаляем..." : "Да"}
+                              </button>
+                              <button
+                                type="button"
+                                className="cash-delete-confirm-no"
+                                disabled={busy}
+                                onClick={() => setConfirmDeleteId(null)}
+                              >
+                                Нет
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              className="cash-delete-button"
+                              disabled={busy}
+                              onClick={() => {
+                                setFormError("");
+                                setConfirmDeleteId(item.id);
+                              }}
+                            >
+                              Удалить
+                            </button>
+                          )}
                         </div>
                       </div>
                     </li>

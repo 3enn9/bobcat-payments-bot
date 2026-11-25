@@ -1284,6 +1284,34 @@
   font-weight: 650;
 }
 
+.cash-delete-confirm {
+  display: grid;
+  gap: 5px;
+  justify-items: stretch;
+  color: #555;
+  font-size: 12px;
+  text-align: center;
+}
+
+.cash-delete-confirm button {
+  width: auto;
+  padding: 6px 10px;
+  border-radius: 9px;
+  font-size: 12px;
+}
+
+.cash-delete-confirm-yes {
+  border: 1px solid #f0c8c8;
+  background: #fff;
+  color: #a51d1d;
+}
+
+.cash-delete-confirm-no {
+  border: 1px solid #dedede;
+  background: #fff;
+  color: #555;
+}
+
 .cash-workers-section {
   margin-top: 16px;
   flex: 1;
