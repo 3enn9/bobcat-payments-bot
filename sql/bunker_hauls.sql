@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS bunker_hauls (
 CREATE TABLE IF NOT EXISTS bunker_haul_senders (
   sender_id BIGINT NOT NULL,
   surname VARCHAR(128) NOT NULL DEFAULT '',
+  group_id BIGINT NULL,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (sender_id),
   KEY idx_bunker_haul_senders_surname (surname)

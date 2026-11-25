@@ -26,6 +26,7 @@ const bunkerHaulsSchema = `CREATE TABLE IF NOT EXISTS bunker_hauls (
 const bunkerHaulSendersSchema = `CREATE TABLE IF NOT EXISTS bunker_haul_senders (
 	sender_id BIGINT NOT NULL,
 	surname VARCHAR(128) NOT NULL DEFAULT '',
+	group_id BIGINT NULL,
 	updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 	PRIMARY KEY (sender_id),
 	KEY idx_bunker_haul_senders_surname (surname)
@@ -73,11 +74,32 @@ func (d *Database) EnsureBunkerHaulsTable() error {
 	if err := d.ensureBunkerHaulAnnotationKey(); err != nil {
 		return err
 	}
+	if err := d.ensureBunkerHaulSenderGroupID(); err != nil {
+		return err
+	}
 	if err := d.ensureBunkerHaulAnnotationKinds(); err != nil {
 		return err
 	}
 	d.bunkerHaulsSchemaReady = true
 	return nil
+}
+
+func (d *Database) ensureBunkerHaulSenderGroupID() error {
+	var columnCount int
+	if err := d.DB.QueryRow(`
+		SELECT COUNT(*)
+		FROM information_schema.COLUMNS
+		WHERE TABLE_SCHEMA = DATABASE()
+		  AND TABLE_NAME = 'bunker_haul_senders'
+		  AND COLUMN_NAME = 'group_id'
+	`).Scan(&columnCount); err != nil {
+		return err
+	}
+	if columnCount > 0 {
+		return nil
+	}
+	_, err := d.DB.Exec(`ALTER TABLE bunker_haul_senders ADD COLUMN group_id BIGINT NULL AFTER surname`)
+	return err
 }
 
 func (d *Database) GetBunkerHaulReportComment(workerName string, reportDate time.Time) (string, error) {
@@ -212,6 +234,32 @@ func (d *Database) SuggestBunkerHaulSurnames(query string) ([]string, error) {
 		surnames = append(surnames, surname)
 	}
 	return surnames, rows.Err()
+}
+
+func (d *Database) BunkerHaulReportGroupID(surname string) (int64, error) {
+	if err := d.EnsureBunkerHaulsTable(); err != nil {
+		return 0, err
+	}
+
+	var groupID sql.NullInt64
+	err := d.DB.QueryRow(`
+		SELECT group_id
+		FROM bunker_haul_senders
+		WHERE LOWER(TRIM(surname)) = LOWER(?)
+		  AND group_id IS NOT NULL AND group_id <> 0
+		ORDER BY updated_at DESC, sender_id
+		LIMIT 1
+	`, strings.TrimSpace(surname)).Scan(&groupID)
+	if err == sql.ErrNoRows {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	if !groupID.Valid {
+		return 0, nil
+	}
+	return groupID.Int64, nil
 }
 
 func (d *Database) ListBunkerHaulMessagesBySurname(surname string, date time.Time) ([]BunkerHaulTextMessage, error) {

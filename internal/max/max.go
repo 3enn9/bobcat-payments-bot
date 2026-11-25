@@ -67,6 +67,10 @@ func (m *MaxService) SendBunkerHaulReport(caption string, photos []PhotoUpload) 
 	return m.SendPhotosToChat(bunkerHaulReportsChatID, caption, photos)
 }
 
+func (m *MaxService) SendBunkerHaulReportToChat(chatID int64, caption string, photos []PhotoUpload) error {
+	return m.SendPhotosToChat(chatID, caption, photos)
+}
+
 func (m *MaxService) sendPhotosToChat(chatID int64, text string, photos []PhotoUpload, keyboard *maxbot.Keyboard) error {
 	ctx := context.Background()
 	msg := maxbot.NewMessage().SetChat(chatID).SetText(text)

@@ -271,7 +271,18 @@ func (h *MiniAppHandler) SendBunkerHaulReport(w http.ResponseWriter, r *http.Req
 		})
 	}
 	caption := fmt.Sprintf("%s — %s", input.Surname, date.Format("02.01.2006"))
-	if err := h.max.SendBunkerHaulReport(caption, photos); err != nil {
+	reportGroupID, err := h.db.BunkerHaulReportGroupID(input.Surname)
+	if err != nil {
+		log.Printf("load bunker haul report group surname=%q: %v", input.Surname, err)
+		http.Error(w, `{"success":false,"error":"Не удалось определить группу отчёта"}`, http.StatusInternalServerError)
+		return
+	}
+	if reportGroupID == 0 {
+		err = h.max.SendBunkerHaulReport(caption, photos)
+	} else {
+		err = h.max.SendBunkerHaulReportToChat(reportGroupID, caption, photos)
+	}
+	if err != nil {
 		log.Printf("send bunker haul report surname=%q date=%s: %v", input.Surname, input.Date, err)
 		http.Error(w, `{"success":false,"error":"Не удалось отправить отчёт в MAX"}`, http.StatusBadGateway)
 		return
