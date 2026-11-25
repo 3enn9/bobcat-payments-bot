@@ -57,6 +57,19 @@ function todayISO(): string {
   return `${year}-${month}-${day}`;
 }
 
+function formatCashOperationAmount(value: string): string {
+  return new Intl.NumberFormat("ru-RU", {
+    style: "currency",
+    currency: "RUB",
+    maximumFractionDigits: 2,
+  }).format(Number(value.replace(",", ".")));
+}
+
+function formatCashOperationDate(value: string): string {
+  const [year, month, day] = value.split("-");
+  return year && month && day ? `${day}.${month}.${year}` : value;
+}
+
 export default function WorkerMessages() {
   const [surname, setSurname] = useState("");
   const [surnameSuggestions, setSurnameSuggestions] = useState<string[]>([]);
@@ -493,9 +506,21 @@ export default function WorkerMessages() {
                 aria-expanded="false"
                 onClick={() => setEditCashOperationID(operation.localID)}
               >
-                <strong>{operation.entryType === "income" ? "Приход" : "Расход"} · {new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 2 }).format(Number(operation.amount.replace(",", ".")))} ₽</strong>
-                {operation.description && <span>{operation.description}</span>}
-                <small>Нажмите, чтобы редактировать</small>
+                <div className="cash-list-row">
+                  <span className={`cash-sign ${operation.entryType === "income" ? "cash-sign-plus" : "cash-sign-minus"}`} aria-hidden="true">
+                    {operation.entryType === "income" ? "+" : "−"}
+                  </span>
+                  <div className="cash-list-body">
+                    <div className="cash-list-main">
+                      <span className={operation.entryType === "income" ? "cash-plus" : "cash-minus"}>
+                        {formatCashOperationAmount(operation.amount)}
+                      </span>
+                      <time dateTime={date}>{formatCashOperationDate(date)}</time>
+                    </div>
+                    {operation.description && <p className="cash-list-desc">{operation.description}</p>}
+                    <small>Нажмите, чтобы редактировать</small>
+                  </div>
+                </div>
               </button>
             ) : (
               <>
@@ -507,8 +532,21 @@ export default function WorkerMessages() {
                     disabled={operation.dirty || operation.saving}
                     onClick={() => setEditCashOperationID(null)}
                   >
-                    <strong>{operation.entryType === "income" ? "Приход" : "Расход"} · {new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 2 }).format(Number(operation.amount.replace(",", ".")))} ₽</strong>
-                    <small>Свернуть</small>
+                    <div className="cash-list-row">
+                      <span className={`cash-sign ${operation.entryType === "income" ? "cash-sign-plus" : "cash-sign-minus"}`} aria-hidden="true">
+                        {operation.entryType === "income" ? "+" : "−"}
+                      </span>
+                      <div className="cash-list-body">
+                        <div className="cash-list-main">
+                          <span className={operation.entryType === "income" ? "cash-plus" : "cash-minus"}>
+                            {formatCashOperationAmount(operation.amount)}
+                          </span>
+                          <time dateTime={date}>{formatCashOperationDate(date)}</time>
+                        </div>
+                        {operation.description && <p className="cash-list-desc">{operation.description}</p>}
+                        <small>Свернуть</small>
+                      </div>
+                    </div>
                   </button>
                 )}
                 <label className="invoice-field">
