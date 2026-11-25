@@ -476,6 +476,23 @@
   margin-top: 12px;
 }
 
+.worker-comment-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.worker-comment-actions button {
+  width: auto;
+  padding: 8px 12px;
+}
+
+.worker-comment-status {
+  color: #666;
+  font-size: 12px;
+}
+
 .photo-names {
   margin: 10px 0 0;
   padding-left: 18px;

@@ -171,6 +171,16 @@ func NewRouter(
 	).Methods(http.MethodGet, http.MethodOptions)
 
 	router.HandleFunc(
+		"/api/miniapp/bunker-hauls/comment",
+		miniApp.GetBunkerHaulReportComment,
+	).Methods(http.MethodGet, http.MethodOptions)
+
+	router.HandleFunc(
+		"/api/miniapp/bunker-hauls/comment",
+		miniApp.SaveBunkerHaulReportComment,
+	).Methods(http.MethodPut, http.MethodOptions)
+
+	router.HandleFunc(
 		"/api/miniapp/bunker-hauls/send",
 		miniApp.SendBunkerHaulReport,
 	).Methods(http.MethodPost, http.MethodOptions)

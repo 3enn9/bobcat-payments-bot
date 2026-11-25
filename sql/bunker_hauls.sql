@@ -44,3 +44,12 @@ CREATE TABLE IF NOT EXISTS bunker_haul_cash_entries (
   UNIQUE KEY uq_bunker_haul_cash_entry (cash_entry_id),
   CONSTRAINT fk_bunker_haul_cash_entry_haul FOREIGN KEY (haul_id) REFERENCES bunker_hauls(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Черновики комментариев отчёта, отдельно для работника и даты
+CREATE TABLE IF NOT EXISTS bunker_haul_report_comments (
+  worker_name VARCHAR(128) NOT NULL,
+  report_date DATE NOT NULL,
+  comments TEXT NOT NULL,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (worker_name, report_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

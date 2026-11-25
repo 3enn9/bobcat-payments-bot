@@ -50,6 +50,14 @@ const bunkerHaulCashEntriesSchema = `CREATE TABLE IF NOT EXISTS bunker_haul_cash
 	CONSTRAINT fk_bunker_haul_cash_entry_haul FOREIGN KEY (haul_id) REFERENCES bunker_hauls(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
 
+const bunkerHaulReportCommentsSchema = `CREATE TABLE IF NOT EXISTS bunker_haul_report_comments (
+	worker_name VARCHAR(128) NOT NULL,
+	report_date DATE NOT NULL,
+	comments TEXT NOT NULL,
+	updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	PRIMARY KEY (worker_name, report_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
+
 func (d *Database) EnsureBunkerHaulsTable() error {
 	d.bunkerHaulsSchemaMu.Lock()
 	defer d.bunkerHaulsSchemaMu.Unlock()
@@ -57,7 +65,7 @@ func (d *Database) EnsureBunkerHaulsTable() error {
 	if d.bunkerHaulsSchemaReady {
 		return nil
 	}
-	for _, schema := range []string{bunkerHaulsSchema, bunkerHaulSendersSchema, bunkerHaulAnnotationsSchema, bunkerHaulCashEntriesSchema} {
+	for _, schema := range []string{bunkerHaulsSchema, bunkerHaulSendersSchema, bunkerHaulAnnotationsSchema, bunkerHaulCashEntriesSchema, bunkerHaulReportCommentsSchema} {
 		if _, err := d.DB.Exec(schema); err != nil {
 			return err
 		}
@@ -70,6 +78,36 @@ func (d *Database) EnsureBunkerHaulsTable() error {
 	}
 	d.bunkerHaulsSchemaReady = true
 	return nil
+}
+
+func (d *Database) GetBunkerHaulReportComment(workerName string, reportDate time.Time) (string, error) {
+	if err := d.EnsureBunkerHaulsTable(); err != nil {
+		return "", err
+	}
+
+	var comments string
+	err := d.DB.QueryRow(`
+		SELECT comments
+		FROM bunker_haul_report_comments
+		WHERE LOWER(worker_name) = LOWER(?) AND report_date = ?
+	`, strings.TrimSpace(workerName), reportDate.Format("2006-01-02")).Scan(&comments)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	return comments, err
+}
+
+func (d *Database) SaveBunkerHaulReportComment(workerName string, reportDate time.Time, comments string) error {
+	if err := d.EnsureBunkerHaulsTable(); err != nil {
+		return err
+	}
+
+	_, err := d.DB.Exec(`
+		INSERT INTO bunker_haul_report_comments (worker_name, report_date, comments)
+		VALUES (?, ?, ?)
+		ON DUPLICATE KEY UPDATE comments = VALUES(comments)
+	`, strings.TrimSpace(workerName), reportDate.Format("2006-01-02"), comments)
+	return err
 }
 
 func (d *Database) ensureBunkerHaulAnnotationKinds() error {

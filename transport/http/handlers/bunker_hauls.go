@@ -81,6 +81,65 @@ func (h *MiniAppHandler) ListBunkerHaulMessages(w http.ResponseWriter, r *http.R
 	})
 }
 
+func (h *MiniAppHandler) GetBunkerHaulReportComment(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	surname := strings.TrimSpace(r.URL.Query().Get("surname"))
+	dateText := strings.TrimSpace(r.URL.Query().Get("date"))
+	date, err := time.ParseInLocation("2006-01-02", dateText, clock.Now().Location())
+	if surname == "" || len([]rune(surname)) > 128 || err != nil || date.Format("2006-01-02") != dateText {
+		http.Error(w, `{"success":false,"error":"Укажите корректные фамилию и дату"}`, http.StatusBadRequest)
+		return
+	}
+
+	comments, err := h.db.GetBunkerHaulReportComment(surname, date)
+	if err != nil {
+		log.Printf("load bunker haul report comment surname=%q date=%s: %v", surname, dateText, err)
+		http.Error(w, `{"success":false,"error":"Не удалось загрузить комментарий"}`, http.StatusInternalServerError)
+		return
+	}
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "comments": comments})
+}
+
+func (h *MiniAppHandler) SaveBunkerHaulReportComment(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	var input struct {
+		Surname  string `json:"surname"`
+		Date     string `json:"date"`
+		Comments string `json:"comments"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		http.Error(w, `{"success":false,"error":"Некорректные данные"}`, http.StatusBadRequest)
+		return
+	}
+	input.Surname = strings.TrimSpace(input.Surname)
+	input.Comments = strings.TrimSpace(input.Comments)
+	date, err := time.ParseInLocation("2006-01-02", input.Date, clock.Now().Location())
+	if input.Surname == "" || len([]rune(input.Surname)) > 128 || err != nil || date.Format("2006-01-02") != input.Date {
+		http.Error(w, `{"success":false,"error":"Укажите корректные фамилию и дату"}`, http.StatusBadRequest)
+		return
+	}
+	if len([]rune(input.Comments)) > 2000 {
+		http.Error(w, `{"success":false,"error":"Комментарий слишком длинный"}`, http.StatusBadRequest)
+		return
+	}
+	if err := h.db.SaveBunkerHaulReportComment(input.Surname, date, input.Comments); err != nil {
+		log.Printf("save bunker haul report comment surname=%q date=%s: %v", input.Surname, input.Date, err)
+		http.Error(w, `{"success":false,"error":"Не удалось сохранить комментарий"}`, http.StatusInternalServerError)
+		return
+	}
+	_ = json.NewEncoder(w).Encode(map[string]bool{"success": true})
+}
+
 func (h *MiniAppHandler) SendBunkerHaulReport(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if r.Method == http.MethodOptions {
@@ -127,6 +186,11 @@ func (h *MiniAppHandler) SendBunkerHaulReport(w http.ResponseWriter, r *http.Req
 	date, err := time.ParseInLocation("2006-01-02", input.Date, clock.Now().Location())
 	if err != nil || date.Format("2006-01-02") != input.Date {
 		http.Error(w, `{"success":false,"error":"Укажите корректную дату"}`, http.StatusBadRequest)
+		return
+	}
+	if err := h.db.SaveBunkerHaulReportComment(input.Surname, date, input.Comments); err != nil {
+		log.Printf("save report comment before send surname=%q date=%s: %v", input.Surname, input.Date, err)
+		http.Error(w, `{"success":false,"error":"Не удалось сохранить комментарий отчёта"}`, http.StatusInternalServerError)
 		return
 	}
 

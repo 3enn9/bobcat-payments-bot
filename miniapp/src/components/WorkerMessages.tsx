@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import {
+  getBunkerHaulReportComment,
   listBunkerHaulMessages,
+  saveBunkerHaulReportComment,
   sendBunkerHaulReport,
   saveBunkerHaulAnnotation,
   suggestBunkerHaulSurnames,
@@ -55,6 +57,8 @@ export default function WorkerMessages() {
   const [date, setDate] = useState(todayISO);
   const [messages, setMessages] = useState<BunkerHaulMessage[]>([]);
   const [comments, setComments] = useState("");
+  const [commentStatus, setCommentStatus] = useState<"idle" | "loading" | "unsaved" | "saving" | "saved" | "error">("idle");
+  const [commentSaveError, setCommentSaveError] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [activeMessageID, setActiveMessageID] = useState<number | null>(null);
@@ -137,6 +141,41 @@ export default function WorkerMessages() {
     };
   }, [surname, date]);
 
+  useEffect(() => {
+    const normalizedSurname = surname.trim();
+    let cancelled = false;
+    if (!normalizedSurname) {
+      setComments("");
+      setCommentStatus("idle");
+      setCommentSaveError("");
+      return;
+    }
+
+    setComments("");
+    setCommentStatus("loading");
+    setCommentSaveError("");
+    const timer = window.setTimeout(() => {
+      void getBunkerHaulReportComment(normalizedSurname, date)
+        .then((savedComments) => {
+          if (!cancelled) {
+            setComments(savedComments);
+            setCommentStatus(savedComments ? "saved" : "idle");
+          }
+        })
+        .catch((err: unknown) => {
+          if (!cancelled) {
+            setCommentStatus("error");
+            setCommentSaveError(err instanceof Error ? err.message : "Не удалось загрузить комментарий");
+          }
+        });
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [surname, date]);
+
   const chooseMessage = (id: number) => {
     const current = messages.find((item) => item.id === id);
     setActiveMessageID((activeID) => (activeID === id ? null : id));
@@ -177,6 +216,27 @@ export default function WorkerMessages() {
     }
   };
 
+  const saveComments = async (): Promise<boolean> => {
+    const normalizedSurname = surname.trim();
+    if (!normalizedSurname) {
+      setCommentStatus("error");
+      setCommentSaveError("Сначала укажите фамилию работника.");
+      return false;
+    }
+
+    setCommentStatus("saving");
+    setCommentSaveError("");
+    try {
+      await saveBunkerHaulReportComment(normalizedSurname, date, comments);
+      setCommentStatus("saved");
+      return true;
+    } catch (err) {
+      setCommentStatus("error");
+      setCommentSaveError(err instanceof Error ? err.message : "Не удалось сохранить комментарий");
+      return false;
+    }
+  };
+
   const sendReport = async () => {
     if (hasUnsavedCashOperations) {
       setReportError("Сначала добавьте все операции в кассу или удалите незаполненные строки.");
@@ -186,6 +246,10 @@ export default function WorkerMessages() {
     setReportError("");
     setReportSent(false);
     try {
+      if (!(await saveComments())) {
+        setReportError("Не удалось сохранить комментарий. Отчёт не отправлен.");
+        return;
+      }
       const cashEntryIDs = cashOperations.flatMap((operation) =>
         operation.cashEntryID === undefined ? [] : [operation.cashEntryID],
       );
@@ -496,8 +560,11 @@ export default function WorkerMessages() {
         <span>Комментарии</span>
         <textarea
           value={comments}
+          disabled={!surname.trim() || commentStatus === "loading" || commentStatus === "saving" || sendingReport}
           onChange={(event) => {
             setComments(event.target.value);
+            setCommentStatus("unsaved");
+            setCommentSaveError("");
             setReportError("");
             setReportSent(false);
           }}
@@ -507,12 +574,29 @@ export default function WorkerMessages() {
         />
       </label>
 
+      <div className="worker-comment-actions">
+        <button
+          type="button"
+          className="fuels-filter-btn"
+          disabled={!surname.trim() || commentStatus === "loading" || commentStatus === "saving" || sendingReport}
+          onClick={() => void saveComments()}
+        >
+          {commentStatus === "saving" ? "Сохраняю…" : "Сохранить комментарий"}
+        </button>
+        <small className="worker-comment-status" aria-live="polite">
+          {commentStatus === "loading" && "Загружаю сохранённый комментарий…"}
+          {commentStatus === "unsaved" && "Есть несохранённые изменения"}
+          {commentStatus === "saved" && "Комментарий сохранён"}
+          {commentStatus === "error" && commentSaveError}
+        </small>
+      </div>
+
       {reportError && <div className="error">{reportError}</div>}
       {reportSent && <small className="bunker-report-success">Отчёт отправлен в группу MAX.</small>}
       <button
         type="button"
         className="fuels-search-btn"
-        disabled={sendingReport || loading || messages.length === 0 || hasUnsavedCashOperations || hasSavingCashOperations}
+        disabled={sendingReport || loading || commentStatus === "loading" || commentStatus === "saving" || messages.length === 0 || hasUnsavedCashOperations || hasSavingCashOperations}
         onClick={() => void sendReport()}
       >
         {sendingReport ? "Отправляю…" : "Отправить"}

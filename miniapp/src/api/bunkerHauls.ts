@@ -24,6 +24,12 @@ type BunkerHaulSurnamesResponse = {
   error?: string;
 };
 
+type BunkerHaulReportCommentResponse = {
+  success: boolean;
+  comments?: string;
+  error?: string;
+};
+
 export async function suggestBunkerHaulSurnames(query: string): Promise<string[]> {
   const params = new URLSearchParams({ q: query.trim() });
   const response = await fetch(`/api/miniapp/bunker-hauls/surnames?${params}`);
@@ -45,6 +51,35 @@ export async function listBunkerHaulMessages(
     throw new Error(data.error || "Не удалось загрузить сообщения");
   }
   return data.items ?? [];
+}
+
+export async function getBunkerHaulReportComment(
+  surname: string,
+  date: string,
+): Promise<string> {
+  const params = new URLSearchParams({ surname: surname.trim(), date });
+  const response = await fetch(`/api/miniapp/bunker-hauls/comment?${params}`);
+  const data = (await response.json()) as BunkerHaulReportCommentResponse;
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || "Не удалось загрузить комментарий");
+  }
+  return data.comments ?? "";
+}
+
+export async function saveBunkerHaulReportComment(
+  surname: string,
+  date: string,
+  comments: string,
+): Promise<void> {
+  const response = await fetch("/api/miniapp/bunker-hauls/comment", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ surname: surname.trim(), date, comments }),
+  });
+  const data = (await response.json()) as { success: boolean; error?: string };
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || "Не удалось сохранить комментарий");
+  }
 }
 
 export async function saveBunkerHaulAnnotation(
