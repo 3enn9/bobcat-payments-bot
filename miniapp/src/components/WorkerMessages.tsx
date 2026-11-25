@@ -556,14 +556,16 @@ export default function WorkerMessages() {
                   {operation.saving ? "Сохраняю…" : operation.cashEntryID === undefined ? "Добавить в кассу" : "Сохранить изменения"}
                 </button>
               )}
-              <button
-                type="button"
-                className="fuels-filter-btn"
-                disabled={operation.saving}
-                onClick={() => void removeCashOperation(operation)}
-              >
-                {operation.cashEntryID === undefined ? "Убрать" : "Удалить из кассы"}
-              </button>
+              {(operation.cashEntryID === undefined || editCashOperationID === operation.localID) && (
+                <button
+                  type="button"
+                  className="fuels-filter-btn"
+                  disabled={operation.saving}
+                  onClick={() => void removeCashOperation(operation)}
+                >
+                  {operation.cashEntryID === undefined ? "Убрать" : "Удалить из кассы"}
+                </button>
+              )}
             </div>
           </div>
         ))}
