@@ -200,10 +200,6 @@ func (h *MiniAppHandler) SendBunkerHaulReport(w http.ResponseWriter, r *http.Req
 		http.Error(w, `{"success":false,"error":"Не удалось загрузить сообщения"}`, http.StatusInternalServerError)
 		return
 	}
-	if len(items) == 0 {
-		http.Error(w, `{"success":false,"error":"За выбранную дату нет сообщений"}`, http.StatusBadRequest)
-		return
-	}
 	for _, item := range items {
 		if err := h.db.SaveBunkerHaulAnnotations(item.ID, input.Surname, date, item.Annotations); err != nil {
 			log.Printf("sync bunker haul cash entries id=%d surname=%q date=%s: %v", item.ID, input.Surname, input.Date, err)
@@ -219,6 +215,10 @@ func (h *MiniAppHandler) SendBunkerHaulReport(w http.ResponseWriter, r *http.Req
 	}
 	if len(cashEntries) != len(input.CashEntryIDs) {
 		http.Error(w, `{"success":false,"error":"Операция кассы не найдена для выбранной фамилии и даты"}`, http.StatusBadRequest)
+		return
+	}
+	if len(items) == 0 && len(cashEntries) == 0 && input.Comments == "" {
+		http.Error(w, `{"success":false,"error":"Добавьте комментарий или операцию кассы"}`, http.StatusBadRequest)
 		return
 	}
 

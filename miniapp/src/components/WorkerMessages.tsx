@@ -75,6 +75,7 @@ export default function WorkerMessages() {
   const hasSavedCashOperations = cashOperations.some((operation) => operation.cashEntryID !== undefined);
   const hasUnsavedCashOperations = cashOperations.some((operation) => operation.cashEntryID === undefined);
   const hasSavingCashOperations = cashOperations.some((operation) => operation.saving);
+  const hasReportContent = messages.length > 0 || comments.trim() !== "" || hasSavedCashOperations;
 
   useEffect(() => {
     const query = surname.trim();
@@ -596,7 +597,7 @@ export default function WorkerMessages() {
       <button
         type="button"
         className="fuels-search-btn"
-        disabled={sendingReport || loading || commentStatus === "loading" || commentStatus === "saving" || messages.length === 0 || hasUnsavedCashOperations || hasSavingCashOperations}
+        disabled={sendingReport || loading || commentStatus === "loading" || commentStatus === "saving" || !hasReportContent || hasUnsavedCashOperations || hasSavingCashOperations}
         onClick={() => void sendReport()}
       >
         {sendingReport ? "Отправляю…" : "Отправить"}
