@@ -96,7 +96,29 @@ func stampPositionFromText(raw []byte, entrepreneur bool) (int, int, bool) {
 
 	anchors := []string{"руководитель", "директор", "подпись", "м.п."}
 	if entrepreneur {
-		anchors = []string{"предприниматель"}
+		// The buyer block can also contain "Индивидуальный предприниматель".
+		// Use a matching label only in the lower signature area of the last page,
+		// and choose the lowest occurrence when the phrase appears more than once.
+		lowestSignatureY := page.Height * 0.55
+		selected := -1
+		for i, word := range page.Words {
+			if normalizedPDFWord(word.Text) != "предприниматель" || word.YMax < lowestSignatureY {
+				continue
+			}
+			if selected < 0 || word.YMax > page.Words[selected].YMax {
+				selected = i
+			}
+		}
+		if selected < 0 {
+			return 0, 0, false
+		}
+		word := page.Words[selected]
+		const pointsPerMM = 72.0 / 25.4
+		xMM := word.XMin / pointsPerMM
+		yFromBottomMM := (page.Height - word.YMax) / pointsPerMM
+		// Keep the same placement relative to the supplier's signature label
+		// as the established entrepreneur stamp placement.
+		return int(xMM + 70), int(yFromBottomMM - 25), true
 	}
 	const pointsPerMM = 72.0 / 25.4
 	for _, word := range page.Words {
@@ -107,11 +129,6 @@ func stampPositionFromText(raw []byte, entrepreneur bool) (int, int, bool) {
 			}
 			xMM := word.XMin / pointsPerMM
 			yFromBottomMM := (page.Height - word.YMax) / pointsPerMM
-			if entrepreneur {
-				// Keep the same placement relative to the label as the existing
-				// ANN placement (83 mm X, 105 mm Y on the supplied invoice).
-				return int(xMM + 70), int(yFromBottomMM - 25), true
-			}
 			// Lower company stamps so their center aligns with the signature label
 			// instead of covering the invoice terms immediately above it.
 			return int(xMM + 20), int(yFromBottomMM - 23), true
