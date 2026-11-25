@@ -8,6 +8,7 @@ export type CashEntry = {
   description: string;
   entryDate: string;
   createdAt: string;
+  linkedKind?: "dubki" | "cash";
 };
 
 type ListCashResponse = {

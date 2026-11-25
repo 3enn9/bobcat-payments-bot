@@ -2,12 +2,15 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 	"math"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"PaymentsBot/internal/db"
 
 	"github.com/gorilla/mux"
 )
@@ -243,6 +246,10 @@ func (h *MiniAppHandler) UpdateWorkerCashEntry(w http.ResponseWriter, r *http.Re
 		input.EntryDate,
 	)
 	if err != nil {
+		if errors.Is(err, db.ErrLinkedCashEntrySourceFieldsChange) {
+			http.Error(w, `{"success":false,"error":"У связанной операции можно менять только сумму"}`, http.StatusBadRequest)
+			return
+		}
 		log.Printf("update worker cash entry error id=%d: %v", id, err)
 		http.Error(w, `{"success":false,"error":"Ошибка сохранения"}`, http.StatusInternalServerError)
 		return

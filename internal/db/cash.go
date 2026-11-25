@@ -2,12 +2,15 @@ package db
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"sort"
 	"strings"
 	"time"
 )
+
+var ErrLinkedCashEntrySourceFieldsChange = errors.New("linked cash entry fields are controlled by the haul message")
 
 type WorkerCashEntry struct {
 	ID          int64     `json:"id"`
@@ -17,6 +20,7 @@ type WorkerCashEntry struct {
 	Description string    `json:"description"`
 	EntryDate   string    `json:"entryDate"`
 	CreatedAt   time.Time `json:"createdAt"`
+	LinkedKind  string    `json:"linkedKind,omitempty"`
 }
 
 func (d *Database) CreateWorkerCashEntry(workerName, entryType string, amount float64, description, entryDate string) (int64, error) {
@@ -36,11 +40,13 @@ func (d *Database) ListWorkerCashEntries(workerName string, limit int) ([]Worker
 		limit = 20
 	}
 	rows, err := d.DB.Query(`
-		SELECT id, worker_name, entry_type, amount, description,
-		       DATE_FORMAT(entry_date, '%Y-%m-%d') AS entry_date, created_at
-		FROM worker_cash_entries
-		WHERE LOWER(worker_name) = LOWER(?)
-		ORDER BY entry_date DESC, id DESC
+		SELECT e.id, e.worker_name, e.entry_type, e.amount, e.description,
+		       DATE_FORMAT(e.entry_date, '%Y-%m-%d') AS entry_date, e.created_at,
+		       COALESCE(link.kind, '') AS linked_kind
+		FROM worker_cash_entries e
+		LEFT JOIN bunker_haul_cash_entries link ON link.cash_entry_id = e.id
+		WHERE LOWER(e.worker_name) = LOWER(?)
+		ORDER BY e.entry_date DESC, e.id DESC
 		LIMIT ?
 	`, workerName, limit)
 	if err != nil {
@@ -50,7 +56,7 @@ func (d *Database) ListWorkerCashEntries(workerName string, limit int) ([]Worker
 
 	items := make([]WorkerCashEntry, 0)
 	for rows.Next() {
-		item, err := scanWorkerCashEntry(rows)
+		item, err := scanWorkerCashEntryWithLink(rows)
 		if err != nil {
 			return nil, err
 		}
@@ -62,11 +68,13 @@ func (d *Database) ListWorkerCashEntries(workerName string, limit int) ([]Worker
 func (d *Database) ListWorkerCashEntriesByDate(workerName, entryDate string) ([]WorkerCashEntry, error) {
 	workerName = strings.TrimSpace(workerName)
 	rows, err := d.DB.Query(`
-		SELECT id, worker_name, entry_type, amount, description,
-		       DATE_FORMAT(entry_date, '%Y-%m-%d') AS entry_date, created_at
-		FROM worker_cash_entries
-		WHERE LOWER(worker_name) = LOWER(?)
-		  AND entry_date = ?
+		SELECT e.id, e.worker_name, e.entry_type, e.amount, e.description,
+		       DATE_FORMAT(e.entry_date, '%Y-%m-%d') AS entry_date, e.created_at,
+		       COALESCE(link.kind, '') AS linked_kind
+		FROM worker_cash_entries e
+		LEFT JOIN bunker_haul_cash_entries link ON link.cash_entry_id = e.id
+		WHERE LOWER(e.worker_name) = LOWER(?)
+		  AND e.entry_date = ?
 		ORDER BY id
 	`, workerName, entryDate)
 	if err != nil {
@@ -76,7 +84,7 @@ func (d *Database) ListWorkerCashEntriesByDate(workerName, entryDate string) ([]
 
 	items := make([]WorkerCashEntry, 0)
 	for rows.Next() {
-		item, err := scanWorkerCashEntry(rows)
+		item, err := scanWorkerCashEntryWithLink(rows)
 		if err != nil {
 			return nil, err
 		}
@@ -102,20 +110,72 @@ func (d *Database) UpdateWorkerCashEntry(
 	amount float64,
 	description, entryDate string,
 ) (bool, error) {
-	result, err := d.DB.Exec(`
+	tx, err := d.DB.Begin()
+	if err != nil {
+		return false, err
+	}
+	defer tx.Rollback()
+
+	var entryID int64
+	var currentEntryType, currentDescription, currentEntryDate string
+	err = tx.QueryRow(`
+		SELECT id, entry_type, description, DATE_FORMAT(entry_date, '%Y-%m-%d')
+		FROM worker_cash_entries
+		WHERE id = ? AND LOWER(worker_name) = LOWER(?)
+		FOR UPDATE
+	`, id, workerName).Scan(&entryID, &currentEntryType, &currentDescription, &currentEntryDate)
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+
+	var haulID int64
+	var linkedKind string
+	err = tx.QueryRow(`
+		SELECT haul_id, kind
+		FROM bunker_haul_cash_entries
+		WHERE cash_entry_id = ?
+		FOR UPDATE
+	`, id).Scan(&haulID, &linkedKind)
+	linked := err == nil
+	if err != nil && err != sql.ErrNoRows {
+		return false, err
+	}
+	if linked {
+		expectedType := "income"
+		if linkedKind == "dubki" {
+			expectedType = "expense"
+		} else if linkedKind != "cash" {
+			return false, fmt.Errorf("unknown linked cash entry kind %q", linkedKind)
+		}
+		if entryType != expectedType || description != currentDescription || entryDate != currentEntryDate {
+			return false, ErrLinkedCashEntrySourceFieldsChange
+		}
+	}
+
+	if _, err := tx.Exec(`
 		UPDATE worker_cash_entries
 		SET entry_type = ?, amount = ?, description = ?, entry_date = ?
 		WHERE id = ?
-		  AND LOWER(worker_name) = LOWER(?)
-	`, entryType, amount, description, entryDate, id, workerName)
-	if err != nil {
+	`, entryType, amount, description, entryDate, id); err != nil {
 		return false, err
 	}
-	affected, err := result.RowsAffected()
-	if err != nil {
+	if linked {
+		if _, err := tx.Exec(`
+			INSERT INTO bunker_haul_annotations (haul_id, kind, value)
+			VALUES (?, ?, ?)
+			ON DUPLICATE KEY UPDATE value = ?
+		`, haulID, linkedKind, amount, amount); err != nil {
+			return false, err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
 		return false, err
 	}
-	return affected > 0, nil
+	return true, nil
 }
 
 func (d *Database) DeleteWorkerCashEntry(id int64, workerName string) (bool, error) {
@@ -205,6 +265,25 @@ func scanWorkerCashEntry(scanner interface {
 		&item.Description,
 		&item.EntryDate,
 		&item.CreatedAt,
+	); err != nil {
+		return WorkerCashEntry{}, err
+	}
+	return item, nil
+}
+
+func scanWorkerCashEntryWithLink(scanner interface {
+	Scan(dest ...any) error
+}) (WorkerCashEntry, error) {
+	var item WorkerCashEntry
+	if err := scanner.Scan(
+		&item.ID,
+		&item.WorkerName,
+		&item.EntryType,
+		&item.Amount,
+		&item.Description,
+		&item.EntryDate,
+		&item.CreatedAt,
+		&item.LinkedKind,
 	); err != nil {
 		return WorkerCashEntry{}, err
 	}

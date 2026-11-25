@@ -515,7 +515,7 @@ export default function CashForm() {
                                 ? "cash-type active"
                                 : "cash-type"
                             }
-                            disabled={editSaving}
+                            disabled={editSaving || !!item.linkedKind}
                             onClick={() =>
                               setEditDraft({ ...editDraft, entryType: "income" })
                             }
@@ -529,7 +529,7 @@ export default function CashForm() {
                                 ? "cash-type active"
                                 : "cash-type"
                             }
-                            disabled={editSaving}
+                            disabled={editSaving || !!item.linkedKind}
                             onClick={() =>
                               setEditDraft({ ...editDraft, entryType: "expense" })
                             }
@@ -537,6 +537,11 @@ export default function CashForm() {
                             − Расход
                           </button>
                         </div>
+                        {item.linkedKind && (
+                          <small className="cash-linked-note">
+                            У связанной операции можно менять только сумму.
+                          </small>
+                        )}
 
                         <label className="invoice-field">
                           <span>Сумма, ₽</span>
@@ -560,7 +565,7 @@ export default function CashForm() {
                             type="date"
                             className="days-off-date-input"
                             value={editDraft.entryDate}
-                            disabled={editSaving}
+                            disabled={editSaving || !!item.linkedKind}
                             onChange={(event) =>
                               setEditDraft({
                                 ...editDraft,
@@ -576,7 +581,7 @@ export default function CashForm() {
                             type="text"
                             className="cash-comment-input"
                             value={editDraft.description}
-                            disabled={editSaving}
+                            disabled={editSaving || !!item.linkedKind}
                             maxLength={120}
                             onChange={(event) =>
                               setEditDraft({

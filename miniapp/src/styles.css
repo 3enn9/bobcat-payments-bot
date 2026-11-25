@@ -1135,6 +1135,11 @@
   gap: 10px;
 }
 
+.cash-linked-note {
+  color: #666;
+  font-size: 12px;
+}
+
 .cash-type {
   width: 100%;
   border: 1px solid #dedede;

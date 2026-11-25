@@ -23,6 +23,7 @@ type ReportCashOperation = {
   amount: string;
   description: string;
   cashEntryID?: number;
+  linkedKind?: "dubki" | "cash";
   dirty?: boolean;
   saving: boolean;
   error: string;
@@ -186,6 +187,7 @@ export default function WorkerMessages() {
             amount: String(entry.amount),
             description: entry.description,
             cashEntryID: entry.id,
+            linkedKind: entry.linkedKind,
             dirty: false,
             saving: false,
             error: "",
@@ -552,6 +554,7 @@ export default function WorkerMessages() {
                   <span>Тип операции</span>
                   <select
                     value={operation.entryType}
+                    disabled={!!operation.linkedKind}
                     onChange={(event) => updateCashOperation(operation.localID, { entryType: event.target.value as CashEntryType })}
                   >
                     <option value="income">Приход</option>
@@ -575,10 +578,14 @@ export default function WorkerMessages() {
                   <input
                     value={operation.description}
                     maxLength={500}
+                    disabled={!!operation.linkedKind}
                     onChange={(event) => updateCashOperation(operation.localID, { description: event.target.value })}
                     placeholder="Введите описание"
                   />
                 </label>
+                {operation.linkedKind && (
+                  <small className="cash-linked-note">У связанной операции можно менять только сумму.</small>
+                )}
               </>
             )}
             {operation.error && <div className="error">{operation.error}</div>}
