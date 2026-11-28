@@ -463,6 +463,7 @@ func (d *Database) SaveBunkerHaulMessage(
 	if err := d.EnsureBunkerHaulsTable(); err != nil {
 		return err
 	}
+	text = strings.Join(strings.Fields(text), " ")
 
 	_, err := d.DB.Exec(`
 		INSERT IGNORE INTO bunker_hauls
